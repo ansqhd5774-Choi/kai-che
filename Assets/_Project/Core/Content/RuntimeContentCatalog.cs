@@ -61,7 +61,7 @@ namespace KaiChe.Core.Content
         public static readonly SkillDefinition StarterSkill =
             new SkillDefinition(
                 ContentIds.StarterSkill,
-                "Pulse Shot",
+                "기본 마력탄",
                 20f,
                 0.55f,
                 6.2f,
@@ -70,7 +70,7 @@ namespace KaiChe.Core.Content
         public static readonly MonsterDefinition StarterMonster =
             new MonsterDefinition(
                 ContentIds.StarterMonster,
-                "Crawler",
+                "포복 마수",
                 40f,
                 1.35f,
                 18f,

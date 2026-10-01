@@ -125,10 +125,10 @@ namespace KaiChe.Presentation
                 GUIContent.none);
 
             string status =
-                $"LV {_arena.Level}   HP {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
-                + $"KILLS {_arena.Kills}   "
-                + $"XP {_arena.LevelExperience}/{_arena.ExperienceRequiredForNextLevel}   "
-                + $"MOBS {_arena.EnemyCount}";
+                $"레벨 {_arena.Level}   체력 {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
+                + $"처치 {_arena.Kills}   "
+                + $"경험치 {_arena.LevelExperience}/{_arena.ExperienceRequiredForNextLevel}   "
+                + $"적 {_arena.EnemyCount}";
 
             GUI.Label(
                 new Rect(margin + 24f, margin + 18f, Screen.width - margin * 2f - 48f, 58f),
@@ -138,16 +138,16 @@ namespace KaiChe.Presentation
             Vector2 worldPosition = _arena.PlayerWorldPosition;
             GUI.Label(
                 new Rect(margin + 24f, margin + 82f, Screen.width - margin * 2f - 48f, 48f),
-                $"{_arena.ActiveSkillId} MASTERY {_arena.ActiveSkillMastery}   "
-                + $"UNLOCKED {_arena.UnlockedSkillCount}   "
-                + $"POS {worldPosition.x:0.0},{worldPosition.y:0.0}",
+                $"{_arena.ActiveSkillName} 숙련도 {_arena.ActiveSkillMastery}   "
+                + $"해금 {_arena.UnlockedSkillCount}   "
+                + $"위치 {worldPosition.x:0.0},{worldPosition.y:0.0}",
                 _smallStyle);
 
             DrawJoystick();
 
             if (GUI.Button(
                 new Rect(Screen.width - 250f, Screen.height - 112f, 220f, 80f),
-                "EXIT",
+                "나가기",
                 _buttonStyle))
             {                SceneManager.LoadScene("Main");
             }
@@ -186,12 +186,16 @@ namespace KaiChe.Presentation
             GUI.Box(panel, GUIContent.none);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 44f, panel.width - 60f, 92f),
-                $"LEVEL UP  LV {_arena.Level}",
+                $"레벨 상승  레벨 {_arena.Level}",
                 _deathStyle);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 142f, panel.width - 60f, 70f),
-                $"ATTRIBUTE POINTS {_arena.UnspentAttributePoints}  PROTOTYPE",
+                $"능력치 포인트 {_arena.UnspentAttributePoints}  테스트",
                 _hudStyle);
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 200f, panel.width - 60f, 52f),
+                "레벨이 올랐습니다. 능력치 포인트를 배분하세요.",
+                _smallStyle);
 
             CharacterAttribute[] attributes =
             {
@@ -206,7 +210,7 @@ namespace KaiChe.Presentation
             };
 
             float gap = 24f;
-            float gridTop = panel.y + 244f;
+            float gridTop = panel.y + 276f;
             float buttonWidth = (panel.width - 60f - gap) * 0.5f;
             float buttonHeight = Mathf.Min(
                 190f,
@@ -241,15 +245,15 @@ namespace KaiChe.Presentation
         {
             switch (attribute)
             {
-                case CharacterAttribute.Body: return "BODY";
-                case CharacterAttribute.Agility: return "AGILITY";
-                case CharacterAttribute.Perception: return "PERCEPTION";
-                case CharacterAttribute.Intelligence: return "INTELLIGENCE";
-                case CharacterAttribute.Wisdom: return "WISDOM";
-                case CharacterAttribute.Will: return "WILL";
-                case CharacterAttribute.Good: return "GOOD";
-                case CharacterAttribute.Evil: return "EVIL";
-                default: return attribute.ToString().ToUpperInvariant();
+                case CharacterAttribute.Body: return "육체";
+                case CharacterAttribute.Agility: return "민첩";
+                case CharacterAttribute.Perception: return "감각";
+                case CharacterAttribute.Intelligence: return "지능";
+                case CharacterAttribute.Wisdom: return "지혜";
+                case CharacterAttribute.Will: return "의지";
+                case CharacterAttribute.Good: return "선";
+                case CharacterAttribute.Evil: return "악";
+                default: return attribute.ToString();
             }
         }
 
@@ -266,15 +270,15 @@ namespace KaiChe.Presentation
             GUI.Box(panel, GUIContent.none);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 50f, panel.width - 60f, 100f),
-                "GAME OVER",
+                "전투 불능",
                 _deathStyle);            GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 160f, panel.width - 60f, 60f),
-                $"Kills {_arena.Kills}   XP {_arena.Experience}",
+                $"처치 {_arena.Kills}   총 경험치 {_arena.Experience}",
                 _hudStyle);
 
             if (GUI.Button(
                 new Rect(panel.center.x - 180f, panel.yMax - 130f, 360f, 86f),
-                "RESTART",
+                "다시 시작",
                 _buttonStyle))
             {
                 SceneManager.LoadScene("Game");

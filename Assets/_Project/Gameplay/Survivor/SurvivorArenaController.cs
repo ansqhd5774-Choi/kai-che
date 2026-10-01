@@ -43,6 +43,7 @@ namespace KaiChe.Gameplay.Survivor
         public int EnemyCount => _enemies.Count;
         public Vector2 PlayerWorldPosition => _playerWorldPosition;
         public string ActiveSkillId => RuntimeContentCatalog.StarterSkill.Id;
+        public string ActiveSkillName => RuntimeContentCatalog.StarterSkill.DisplayName;
         public string ActiveMonsterId => RuntimeContentCatalog.StarterMonster.Id;
         public int ActiveSkillMastery => _skillMastery.GetMastery(ActiveSkillId);
         public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;

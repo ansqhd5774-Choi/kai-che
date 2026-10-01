@@ -75,16 +75,16 @@ namespace KaiChe.Presentation
             GUI.Box(panel, GUIContent.none);
             GUI.Label(new Rect(panel.x + 32f, panel.y + 44f, panel.width - 64f, 90f), "KaiChe", _titleStyle);
             GUI.Label(new Rect(panel.x + 32f, panel.y + 150f, panel.width - 64f, 120f),
-                "2D Survivor Prototype\nShared RPG data/core", _bodyStyle);
+                "판타지 전투 프로토타입\n공용 RPG 데이터 / 코어", _bodyStyle);
 
             float buttonWidth = Mathf.Min(panel.width - 64f, 560f);
             var button = new Rect(panel.center.x - buttonWidth * 0.5f, panel.yMax - 170f, buttonWidth, 96f);
 
-            if (GUI.Button(button, "PLAY 2D SURVIVOR", _buttonStyle))
+            if (GUI.Button(button, "게임 시작", _buttonStyle))
                 SceneManager.LoadScene("Game");
 
             GUI.Label(new Rect(panel.x + 32f, panel.yMax - 58f, panel.width - 64f, 34f),
-                "2D combat lab -> future 3D RPG", _smallStyle);
+                "전투 프로토타입 → 향후 3D 판타지 RPG", _smallStyle);
         }
 
         private static void SetupSurvivorWorld()
