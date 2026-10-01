@@ -3,10 +3,15 @@
 ## Phase 0 — Repository & Engine Setup
 - [x] GitHub repository
 - [x] Unity 6.3 LTS selected
-- [x] Unity .gitignore
+- [x] Unity 6000.3.25f1 pinned
+- [x] 3D URP baseline selected
+- [x] Unity .gitignore / .gitattributes
 - [x] C# editor rules
 - [x] architecture baseline
-- [ ] Create Unity project locally
+- [x] Unity repository project skeleton
+- [x] Core / Gameplay / Presentation / Infrastructure / Network assembly boundaries
+- [ ] Open project successfully in Unity Editor
+- [ ] Generate first bootstrap scene in Editor
 - [ ] First Android device build
 
 ## Phase 1 — Playable Vertical Slice
