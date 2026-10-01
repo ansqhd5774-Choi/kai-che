@@ -1,3 +1,4 @@
+using KaiChe.Core.Progression;
 using KaiChe.Gameplay.Survivor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -34,6 +35,13 @@ namespace KaiChe.Presentation
         }        private void Update()
         {
             if (_arena == null) return;
+
+            if (_arena.IsAttributeAllocationPending)
+            {
+                ResetJoystick();
+                _arena.SetMoveInput(Vector2.zero);
+                return;
+            }
 
             Vector2 input = ReadTouchInput();
             if (_activeFingerId < 0 && Input.touchCount == 0)
@@ -81,6 +89,13 @@ namespace KaiChe.Presentation
             return Vector2.zero;
         }
 
+        private void ResetJoystick()
+        {
+            _activeFingerId = -1;
+            _joystickInput = Vector2.zero;
+            _joystickVisible = false;
+        }
+
         private static Vector2 ReadFallbackInput()
         {
             float horizontal = 0f;
@@ -102,6 +117,7 @@ namespace KaiChe.Presentation
         {
             if (_arena == null) return;
             EnsureStyles();
+            if (_hudStyle == null) return;
 
             float margin = Mathf.Max(24f, Screen.width * 0.025f);
             GUI.Box(
@@ -110,7 +126,8 @@ namespace KaiChe.Presentation
 
             string status =
                 $"LV {_arena.Level}   HP {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
-                + $"KILLS {_arena.Kills}   XP {_arena.Experience}   "
+                + $"KILLS {_arena.Kills}   "
+                + $"XP {_arena.LevelExperience}/{_arena.ExperienceRequiredForNextLevel}   "
                 + $"MOBS {_arena.EnemyCount}";
 
             GUI.Label(
@@ -137,6 +154,8 @@ namespace KaiChe.Presentation
 
             if (_arena.IsDead)
                 DrawDeathOverlay();
+            else if (_arena.IsAttributeAllocationPending)
+                DrawAttributeAllocationOverlay();
         }
 
         private void DrawJoystick()
@@ -152,6 +171,86 @@ namespace KaiChe.Presentation
             Vector2 knobCenter = center + _joystickInput * radius * 0.62f;
             Rect knobRect = ScreenRect(knobCenter, radius * 0.42f);
             GUI.DrawTexture(knobRect, _joystickKnob, ScaleMode.StretchToFill, true);
+        }
+
+        private void DrawAttributeAllocationOverlay()
+        {
+            float width = Mathf.Min(Screen.width * 0.90f, 1120f);
+            float height = Mathf.Min(Screen.height * 0.72f, 1480f);
+            Rect panel = new Rect(
+                (Screen.width - width) * 0.5f,
+                (Screen.height - height) * 0.5f,
+                width,
+                height);
+
+            GUI.Box(panel, GUIContent.none);
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 44f, panel.width - 60f, 92f),
+                $"LEVEL UP  LV {_arena.Level}",
+                _deathStyle);
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 142f, panel.width - 60f, 70f),
+                $"ATTRIBUTE POINTS {_arena.UnspentAttributePoints}  PROTOTYPE",
+                _hudStyle);
+
+            CharacterAttribute[] attributes =
+            {
+                CharacterAttribute.Body,
+                CharacterAttribute.Agility,
+                CharacterAttribute.Perception,
+                CharacterAttribute.Intelligence,
+                CharacterAttribute.Wisdom,
+                CharacterAttribute.Will,
+                CharacterAttribute.Good,
+                CharacterAttribute.Evil
+            };
+
+            float gap = 24f;
+            float gridTop = panel.y + 244f;
+            float buttonWidth = (panel.width - 60f - gap) * 0.5f;
+            float buttonHeight = Mathf.Min(
+                190f,
+                (panel.height - 330f - gap * 3f) * 0.25f);
+
+            for (int i = 0; i < attributes.Length; i++)
+            {
+                int row = i / 2;
+                int column = i % 2;
+                Rect buttonRect = new Rect(
+                    panel.x + 30f + column * (buttonWidth + gap),
+                    gridTop + row * (buttonHeight + gap),
+                    buttonWidth,
+                    buttonHeight);
+
+                DrawAttributeButton(buttonRect, attributes[i]);
+            }
+        }
+
+        private void DrawAttributeButton(
+            Rect rect,
+            CharacterAttribute attribute)
+        {
+            int value = _arena.GetAttributeValue(attribute);
+            string label = $"{GetAttributeLabel(attribute)}  {value}\n+1";
+
+            if (GUI.Button(rect, label, _buttonStyle))
+                _arena.TrySpendAttributePoint(attribute);
+        }
+
+        private static string GetAttributeLabel(CharacterAttribute attribute)
+        {
+            switch (attribute)
+            {
+                case CharacterAttribute.Body: return "BODY";
+                case CharacterAttribute.Agility: return "AGILITY";
+                case CharacterAttribute.Perception: return "PERCEPTION";
+                case CharacterAttribute.Intelligence: return "INTELLIGENCE";
+                case CharacterAttribute.Wisdom: return "WISDOM";
+                case CharacterAttribute.Will: return "WILL";
+                case CharacterAttribute.Good: return "GOOD";
+                case CharacterAttribute.Evil: return "EVIL";
+                default: return attribute.ToString().ToUpperInvariant();
+            }
         }
 
         private void DrawDeathOverlay()
@@ -186,29 +285,33 @@ namespace KaiChe.Presentation
         {
             if (_hudStyle != null) return;
 
+            GUISkin skin = GUI.skin;
+            if (skin == null || skin.label == null || skin.button == null)
+                return;
+
             int baseSize = Mathf.RoundToInt(
                 Mathf.Clamp(Screen.width / 28f, 30f, 54f));
 
-            _hudStyle = new GUIStyle(GUI.skin.label)
+            _hudStyle = new GUIStyle(skin.label)
             {
                 fontSize = baseSize,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft
             };
 
-            _smallStyle = new GUIStyle(GUI.skin.label)
+            _smallStyle = new GUIStyle(skin.label)
             {                fontSize = Mathf.Max(22, baseSize - 10),
                 alignment = TextAnchor.MiddleLeft
             };
 
-            _buttonStyle = new GUIStyle(GUI.skin.button)
+            _buttonStyle = new GUIStyle(skin.button)
             {
                 fontSize = Mathf.Max(26, baseSize - 4),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
-            _deathStyle = new GUIStyle(GUI.skin.label)
+            _deathStyle = new GUIStyle(skin.label)
             {
                 fontSize = baseSize + 22,
                 fontStyle = FontStyle.Bold,

@@ -45,7 +45,12 @@ namespace KaiChe.Gameplay.Survivor
         public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;
         public string LastUnlockedSkillId => _skillMastery.LastUnlockedSkillId;
         public int Level => _progression.Level;
+        public long LevelExperience => _progression.LevelExperience;
+        public long ExperienceRequiredForNextLevel =>
+            _progression.ExperienceRequiredForNextLevel;
         public int UnspentAttributePoints => _progression.UnspentAttributePoints;
+        public bool IsAttributeAllocationPending =>
+            _progression.UnspentAttributePoints > 0;
 
         public void Initialize(Material materialTemplate)
         {
@@ -65,10 +70,25 @@ namespace KaiChe.Gameplay.Survivor
 
         public void SetMoveInput(Vector2 input)
         {
-            _moveInput = Vector2.ClampMagnitude(input, 1f);
-        }        private void Update()
+            _moveInput = IsAttributeAllocationPending
+                ? Vector2.zero
+                : Vector2.ClampMagnitude(input, 1f);
+        }
+
+        public int GetAttributeValue(CharacterAttribute attribute)
         {
-            if (!_initialized || IsDead) return;
+            return _progression.GetAttribute(attribute);
+        }
+
+        public bool TrySpendAttributePoint(CharacterAttribute attribute)
+        {
+            return _progression.TrySpendAttributePoints(attribute);
+        }
+
+        private void Update()
+        {
+            if (!_initialized || IsDead || IsAttributeAllocationPending)
+                return;
 
             float deltaTime = Time.deltaTime;
             UpdateWorldMovement(deltaTime);
@@ -294,8 +314,13 @@ namespace KaiChe.Gameplay.Survivor
 
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
             Experience += definition.ExperienceReward;
-            _progression.AddExperience(definition.ExperienceReward);
+            int levelsGained =
+                _progression.AddExperienceAndApplyPrototypeLevelUp(
+                    definition.ExperienceReward);
             Kills += 1;
+
+            if (levelsGained > 0)
+                _moveInput = Vector2.zero;
 
             Destroy(enemy.View);
             enemy.View = null;

@@ -60,6 +60,7 @@ namespace KaiChe.Presentation
         private void OnGUI()
         {
             EnsureStyles();
+            if (_titleStyle == null) return;
 
             string scene = SceneManager.GetActiveScene().name;
             if (scene == "Main")
@@ -109,26 +110,30 @@ namespace KaiChe.Presentation
         {
             if (_titleStyle != null) return;
 
+            GUISkin skin = GUI.skin;
+            if (skin == null || skin.label == null || skin.button == null)
+                return;
+
             int baseSize = Mathf.RoundToInt(Mathf.Clamp(Screen.width / 26f, 28f, 54f));
-            _titleStyle = new GUIStyle(GUI.skin.label)
+            _titleStyle = new GUIStyle(skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = baseSize + 18,
                 fontStyle = FontStyle.Bold
             };
-            _bodyStyle = new GUIStyle(GUI.skin.label)
+            _bodyStyle = new GUIStyle(skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = baseSize,
                 fontStyle = FontStyle.Bold,
                 wordWrap = true
             };
-            _smallStyle = new GUIStyle(GUI.skin.label)
+            _smallStyle = new GUIStyle(skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = Mathf.Max(22, baseSize - 8)
             };
-            _buttonStyle = new GUIStyle(GUI.skin.button)
+            _buttonStyle = new GUIStyle(skin.button)
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = Mathf.Max(26, baseSize - 2),

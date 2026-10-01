@@ -22,12 +22,27 @@ namespace KaiChe.Core.Progression
         public const double TargetDailyPlayHours = 8d;
         public const double TargetYearsToMaxLevel = 10d;
         public const double TargetTotalPlayHours = 29220d;
+        // Prototype-only values. These are not the final 10-year XP curve.
+        public const int PrototypeBaseXpToNextLevel = 5;
+        public const int PrototypeXpStepPerLevel = 3;
+        public const int PrototypeAttributePointsPerLevel = 3;
+
+        public static long GetPrototypeExperienceRequiredForNextLevel(
+            int level)
+        {
+            if (level >= MaxLevel)
+                return long.MaxValue;
+
+            int safeLevel = Math.Max(1, level);
+            return PrototypeBaseXpToNextLevel
+                + (long)(safeLevel - 1) * PrototypeXpStepPerLevel;
+        }
     }
+
     public sealed class CharacterProgressionState
     {
         private readonly Dictionary<CharacterAttribute, int> _attributes =
             new Dictionary<CharacterAttribute, int>();
-
         public CharacterProgressionState()
         {
             foreach (CharacterAttribute attribute in
@@ -39,24 +54,67 @@ namespace KaiChe.Core.Progression
 
         public int Level { get; private set; } = 1;
         public long Experience { get; private set; }
+        public long LevelExperience { get; private set; }
         public int UnspentAttributePoints { get; private set; }
+
+        public long ExperienceRequiredForNextLevel =>
+            ProgressionRules.GetPrototypeExperienceRequiredForNextLevel(
+                Level);
 
         public int GetAttribute(CharacterAttribute attribute)
         {
             return _attributes[attribute];
         }
-        public void AddExperience(long amount)
+        public int AddExperienceAndApplyPrototypeLevelUp(long amount)
         {
-            if (amount <= 0) return;
+            if (amount <= 0)
+                return 0;
+
             Experience += amount;
+            LevelExperience += amount;
+
+            int levelsGained = 0;
+
+            while (Level < ProgressionRules.MaxLevel)
+            {
+                long required =
+                    ProgressionRules.GetPrototypeExperienceRequiredForNextLevel(
+                        Level);
+
+                if (LevelExperience < required)
+                    break;
+
+                LevelExperience -= required;
+                Level += 1;
+                levelsGained += 1;
+                UnspentAttributePoints +=
+                    ProgressionRules.PrototypeAttributePointsPerLevel;
+            }
+
+            if (Level >= ProgressionRules.MaxLevel)
+                LevelExperience = 0;
+
+            return levelsGained;
         }
 
-        public void GrantLevels(int levels, int attributePointsPerLevel)
+        public bool TrySpendAttributePoints(
+            CharacterAttribute attribute,
+            int amount = 1)
         {
-            if (levels <= 0) return;
-            if (attributePointsPerLevel < 0)
-                throw new ArgumentOutOfRangeException(
-                    nameof(attributePointsPerLevel));
+            if (amount <= 0)
+                return false;
+
+            if (UnspentAttributePoints < amount)
+                return false;
+
+            _attributes[attribute] += amount;
+            UnspentAttributePoints -= amount;
+            return true;
+        }
+        public void GrantLevelsForPrototype(int levels)
+        {
+            if (levels <= 0)
+                return;
 
             int targetLevel = Math.Min(
                 ProgressionRules.MaxLevel,
@@ -65,24 +123,8 @@ namespace KaiChe.Core.Progression
 
             Level = targetLevel;
             UnspentAttributePoints +=
-                grantedLevels * attributePointsPerLevel;
-        }
-        public bool TrySpendAttributePoints(
-            CharacterAttribute attribute,
-            int amount = 1)
-        {
-            if (amount <= 0) return false;
-            if (UnspentAttributePoints < amount) return false;
-
-            _attributes[attribute] += amount;
-            UnspentAttributePoints -= amount;
-            return true;
-        }
-
-        public void GrantAttributePointsForPrototype(int amount)
-        {
-            if (amount <= 0) return;
-            UnspentAttributePoints += amount;
+                grantedLevels
+                * ProgressionRules.PrototypeAttributePointsPerLevel;
         }
     }
 }
