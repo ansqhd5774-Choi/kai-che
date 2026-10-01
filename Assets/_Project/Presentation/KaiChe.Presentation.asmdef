@@ -1,0 +1,17 @@
+{
+  "name": "KaiChe.Presentation",
+  "rootNamespace": "KaiChe.Presentation",
+  "references": [
+    "KaiChe.Core",
+    "KaiChe.Gameplay"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
