@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using KaiChe.Core.Content;
+using KaiChe.Core.Progression;
 using UnityEngine;
 
 namespace KaiChe.Gameplay.Survivor
@@ -28,7 +29,11 @@ namespace KaiChe.Gameplay.Survivor
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
         private float _shotTimer;
-        private bool _initialized;        public float PlayerHealth { get; private set; } = 100f;
+        private bool _initialized;
+        private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
+        private readonly CharacterProgressionState _progression = new CharacterProgressionState();
+
+        public float PlayerHealth { get; private set; } = 100f;
         public int Kills { get; private set; }
         public int Experience { get; private set; }
         public bool IsDead => PlayerHealth <= 0f;
@@ -36,6 +41,11 @@ namespace KaiChe.Gameplay.Survivor
         public Vector2 PlayerWorldPosition => _playerWorldPosition;
         public string ActiveSkillId => RuntimeContentCatalog.StarterSkill.Id;
         public string ActiveMonsterId => RuntimeContentCatalog.StarterMonster.Id;
+        public int ActiveSkillMastery => _skillMastery.GetMastery(ActiveSkillId);
+        public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;
+        public string LastUnlockedSkillId => _skillMastery.LastUnlockedSkillId;
+        public int Level => _progression.Level;
+        public int UnspentAttributePoints => _progression.UnspentAttributePoints;
 
         public void Initialize(Material materialTemplate)
         {
@@ -264,6 +274,7 @@ namespace KaiChe.Gameplay.Survivor
 
                 if (hit)
                 {
+                    _skillMastery.RecordUse(skill.Id);
                     DamageEnemy(projectile.Target, skill.Damage);
                     Destroy(projectile.View);
                     _projectiles.RemoveAt(i);
@@ -283,6 +294,7 @@ namespace KaiChe.Gameplay.Survivor
 
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
             Experience += definition.ExperienceReward;
+            _progression.AddExperience(definition.ExperienceReward);
             Kills += 1;
 
             Destroy(enemy.View);

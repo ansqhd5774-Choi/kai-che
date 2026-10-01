@@ -109,7 +109,7 @@ namespace KaiChe.Presentation
                 GUIContent.none);
 
             string status =
-                $"HP {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
+                $"LV {_arena.Level}   HP {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
                 + $"KILLS {_arena.Kills}   XP {_arena.Experience}   "
                 + $"MOBS {_arena.EnemyCount}";
 
@@ -121,7 +121,8 @@ namespace KaiChe.Presentation
             Vector2 worldPosition = _arena.PlayerWorldPosition;
             GUI.Label(
                 new Rect(margin + 24f, margin + 82f, Screen.width - margin * 2f - 48f, 48f),
-                $"{_arena.ActiveSkillId} / {_arena.ActiveMonsterId}   "
+                $"{_arena.ActiveSkillId} MASTERY {_arena.ActiveSkillMastery}   "
+                + $"UNLOCKED {_arena.UnlockedSkillCount}   "
                 + $"POS {worldPosition.x:0.0},{worldPosition.y:0.0}",
                 _smallStyle);
 
