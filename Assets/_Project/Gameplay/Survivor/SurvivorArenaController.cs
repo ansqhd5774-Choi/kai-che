@@ -62,11 +62,8 @@ namespace KaiChe.Gameplay.Survivor
             LoadPrototypeProgression();
             ConfigureCamera();
 
-            _player = CreateQuad(
-                "Player",
-                new Color(0.2f, 0.65f, 1f),
-                Vector3.zero,
-                0.72f);
+            CreateBattlefieldBackdrop();
+            _player = CreateWarriorView();
 
             _spawnTimer = 0.2f;
             _shotTimer = 0.1f;
@@ -115,7 +112,7 @@ namespace KaiChe.Gameplay.Survivor
             camera.orthographicSize = 8f;
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.transform.rotation = Quaternion.identity;
-            camera.backgroundColor = new Color(0.025f, 0.035f, 0.065f);
+            camera.backgroundColor = new Color(0.018f, 0.022f, 0.018f);
         }
 
         private void UpdateWorldMovement(float deltaTime)
@@ -173,11 +170,9 @@ namespace KaiChe.Gameplay.Survivor
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
             var enemy = new EnemyState
             {
-                View = CreateQuad(
-                    "Enemy_" + definition.Id,
-                    new Color(0.95f, 0.25f, 0.22f),
-                    new Vector3(spawn.x, spawn.y, 0f),
-                    0.58f),
+                View = CreateEnemyView(
+                    definition.Id,
+                    new Vector3(spawn.x, spawn.y, 0f)),
                 Health = definition.MaxHealth
             };
 
@@ -236,9 +231,9 @@ namespace KaiChe.Gameplay.Survivor
             {
                 View = CreateQuad(
                     "Projectile_" + skill.Id,
-                    new Color(1f, 0.85f, 0.18f),
+                    new Color(0.92f, 0.72f, 0.22f),
                     new Vector3(origin.x, origin.y, -0.1f),
-                    0.18f),
+                    0.16f),
                 Target = target,
                 Direction = direction,
                 Life = 2.2f
@@ -333,6 +328,162 @@ namespace KaiChe.Gameplay.Survivor
 
             Destroy(enemy.View);
             enemy.View = null;
+        }
+
+        private void CreateBattlefieldBackdrop()
+        {
+            GameObject floor = CreateQuad(
+                "BattlefieldFloor",
+                new Color(0.105f, 0.095f, 0.070f),
+                new Vector3(0f, 0f, 2.5f),
+                70f);
+            floor.transform.localScale = new Vector3(70f, 70f, 1f);
+
+            GameObject road = CreateQuad(
+                "BattlefieldRoad",
+                new Color(0.155f, 0.135f, 0.090f),
+                new Vector3(0f, 0f, 2.2f),
+                1f);
+            road.transform.localScale = new Vector3(4.6f, 70f, 1f);
+
+            CreateRoadEdge(-2.4f);
+            CreateRoadEdge(2.4f);
+
+            for (int i = 0; i < 30; i++)
+            {
+                float x = Mathf.Sin(i * 2.17f) * 28f;
+                float y = Mathf.Cos(i * 1.61f) * 28f;
+                float size = 0.18f + (i % 5) * 0.055f;
+                GameObject stone = CreateQuad(
+                    "BattlefieldStone_" + i,
+                    new Color(0.19f, 0.17f, 0.13f, 0.94f),
+                    new Vector3(x, y, 2.0f),
+                    size);
+                stone.transform.rotation =
+                    Quaternion.Euler(0f, 0f, (i * 37f) % 360f);
+            }
+        }
+
+        private void CreateRoadEdge(float x)
+        {
+            GameObject edge = CreateQuad(
+                x < 0f ? "RoadEdgeLeft" : "RoadEdgeRight",
+                new Color(0.28f, 0.22f, 0.12f),
+                new Vector3(x, 0f, 2.1f),
+                1f);
+            edge.transform.localScale = new Vector3(0.18f, 70f, 1f);
+        }
+
+        private GameObject CreateEnemyView(string id, Vector3 position)
+        {
+            var root = new GameObject("Enemy_" + id);
+            root.transform.SetParent(transform, false);
+            root.transform.position = position;
+
+            GameObject body = CreateQuad(
+                "EnemyBody",
+                new Color(0.30f, 0.075f, 0.060f),
+                Vector3.zero,
+                0.72f);
+            body.transform.SetParent(root.transform, false);
+
+            GameObject chest = CreateQuad(
+                "EnemyChest",
+                new Color(0.48f, 0.12f, 0.085f),
+                new Vector3(0f, -0.04f, -0.02f),
+                0.42f);
+            chest.transform.SetParent(root.transform, false);
+
+            GameObject head = CreateQuad(
+                "EnemyHead",
+                new Color(0.14f, 0.14f, 0.13f),
+                new Vector3(0f, 0.40f, -0.035f),
+                0.34f);
+            head.transform.SetParent(root.transform, false);
+
+            GameObject leftEye = CreateQuad(
+                "EnemyEyeLeft",
+                new Color(0.95f, 0.38f, 0.10f),
+                new Vector3(-0.09f, 0.42f, -0.05f),
+                0.07f);
+            leftEye.transform.SetParent(root.transform, false);
+
+            GameObject rightEye = CreateQuad(
+                "EnemyEyeRight",
+                new Color(0.95f, 0.38f, 0.10f),
+                new Vector3(0.09f, 0.42f, -0.05f),
+                0.07f);
+            rightEye.transform.SetParent(root.transform, false);
+
+            return root;
+        }
+
+        private GameObject CreateWarriorView()
+        {
+            var root = new GameObject("Player");
+            root.transform.SetParent(transform, false);
+            root.transform.position = Vector3.zero;
+            root.transform.localScale = Vector3.one * 1.22f;
+
+            GameObject body = CreateQuad(
+                "PlayerBody",
+                new Color(0.20f, 0.23f, 0.25f),
+                new Vector3(0f, -0.02f, 0f),
+                0.92f);
+            body.transform.SetParent(root.transform, false);
+
+            GameObject chest = CreateQuad(
+                "PlayerChest",
+                new Color(0.58f, 0.43f, 0.17f),
+                new Vector3(0f, 0.00f, -0.03f),
+                0.54f);
+            chest.transform.SetParent(root.transform, false);
+
+            GameObject helmet = CreateQuad(
+                "PlayerHelmet",
+                new Color(0.34f, 0.36f, 0.35f),
+                new Vector3(0f, 0.50f, -0.04f),
+                0.42f);
+            helmet.transform.SetParent(root.transform, false);
+
+            GameObject leftShoulder = CreateQuad(
+                "PlayerShoulderLeft",
+                new Color(0.38f, 0.31f, 0.20f),
+                new Vector3(-0.43f, 0.22f, -0.035f),
+                0.30f);
+            leftShoulder.transform.SetParent(root.transform, false);
+
+            GameObject rightShoulder = CreateQuad(
+                "PlayerShoulderRight",
+                new Color(0.38f, 0.31f, 0.20f),
+                new Vector3(0.43f, 0.22f, -0.035f),
+                0.30f);
+            rightShoulder.transform.SetParent(root.transform, false);
+
+            GameObject shield = CreateQuad(
+                "PlayerShield",
+                new Color(0.15f, 0.17f, 0.18f),
+                new Vector3(-0.58f, -0.03f, -0.06f),
+                0.58f);
+            shield.transform.SetParent(root.transform, false);
+
+            GameObject shieldBoss = CreateQuad(
+                "PlayerShieldBoss",
+                new Color(0.62f, 0.47f, 0.19f),
+                new Vector3(-0.58f, -0.03f, -0.075f),
+                0.20f);
+            shieldBoss.transform.SetParent(root.transform, false);
+
+            GameObject sword = CreateQuad(
+                "PlayerSword",
+                new Color(0.78f, 0.77f, 0.68f),
+                new Vector3(0.62f, 0.06f, -0.05f),
+                0.16f);
+            sword.transform.SetParent(root.transform, false);
+            sword.transform.localScale = new Vector3(0.14f, 1.08f, 1f);
+            sword.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
+
+            return root;
         }
 
         private GameObject CreateQuad(

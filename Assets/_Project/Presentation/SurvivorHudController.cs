@@ -11,12 +11,23 @@ namespace KaiChe.Presentation
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
         private Vector2 _joystickOrigin;
-        private bool _joystickVisible;
         private Texture2D _joystickBase;
         private Texture2D _joystickKnob;
+        private Texture2D _panelOuter;
+        private Texture2D _panelInner;
+        private Texture2D _healthFill;
+        private Texture2D _experienceFill;
+        private Texture2D _barBack;
+        private Texture2D _actionPrimary;
+        private Texture2D _actionSecondary;
+        private Texture2D _buttonBack;
+        private Texture2D _buttonPressed;
+        private Texture2D _modalDim;
         private GUIStyle _hudStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
+        private GUIStyle _actionStyle;
+        private GUIStyle _actionSmallStyle;
         private GUIStyle _deathStyle;
 
         public void Bind(SurvivorArenaController arena)
@@ -31,8 +42,28 @@ namespace KaiChe.Presentation
                 new Color(1f, 1f, 1f, 0.17f));
             _joystickKnob = CreateCircleTexture(
                 96,
-                new Color(0.25f, 0.7f, 1f, 0.72f));
-        }        private void Update()
+                new Color(0.72f, 0.58f, 0.24f, 0.82f));
+
+            _panelOuter = CreateSolidTexture(new Color(0.55f, 0.40f, 0.16f, 0.96f));
+            _panelInner = CreateSolidTexture(new Color(0.07f, 0.06f, 0.05f, 0.93f));
+            _healthFill = CreateSolidTexture(new Color(0.58f, 0.10f, 0.08f, 0.96f));
+            _experienceFill = CreateSolidTexture(new Color(0.18f, 0.34f, 0.62f, 0.96f));
+            _barBack = CreateSolidTexture(new Color(0.02f, 0.02f, 0.02f, 0.90f));
+            _actionPrimary = CreateCircleTexture(
+                128,
+                new Color(0.50f, 0.16f, 0.10f, 0.94f));
+            _actionSecondary = CreateCircleTexture(
+                128,
+                new Color(0.16f, 0.15f, 0.13f, 0.88f));
+            _buttonBack = CreateSolidTexture(
+                new Color(0.12f, 0.105f, 0.08f, 0.98f));
+            _buttonPressed = CreateSolidTexture(
+                new Color(0.30f, 0.22f, 0.10f, 0.98f));
+            _modalDim = CreateSolidTexture(
+                new Color(0.015f, 0.012f, 0.008f, 0.58f));
+        }
+
+        private void Update()
         {
             if (_arena == null) return;
 
@@ -59,11 +90,12 @@ namespace KaiChe.Presentation
             {
                 Touch touch = Input.GetTouch(i);
 
-                if (_activeFingerId < 0 && touch.phase == TouchPhase.Began)
+                if (_activeFingerId < 0
+                    && touch.phase == TouchPhase.Began
+                    && IsMoveTouch(touch.position))
                 {
                     _activeFingerId = touch.fingerId;
-                    _joystickOrigin = touch.position;
-                    _joystickVisible = true;
+                    _joystickOrigin = JoystickCenterScreen;
                 }
 
                 if (touch.fingerId != _activeFingerId) continue;
@@ -72,7 +104,6 @@ namespace KaiChe.Presentation
                     || touch.phase == TouchPhase.Canceled)
                 {
                     _activeFingerId = -1;
-                    _joystickVisible = false;
                     return Vector2.zero;
                 }
 
@@ -83,7 +114,6 @@ namespace KaiChe.Presentation
             if (_activeFingerId >= 0)
             {
                 _activeFingerId = -1;
-                _joystickVisible = false;
             }
 
             return Vector2.zero;
@@ -93,7 +123,6 @@ namespace KaiChe.Presentation
         {
             _activeFingerId = -1;
             _joystickInput = Vector2.zero;
-            _joystickVisible = false;
         }
 
         private static Vector2 ReadFallbackInput()
@@ -113,44 +142,81 @@ namespace KaiChe.Presentation
             return Vector2.ClampMagnitude(
                 new Vector2(horizontal, vertical),
                 1f);
-        }        private void OnGUI()
+        }
+
+        private void OnGUI()
         {
             if (_arena == null) return;
             EnsureStyles();
             if (_hudStyle == null) return;
 
-            float margin = Mathf.Max(24f, Screen.width * 0.025f);
-            GUI.Box(
-                new Rect(margin, margin, Screen.width - margin * 2f, 160f),
-                GUIContent.none);
-
-            string status =
-                $"레벨 {_arena.Level}   체력 {Mathf.CeilToInt(_arena.PlayerHealth)}/100   "
-                + $"처치 {_arena.Kills}   "
-                + $"경험치 {_arena.LevelExperience}/{_arena.ExperienceRequiredForNextLevel}   "
-                + $"적 {_arena.EnemyCount}";
+            Rect safe = SafeGuiRect;
+            float margin = Mathf.Max(18f, safe.width * 0.018f);
+            float hudWidth = Mathf.Min(safe.width * 0.72f, 1040f);
+            Rect hudPanel = new Rect(
+                safe.x + margin,
+                safe.y + margin,
+                hudWidth,
+                204f);
+            DrawFantasyPanel(hudPanel);
 
             GUI.Label(
-                new Rect(margin + 24f, margin + 18f, Screen.width - margin * 2f - 48f, 58f),
-                status,
+                new Rect(hudPanel.x + 28f, hudPanel.y + 14f, 360f, 48f),
+                $"전사  LV {_arena.Level}",
                 _hudStyle);
-
-            Vector2 worldPosition = _arena.PlayerWorldPosition;
             GUI.Label(
-                new Rect(margin + 24f, margin + 82f, Screen.width - margin * 2f - 48f, 48f),
-                $"{_arena.ActiveSkillName} 숙련도 {_arena.ActiveSkillMastery}   "
-                + $"해금 {_arena.UnlockedSkillCount}   "
-                + $"위치 {worldPosition.x:0.0},{worldPosition.y:0.0}",
+                new Rect(hudPanel.xMax - 330f, hudPanel.y + 16f, 300f, 44f),
+                $"처치 {_arena.Kills}   적 {_arena.EnemyCount}",
                 _smallStyle);
 
-            DrawJoystick();
+            Rect hpRect = new Rect(
+                hudPanel.x + 28f,
+                hudPanel.y + 68f,
+                hudPanel.width * 0.64f,
+                36f);
+            DrawProgressBar(
+                hpRect,
+                Mathf.Clamp01(_arena.PlayerHealth / 100f),
+                _healthFill,
+                $"체력 {Mathf.CeilToInt(_arena.PlayerHealth)} / 100");
 
-            if (GUI.Button(
-                new Rect(Screen.width - 250f, Screen.height - 112f, 220f, 80f),
-                "나가기",
-                _buttonStyle))
-            {                SceneManager.LoadScene("Main");
+            float xpMax = Mathf.Max(1f, _arena.ExperienceRequiredForNextLevel);
+            Rect xpRect = new Rect(
+                hudPanel.x + 28f,
+                hudPanel.y + 112f,
+                hudPanel.width * 0.64f,
+                32f);
+            DrawProgressBar(
+                xpRect,
+                Mathf.Clamp01(_arena.LevelExperience / xpMax),
+                _experienceFill,
+                $"경험치 {_arena.LevelExperience} / {_arena.ExperienceRequiredForNextLevel}");
+
+            GUI.Label(
+                new Rect(
+                    hudPanel.x + 28f,
+                    hudPanel.y + 154f,
+                    hudPanel.width - 56f,
+                    34f),
+                $"{_arena.ActiveSkillName} · 숙련도 {_arena.ActiveSkillMastery}   "
+                + $"해금 {_arena.UnlockedSkillCount}",
+                _smallStyle);
+
+            bool modalOpen = _arena.IsDead
+                || _arena.IsAttributeAllocationPending;
+            if (!modalOpen)
+            {
+                DrawJoystick();
+                DrawActionDeck(safe);
             }
+
+            Rect exitRect = new Rect(
+                safe.xMax - margin - 190f,
+                safe.y + margin,
+                190f,
+                72f);
+            if (GUI.Button(exitRect, "나가기", _buttonStyle))
+                SceneManager.LoadScene("Main");
 
             if (_arena.IsDead)
                 DrawDeathOverlay();
@@ -160,37 +226,91 @@ namespace KaiChe.Presentation
 
         private void DrawJoystick()
         {
-            if (!_joystickVisible) return;
-
             float radius = JoystickRadius;
-            Vector2 center = _joystickOrigin;
+            Vector2 center = JoystickCenterScreen;
 
             Rect baseRect = ScreenRect(center, radius);
             GUI.DrawTexture(baseRect, _joystickBase, ScaleMode.StretchToFill, true);
 
             Vector2 knobCenter = center + _joystickInput * radius * 0.62f;
-            Rect knobRect = ScreenRect(knobCenter, radius * 0.42f);
+            Rect knobRect = ScreenRect(knobCenter, radius * 0.40f);
             GUI.DrawTexture(knobRect, _joystickKnob, ScaleMode.StretchToFill, true);
+
+            Rect labelRect = new Rect(
+                baseRect.x,
+                baseRect.yMax + 4f,
+                baseRect.width,
+                34f);
+            GUI.Label(labelRect, "이동", _actionSmallStyle);
+        }
+
+        private void DrawActionDeck(Rect safe)
+        {
+            float primary = Mathf.Clamp(safe.width * 0.105f, 128f, 178f);
+            float secondary = primary * 0.68f;
+            float margin = Mathf.Max(24f, safe.width * 0.026f);
+
+            Vector2 primaryCenter = new Vector2(
+                safe.xMax - margin - primary,
+                safe.yMax - margin - primary);
+
+            Rect primaryRect = new Rect(
+                primaryCenter.x - primary,
+                primaryCenter.y - primary,
+                primary * 2f,
+                primary * 2f);
+            GUI.DrawTexture(
+                primaryRect,
+                _actionPrimary,
+                ScaleMode.StretchToFill,
+                true);
+            GUI.Label(primaryRect, "베기\nAUTO", _actionStyle);
+
+            Rect skillOne = new Rect(
+                primaryRect.x - secondary * 1.35f,
+                primaryRect.y + primary * 0.10f,
+                secondary * 2f,
+                secondary * 2f);
+            Rect skillTwo = new Rect(
+                primaryRect.x + primary * 0.18f,
+                primaryRect.y - secondary * 1.45f,
+                secondary * 2f,
+                secondary * 2f);
+
+            GUI.DrawTexture(
+                skillOne,
+                _actionSecondary,
+                ScaleMode.StretchToFill,
+                true);
+            GUI.DrawTexture(
+                skillTwo,
+                _actionSecondary,
+                ScaleMode.StretchToFill,
+                true);
+            GUI.Label(skillOne, "방패\n잠금", _actionSmallStyle);
+            GUI.Label(skillTwo, "돌진\n잠금", _actionSmallStyle);
         }
 
         private void DrawAttributeAllocationOverlay()
         {
-            float width = Mathf.Min(Screen.width * 0.90f, 1120f);
-            float height = Mathf.Min(Screen.height * 0.72f, 1480f);
+            Rect safe = SafeGuiRect;
+            float width = Mathf.Min(safe.width * 0.90f, 1120f);
+            float height = Mathf.Min(safe.height * 0.58f, 1200f);
             Rect panel = new Rect(
-                (Screen.width - width) * 0.5f,
-                (Screen.height - height) * 0.5f,
+                safe.x + (safe.width - width) * 0.5f,
+                safe.y + (safe.height - height) * 0.5f,
                 width,
                 height);
 
-            GUI.Box(panel, GUIContent.none);
+            GUI.DrawTexture(safe, _modalDim, ScaleMode.StretchToFill, true);
+            DrawFantasyPanel(panel);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 44f, panel.width - 60f, 92f),
                 $"레벨 상승  레벨 {_arena.Level}",
                 _deathStyle);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 142f, panel.width - 60f, 70f),
-                $"능력치 포인트 {_arena.UnspentAttributePoints}  테스트",
+                $"능력치 포인트 {_arena.UnspentAttributePoints}",
                 _hudStyle);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 200f, panel.width - 60f, 52f),
@@ -259,15 +379,16 @@ namespace KaiChe.Presentation
 
         private void DrawDeathOverlay()
         {
-            float width = Mathf.Min(Screen.width * 0.82f, 900f);
-            float height = 420f;
+            Rect safe = SafeGuiRect;
+            float width = Mathf.Min(safe.width * 0.82f, 900f);
+            float height = Mathf.Min(420f, safe.height * 0.52f);
             Rect panel = new Rect(
-                (Screen.width - width) * 0.5f,
-                (Screen.height - height) * 0.5f,
+                safe.x + (safe.width - width) * 0.5f,
+                safe.y + (safe.height - height) * 0.5f,
                 width,
                 height);
 
-            GUI.Box(panel, GUIContent.none);
+            DrawFantasyPanel(panel);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 50f, panel.width - 60f, 100f),
                 "전투 불능",
@@ -315,12 +436,83 @@ namespace KaiChe.Presentation
                 alignment = TextAnchor.MiddleCenter
             };
 
+            _actionStyle = new GUIStyle(skin.label)
+            {
+                fontSize = Mathf.Max(26, baseSize - 4),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _actionSmallStyle = new GUIStyle(skin.label)
+            {
+                fontSize = Mathf.Max(20, baseSize - 12),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
             _deathStyle = new GUIStyle(skin.label)
             {
                 fontSize = baseSize + 22,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
+
+            Color parchment = new Color(0.92f, 0.84f, 0.65f);
+            _hudStyle.normal.textColor = parchment;
+            _smallStyle.normal.textColor = new Color(0.78f, 0.72f, 0.58f);
+            _actionStyle.normal.textColor = parchment;
+            _actionSmallStyle.normal.textColor =
+                new Color(0.84f, 0.77f, 0.61f);
+            _deathStyle.normal.textColor = new Color(0.96f, 0.80f, 0.36f);
+            _buttonStyle.normal.textColor = parchment;
+            _buttonStyle.hover.textColor = parchment;
+            _buttonStyle.active.textColor = Color.white;
+            _buttonStyle.normal.background = _buttonBack;
+            _buttonStyle.hover.background = _buttonPressed;
+            _buttonStyle.active.background = _buttonPressed;
+        }
+
+        private void DrawFantasyPanel(Rect rect)
+        {
+            GUI.DrawTexture(rect, _panelOuter, ScaleMode.StretchToFill, true);
+            Rect inner = new Rect(
+                rect.x + 4f,
+                rect.y + 4f,
+                rect.width - 8f,
+                rect.height - 8f);
+            GUI.DrawTexture(inner, _panelInner, ScaleMode.StretchToFill, true);
+        }
+
+        private void DrawProgressBar(
+            Rect rect,
+            float normalized,
+            Texture2D fill,
+            string label)
+        {
+            GUI.DrawTexture(rect, _panelOuter, ScaleMode.StretchToFill, true);
+            Rect inner = new Rect(
+                rect.x + 3f,
+                rect.y + 3f,
+                rect.width - 6f,
+                rect.height - 6f);
+            GUI.DrawTexture(inner, _barBack, ScaleMode.StretchToFill, true);
+
+            Rect fillRect = new Rect(
+                inner.x,
+                inner.y,
+                inner.width * Mathf.Clamp01(normalized),
+                inner.height);
+            GUI.DrawTexture(fillRect, fill, ScaleMode.StretchToFill, true);
+
+            GUI.Label(rect, label, _smallStyle);
+        }
+
+        private static Texture2D CreateSolidTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            texture.SetPixel(0, 0, color);
+            texture.Apply(false, true);
+            return texture;
         }
 
         private static Texture2D CreateCircleTexture(int size, Color color)
@@ -350,7 +542,40 @@ namespace KaiChe.Presentation
         }
 
         private float JoystickRadius =>
-            Mathf.Clamp(Screen.width * 0.145f, 150f, 230f);
+            Mathf.Clamp(Screen.width * 0.125f, 132f, 210f);
+
+        private Vector2 JoystickCenterScreen
+        {
+            get
+            {
+                Rect safe = Screen.safeArea;
+                float radius = JoystickRadius;
+                float inset = Mathf.Max(22f, safe.width * 0.022f);
+                return new Vector2(
+                    safe.x + inset + radius,
+                    safe.y + inset + radius);
+            }
+        }
+
+        private static Rect SafeGuiRect
+        {
+            get
+            {
+                Rect safe = Screen.safeArea;
+                return new Rect(
+                    safe.x,
+                    Screen.height - safe.yMax,
+                    safe.width,
+                    safe.height);
+            }
+        }
+
+        private static bool IsMoveTouch(Vector2 screenPosition)
+        {
+            Rect safe = Screen.safeArea;
+            return screenPosition.x <= safe.x + safe.width * 0.56f
+                && screenPosition.y <= safe.y + safe.height * 0.58f;
+        }
 
         private static Rect ScreenRect(Vector2 screenCenter, float radius)
         {
