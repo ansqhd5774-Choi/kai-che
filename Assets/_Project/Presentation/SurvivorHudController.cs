@@ -9,6 +9,8 @@ namespace KaiChe.Presentation
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
+        private Vector2 _joystickOrigin;
+        private bool _joystickVisible;
         private Texture2D _joystickBase;
         private Texture2D _joystickKnob;
         private GUIStyle _hudStyle;
@@ -44,33 +46,37 @@ namespace KaiChe.Presentation
         private Vector2 ReadTouchInput()
         {
             float radius = JoystickRadius;
-            Vector2 center = JoystickCenter;
 
             for (int i = 0; i < Input.touchCount; i++)
             {
                 Touch touch = Input.GetTouch(i);
 
-                if (_activeFingerId < 0
-                    && touch.phase == TouchPhase.Began
-                    && Vector2.Distance(touch.position, center) <= radius * 1.45f)
+                if (_activeFingerId < 0 && touch.phase == TouchPhase.Began)
                 {
                     _activeFingerId = touch.fingerId;
+                    _joystickOrigin = touch.position;
+                    _joystickVisible = true;
                 }
 
                 if (touch.fingerId != _activeFingerId) continue;
 
                 if (touch.phase == TouchPhase.Ended
                     || touch.phase == TouchPhase.Canceled)
-                {                    _activeFingerId = -1;
+                {
+                    _activeFingerId = -1;
+                    _joystickVisible = false;
                     return Vector2.zero;
                 }
 
-                Vector2 delta = touch.position - center;
+                Vector2 delta = touch.position - _joystickOrigin;
                 return Vector2.ClampMagnitude(delta / radius, 1f);
             }
 
             if (_activeFingerId >= 0)
+            {
                 _activeFingerId = -1;
+                _joystickVisible = false;
+            }
 
             return Vector2.zero;
         }
@@ -112,9 +118,11 @@ namespace KaiChe.Presentation
                 status,
                 _hudStyle);
 
+            Vector2 worldPosition = _arena.PlayerWorldPosition;
             GUI.Label(
                 new Rect(margin + 24f, margin + 82f, Screen.width - margin * 2f - 48f, 48f),
-                $"{_arena.ActiveSkillId}  /  {_arena.ActiveMonsterId}",
+                $"{_arena.ActiveSkillId} / {_arena.ActiveMonsterId}   "
+                + $"POS {worldPosition.x:0.0},{worldPosition.y:0.0}",
                 _smallStyle);
 
             DrawJoystick();
@@ -132,8 +140,10 @@ namespace KaiChe.Presentation
 
         private void DrawJoystick()
         {
+            if (!_joystickVisible) return;
+
             float radius = JoystickRadius;
-            Vector2 center = JoystickCenter;
+            Vector2 center = _joystickOrigin;
 
             Rect baseRect = ScreenRect(center, radius);
             GUI.DrawTexture(baseRect, _joystickBase, ScaleMode.StretchToFill, true);
@@ -233,11 +243,6 @@ namespace KaiChe.Presentation
 
         private float JoystickRadius =>
             Mathf.Clamp(Screen.width * 0.145f, 150f, 230f);
-
-        private Vector2 JoystickCenter =>
-            new Vector2(
-                Screen.width * 0.22f,
-                Screen.height * 0.16f);
 
         private static Rect ScreenRect(Vector2 screenCenter, float radius)
         {

@@ -25,6 +25,7 @@ namespace KaiChe.Gameplay.Survivor
         private Material _materialTemplate;
         private GameObject _player;
         private Vector2 _moveInput;
+        private Vector2 _playerWorldPosition;
         private float _spawnTimer;
         private float _shotTimer;
         private bool _initialized;        public float PlayerHealth { get; private set; } = 100f;
@@ -32,6 +33,7 @@ namespace KaiChe.Gameplay.Survivor
         public int Experience { get; private set; }
         public bool IsDead => PlayerHealth <= 0f;
         public int EnemyCount => _enemies.Count;
+        public Vector2 PlayerWorldPosition => _playerWorldPosition;
         public string ActiveSkillId => RuntimeContentCatalog.StarterSkill.Id;
         public string ActiveMonsterId => RuntimeContentCatalog.StarterMonster.Id;
 
@@ -59,7 +61,7 @@ namespace KaiChe.Gameplay.Survivor
             if (!_initialized || IsDead) return;
 
             float deltaTime = Time.deltaTime;
-            UpdatePlayer(deltaTime);
+            UpdateWorldMovement(deltaTime);
             UpdateSpawning(deltaTime);
             UpdateEnemies(deltaTime);
             UpdateShooting(deltaTime);
@@ -78,20 +80,27 @@ namespace KaiChe.Gameplay.Survivor
             camera.backgroundColor = new Color(0.025f, 0.035f, 0.065f);
         }
 
-        private void UpdatePlayer(float deltaTime)
+        private void UpdateWorldMovement(float deltaTime)
         {
             const float speed = 4.5f;
-            Vector3 position = _player.transform.position;
-            position += (Vector3)(_moveInput * speed * deltaTime);            Camera camera = Camera.main;
-            if (camera != null)
+            _playerWorldPosition += _moveInput * speed * deltaTime;
+
+            if (_player != null)
             {
-                float halfHeight = camera.orthographicSize - 0.65f;
-                float halfWidth = camera.orthographicSize * camera.aspect - 0.65f;
-                position.x = Mathf.Clamp(position.x, -halfWidth, halfWidth);
-                position.y = Mathf.Clamp(position.y, -halfHeight, halfHeight);
+                _player.transform.position = new Vector3(
+                    _playerWorldPosition.x,
+                    _playerWorldPosition.y,
+                    0f);
             }
 
-            _player.transform.position = position;
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                camera.transform.position = new Vector3(
+                    _playerWorldPosition.x,
+                    _playerWorldPosition.y,
+                    -10f);
+            }
         }
 
         private void UpdateSpawning(float deltaTime)
@@ -111,16 +120,17 @@ namespace KaiChe.Gameplay.Survivor
             if (camera == null) return;
 
             float halfHeight = camera.orthographicSize + 0.8f;
-            float halfWidth = camera.orthographicSize * camera.aspect + 0.8f;            Vector2 spawn;
+            float halfWidth = camera.orthographicSize * camera.aspect + 0.8f;            Vector2 center = PlayerPosition;
+            Vector2 spawn;
             int edge = Random.Range(0, 4);
             if (edge == 0)
-                spawn = new Vector2(-halfWidth, Random.Range(-halfHeight, halfHeight));
+                spawn = center + new Vector2(-halfWidth, Random.Range(-halfHeight, halfHeight));
             else if (edge == 1)
-                spawn = new Vector2(halfWidth, Random.Range(-halfHeight, halfHeight));
+                spawn = center + new Vector2(halfWidth, Random.Range(-halfHeight, halfHeight));
             else if (edge == 2)
-                spawn = new Vector2(Random.Range(-halfWidth, halfWidth), -halfHeight);
+                spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), -halfHeight);
             else
-                spawn = new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
+                spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
 
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
             var enemy = new EnemyState
@@ -308,14 +318,6 @@ namespace KaiChe.Gameplay.Survivor
             return view;
         }
 
-        private Vector2 PlayerPosition
-        {
-            get
-            {
-                if (_player == null) return Vector2.zero;
-                Vector3 position = _player.transform.position;
-                return new Vector2(position.x, position.y);
-            }
-        }
+        private Vector2 PlayerPosition => _playerWorldPosition;
     }
 }
