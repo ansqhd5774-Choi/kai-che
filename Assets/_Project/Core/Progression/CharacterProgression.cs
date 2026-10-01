@@ -65,6 +65,33 @@ namespace KaiChe.Core.Progression
         {
             return _attributes[attribute];
         }
+
+        public void RestorePrototypeState(
+            int level,
+            long experience,
+            long levelExperience,
+            int unspentAttributePoints,
+            int[] attributes)
+        {
+            Level = Math.Max(1, Math.Min(ProgressionRules.MaxLevel, level));
+            Experience = Math.Max(0L, experience);
+            LevelExperience = Math.Max(0L, levelExperience);
+            UnspentAttributePoints = Math.Max(0, unspentAttributePoints);
+
+            foreach (CharacterAttribute attribute in
+                     Enum.GetValues(typeof(CharacterAttribute)))
+            {
+                int index = (int)attribute;
+                int value = attributes != null && index < attributes.Length
+                    ? attributes[index]
+                    : 0;
+                _attributes[attribute] = Math.Max(0, value);
+            }
+
+            if (Level >= ProgressionRules.MaxLevel)
+                LevelExperience = 0;
+        }
+
         public int AddExperienceAndApplyPrototypeLevelUp(long amount)
         {
             if (amount <= 0)

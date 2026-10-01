@@ -30,6 +30,9 @@ namespace KaiChe.Gameplay.Survivor
         private float _spawnTimer;
         private float _shotTimer;
         private bool _initialized;
+        private const string ProgressionSavePrefix =
+            "KaiChe.PrototypeProgression.";
+
         private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
 
@@ -55,6 +58,7 @@ namespace KaiChe.Gameplay.Survivor
         public void Initialize(Material materialTemplate)
         {
             _materialTemplate = materialTemplate;
+            LoadPrototypeProgression();
             ConfigureCamera();
 
             _player = CreateQuad(
@@ -82,7 +86,10 @@ namespace KaiChe.Gameplay.Survivor
 
         public bool TrySpendAttributePoint(CharacterAttribute attribute)
         {
-            return _progression.TrySpendAttributePoints(attribute);
+            bool spent = _progression.TrySpendAttributePoints(attribute);
+            if (spent)
+                SavePrototypeProgression();
+            return spent;
         }
 
         private void Update()
@@ -317,6 +324,7 @@ namespace KaiChe.Gameplay.Survivor
             int levelsGained =
                 _progression.AddExperienceAndApplyPrototypeLevelUp(
                     definition.ExperienceReward);
+            SavePrototypeProgression();
             Kills += 1;
 
             if (levelsGained > 0)
@@ -353,6 +361,70 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             return view;
+        }
+
+        private void LoadPrototypeProgression()
+        {
+            string levelKey = ProgressionSavePrefix + "Level";
+            if (!PlayerPrefs.HasKey(levelKey))
+                return;
+
+            int[] attributes = new int[8];
+            foreach (CharacterAttribute attribute in
+                     System.Enum.GetValues(typeof(CharacterAttribute)))
+            {
+                attributes[(int)attribute] = PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "Attribute." + attribute,
+                    0);
+            }
+
+            long experience = ParseSavedLong("Experience");
+            long levelExperience = ParseSavedLong("LevelExperience");
+
+            _progression.RestorePrototypeState(
+                PlayerPrefs.GetInt(levelKey, 1),
+                experience,
+                levelExperience,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "UnspentAttributePoints",
+                    0),
+                attributes);
+        }
+
+        private void SavePrototypeProgression()
+        {
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "Level",
+                _progression.Level);
+            PlayerPrefs.SetString(
+                ProgressionSavePrefix + "Experience",
+                _progression.Experience.ToString());
+            PlayerPrefs.SetString(
+                ProgressionSavePrefix + "LevelExperience",
+                _progression.LevelExperience.ToString());
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "UnspentAttributePoints",
+                _progression.UnspentAttributePoints);
+
+            foreach (CharacterAttribute attribute in
+                     System.Enum.GetValues(typeof(CharacterAttribute)))
+            {
+                PlayerPrefs.SetInt(
+                    ProgressionSavePrefix + "Attribute." + attribute,
+                    _progression.GetAttribute(attribute));
+            }
+
+            PlayerPrefs.Save();
+        }
+
+        private static long ParseSavedLong(string suffix)
+        {
+            string raw = PlayerPrefs.GetString(
+                ProgressionSavePrefix + suffix,
+                "0");
+            return long.TryParse(raw, out long value) && value > 0L
+                ? value
+                : 0L;
         }
 
         private Vector2 PlayerPosition => _playerWorldPosition;

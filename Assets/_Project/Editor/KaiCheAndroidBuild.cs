@@ -93,6 +93,7 @@ namespace KaiChe.EditorTools
             PlayerSettings.productName = ProductName;
             PlayerSettings.bundleVersion = VersionName;
             PlayerSettings.Android.bundleVersionCode = VersionCode;
+            PlayerSettings.stripEngineCode = false;
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, PackageId);
         }
     }
