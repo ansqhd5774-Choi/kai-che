@@ -1,4 +1,5 @@
 using System.Collections;
+using KaiChe.Gameplay.Survivor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -8,7 +9,6 @@ namespace KaiChe.Presentation
     {
         private static bool _installed;
         private bool _loading;
-        private GameObject _demoCube;
         private GUIStyle _titleStyle;
         private GUIStyle _bodyStyle;
         private GUIStyle _smallStyle;
@@ -46,7 +46,7 @@ namespace KaiChe.Presentation
             }
 
             if (scene.name == "Game")
-                SetupDemoWorld();
+                SetupSurvivorWorld();
         }
 
         private IEnumerator AdvanceFromBoot()
@@ -57,12 +57,6 @@ namespace KaiChe.Presentation
             SceneManager.LoadScene("Main");
         }
 
-        private void Update()
-        {
-            if (_demoCube != null)
-                _demoCube.transform.Rotate(0f, 35f * Time.deltaTime, 0f, Space.World);
-        }
-
         private void OnGUI()
         {
             EnsureStyles();
@@ -70,8 +64,6 @@ namespace KaiChe.Presentation
             string scene = SceneManager.GetActiveScene().name;
             if (scene == "Main")
                 DrawMain();
-            else if (scene == "Game")
-                DrawGameOverlay();
         }
         private void DrawMain()
         {
@@ -82,67 +74,21 @@ namespace KaiChe.Presentation
             GUI.Box(panel, GUIContent.none);
             GUI.Label(new Rect(panel.x + 32f, panel.y + 44f, panel.width - 64f, 90f), "KaiChe", _titleStyle);
             GUI.Label(new Rect(panel.x + 32f, panel.y + 150f, panel.width - 64f, 120f),
-                "Android Prototype 0.1.0\nBoot -> Main transition OK", _bodyStyle);
+                "2D Survivor Prototype\nShared RPG data/core", _bodyStyle);
 
             float buttonWidth = Mathf.Min(panel.width - 64f, 560f);
             var button = new Rect(panel.center.x - buttonWidth * 0.5f, panel.yMax - 170f, buttonWidth, 96f);
 
-            if (GUI.Button(button, "ENTER 3D TEST", _buttonStyle))
+            if (GUI.Button(button, "PLAY 2D SURVIVOR", _buttonStyle))
                 SceneManager.LoadScene("Game");
 
             GUI.Label(new Rect(panel.x + 32f, panel.yMax - 58f, panel.width - 64f, 34f),
-                "KaiChe mobile RPG / first device test", _smallStyle);
+                "2D combat lab -> future 3D RPG", _smallStyle);
         }
 
-        private void DrawGameOverlay()
+        private static void SetupSurvivorWorld()
         {
-            GUI.Box(new Rect(24f, 24f, Screen.width - 48f, 150f), GUIContent.none);
-            GUI.Label(new Rect(52f, 42f, Screen.width - 104f, 52f), "3D RENDER TEST", _bodyStyle);
-            GUI.Label(new Rect(52f, 96f, Screen.width - 104f, 42f),
-                "Rotating cube + sphere + capsule", _smallStyle);
-
-            if (GUI.Button(new Rect(52f, Screen.height - 132f, 320f, 82f), "BACK", _buttonStyle))
-                SceneManager.LoadScene("Main");
-        }
-        private void SetupDemoWorld()
-        {
-            if (GameObject.Find("KaiCheDemoCube") != null) return;
-
-            Camera camera = Camera.main;
-            if (camera != null)
-            {
-                camera.transform.position = new Vector3(0f, 2.4f, -9f);
-                camera.transform.LookAt(new Vector3(0f, 0.1f, 4.5f));
-                camera.backgroundColor = new Color(0.025f, 0.035f, 0.065f);
-            }
-
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ground.name = "KaiCheDemoGround";
-            ground.transform.position = new Vector3(0f, -1f, 5f);
-            ground.transform.localScale = new Vector3(0.9f, 1f, 0.9f);
-            SetColor(ground, new Color(0.12f, 0.15f, 0.2f));
-
-            _demoCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            _demoCube.name = "KaiCheDemoCube";
-            _demoCube.transform.position = new Vector3(0f, 0.2f, 4f);
-            _demoCube.transform.localScale = Vector3.one * 1.8f;
-            SetColor(_demoCube, new Color(0.22f, 0.65f, 1f));
-
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = "KaiCheDemoSphere";
-            sphere.transform.position = new Vector3(-2.6f, -0.1f, 5f);
-            sphere.transform.localScale = Vector3.one * 1.5f;
-            SetColor(sphere, new Color(0.35f, 0.85f, 0.45f));
-
-            var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            capsule.name = "KaiCheDemoCapsule";
-            capsule.transform.position = new Vector3(2.6f, 0f, 5f);
-            SetColor(capsule, new Color(1f, 0.55f, 0.22f));
-        }
-        private static void SetColor(GameObject target, Color color)
-        {
-            var renderer = target.GetComponent<Renderer>();
-            if (renderer == null) return;
+            if (GameObject.Find("KaiCheSurvivorPrototype") != null) return;
 
             Material template = Resources.Load<Material>("KaiCheRuntimeLit");
             if (template == null)
@@ -151,13 +97,12 @@ namespace KaiChe.Presentation
                 return;
             }
 
-            var material = new Material(template);
-            if (material.HasProperty("_BaseColor"))
-                material.SetColor("_BaseColor", color);
-            else
-                material.color = color;
+            var root = new GameObject("KaiCheSurvivorPrototype");
+            var arena = root.AddComponent<SurvivorArenaController>();
+            arena.Initialize(template);
 
-            renderer.sharedMaterial = material;
+            var hud = root.AddComponent<SurvivorHudController>();
+            hud.Bind(arena);
         }
 
         private void EnsureStyles()
