@@ -39,15 +39,15 @@ namespace KaiChe.Presentation
         {
             _joystickBase = CreateCircleTexture(
                 128,
-                new Color(1f, 1f, 1f, 0.17f));
+                new Color(0.82f, 0.78f, 0.68f, 0.18f));
             _joystickKnob = CreateCircleTexture(
                 96,
-                new Color(0.72f, 0.58f, 0.24f, 0.82f));
+                new Color(0.74f, 0.56f, 0.20f, 0.90f));
 
-            _panelOuter = CreateSolidTexture(new Color(0.55f, 0.40f, 0.16f, 0.96f));
-            _panelInner = CreateSolidTexture(new Color(0.07f, 0.06f, 0.05f, 0.93f));
-            _healthFill = CreateSolidTexture(new Color(0.58f, 0.10f, 0.08f, 0.96f));
-            _experienceFill = CreateSolidTexture(new Color(0.18f, 0.34f, 0.62f, 0.96f));
+            _panelOuter = CreateSolidTexture(new Color(0.48f, 0.34f, 0.12f, 0.96f));
+            _panelInner = CreateSolidTexture(new Color(0.055f, 0.050f, 0.043f, 0.94f));
+            _healthFill = CreateSolidTexture(new Color(0.62f, 0.10f, 0.075f, 0.98f));
+            _experienceFill = CreateSolidTexture(new Color(0.16f, 0.32f, 0.64f, 0.98f));
             _barBack = CreateSolidTexture(new Color(0.02f, 0.02f, 0.02f, 0.90f));
             _actionPrimary = CreateCircleTexture(
                 128,
@@ -152,28 +152,28 @@ namespace KaiChe.Presentation
 
             Rect safe = SafeGuiRect;
             float margin = Mathf.Max(18f, safe.width * 0.018f);
-            float hudWidth = Mathf.Min(safe.width * 0.72f, 1040f);
+            float hudWidth = Mathf.Min(safe.width * 0.76f, 1080f);
             Rect hudPanel = new Rect(
                 safe.x + margin,
                 safe.y + margin,
                 hudWidth,
-                204f);
+                180f);
             DrawFantasyPanel(hudPanel);
 
             GUI.Label(
-                new Rect(hudPanel.x + 28f, hudPanel.y + 14f, 360f, 48f),
+                new Rect(hudPanel.x + 24f, hudPanel.y + 10f, 360f, 44f),
                 $"전사  LV {_arena.Level}",
                 _hudStyle);
             GUI.Label(
-                new Rect(hudPanel.xMax - 330f, hudPanel.y + 16f, 300f, 44f),
+                new Rect(hudPanel.xMax - 330f, hudPanel.y + 12f, 302f, 40f),
                 $"처치 {_arena.Kills}   적 {_arena.EnemyCount}",
                 _smallStyle);
 
             Rect hpRect = new Rect(
-                hudPanel.x + 28f,
-                hudPanel.y + 68f,
-                hudPanel.width * 0.64f,
-                36f);
+                hudPanel.x + 24f,
+                hudPanel.y + 56f,
+                hudPanel.width - 48f,
+                30f);
             DrawProgressBar(
                 hpRect,
                 Mathf.Clamp01(_arena.PlayerHealth / 100f),
@@ -182,10 +182,10 @@ namespace KaiChe.Presentation
 
             float xpMax = Mathf.Max(1f, _arena.ExperienceRequiredForNextLevel);
             Rect xpRect = new Rect(
-                hudPanel.x + 28f,
-                hudPanel.y + 112f,
-                hudPanel.width * 0.64f,
-                32f);
+                hudPanel.x + 24f,
+                hudPanel.y + 94f,
+                hudPanel.width - 48f,
+                28f);
             DrawProgressBar(
                 xpRect,
                 Mathf.Clamp01(_arena.LevelExperience / xpMax),
@@ -194,12 +194,12 @@ namespace KaiChe.Presentation
 
             GUI.Label(
                 new Rect(
-                    hudPanel.x + 28f,
-                    hudPanel.y + 154f,
-                    hudPanel.width - 56f,
-                    34f),
-                $"{_arena.ActiveSkillName} · 숙련도 {_arena.ActiveSkillMastery}   "
-                + $"해금 {_arena.UnlockedSkillCount}",
+                    hudPanel.x + 24f,
+                    hudPanel.y + 132f,
+                    hudPanel.width - 48f,
+                    32f),
+                $"{_arena.ActiveSkillName}  ·  숙련도 {_arena.ActiveSkillMastery}"
+                + $"   ·   해금 {_arena.UnlockedSkillCount}",
                 _smallStyle);
 
             bool modalOpen = _arena.IsDead
@@ -211,10 +211,10 @@ namespace KaiChe.Presentation
             }
 
             Rect exitRect = new Rect(
-                safe.xMax - margin - 190f,
+                safe.xMax - margin - 168f,
                 safe.y + margin,
-                190f,
-                72f);
+                168f,
+                64f);
             if (GUI.Button(exitRect, "나가기", _buttonStyle))
                 SceneManager.LoadScene("Main");
 

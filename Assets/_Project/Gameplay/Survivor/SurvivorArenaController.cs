@@ -334,31 +334,47 @@ namespace KaiChe.Gameplay.Survivor
         {
             GameObject floor = CreateQuad(
                 "BattlefieldFloor",
-                new Color(0.105f, 0.095f, 0.070f),
+                new Color(0.092f, 0.084f, 0.064f),
                 new Vector3(0f, 0f, 2.5f),
                 70f);
             floor.transform.localScale = new Vector3(70f, 70f, 1f);
 
             GameObject road = CreateQuad(
                 "BattlefieldRoad",
-                new Color(0.155f, 0.135f, 0.090f),
+                new Color(0.145f, 0.126f, 0.084f),
                 new Vector3(0f, 0f, 2.2f),
                 1f);
-            road.transform.localScale = new Vector3(4.6f, 70f, 1f);
+            road.transform.localScale = new Vector3(4.8f, 70f, 1f);
 
-            CreateRoadEdge(-2.4f);
-            CreateRoadEdge(2.4f);
+            CreateRoadEdge(-2.52f);
+            CreateRoadEdge(2.52f);
 
-            for (int i = 0; i < 30; i++)
+            for (int i = -18; i <= 18; i++)
+            {
+                float y = i * 2.25f;
+                float width = i % 3 == 0 ? 4.35f : 3.85f;
+                GameObject slab = CreateQuad(
+                    "RoadSlab_" + i,
+                    i % 2 == 0
+                        ? new Color(0.178f, 0.150f, 0.096f, 0.55f)
+                        : new Color(0.120f, 0.105f, 0.076f, 0.38f),
+                    new Vector3(0f, y, 2.08f),
+                    1f);
+                slab.transform.localScale = new Vector3(width, 0.055f, 1f);
+            }
+
+            for (int i = 0; i < 42; i++)
             {
                 float x = Mathf.Sin(i * 2.17f) * 28f;
                 float y = Mathf.Cos(i * 1.61f) * 28f;
-                float size = 0.18f + (i % 5) * 0.055f;
+                float size = 0.16f + (i % 5) * 0.05f;
                 GameObject stone = CreateQuad(
                     "BattlefieldStone_" + i,
                     new Color(0.19f, 0.17f, 0.13f, 0.94f),
                     new Vector3(x, y, 2.0f),
                     size);
+                stone.transform.localScale =
+                    new Vector3(1.35f, 0.72f, 1f) * size;
                 stone.transform.rotation =
                     Quaternion.Euler(0f, 0f, (i * 37f) % 360f);
             }
@@ -423,7 +439,39 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("Player");
             root.transform.SetParent(transform, false);
             root.transform.position = Vector3.zero;
-            root.transform.localScale = Vector3.one * 1.22f;
+            root.transform.localScale = Vector3.one * 1.18f;
+
+            GameObject shadow = CreateQuad(
+                "PlayerShadow",
+                new Color(0.015f, 0.012f, 0.010f, 0.62f),
+                new Vector3(0f, -0.42f, 0.08f),
+                1f);
+            shadow.transform.SetParent(root.transform, false);
+            shadow.transform.localScale = new Vector3(1.28f, 0.42f, 1f);
+
+            GameObject cape = CreateQuad(
+                "PlayerCape",
+                new Color(0.26f, 0.07f, 0.045f),
+                new Vector3(0.02f, -0.08f, 0.035f),
+                0.82f);
+            cape.transform.SetParent(root.transform, false);
+            cape.transform.localScale = new Vector3(0.72f, 0.92f, 1f);
+
+            GameObject leftLeg = CreateQuad(
+                "PlayerLegLeft",
+                new Color(0.14f, 0.16f, 0.17f),
+                new Vector3(-0.20f, -0.55f, 0.015f),
+                0.26f);
+            leftLeg.transform.SetParent(root.transform, false);
+            leftLeg.transform.localScale = new Vector3(0.23f, 0.56f, 1f);
+
+            GameObject rightLeg = CreateQuad(
+                "PlayerLegRight",
+                new Color(0.14f, 0.16f, 0.17f),
+                new Vector3(0.20f, -0.55f, 0.015f),
+                0.26f);
+            rightLeg.transform.SetParent(root.transform, false);
+            rightLeg.transform.localScale = new Vector3(0.23f, 0.56f, 1f);
 
             GameObject body = CreateQuad(
                 "PlayerBody",
@@ -438,6 +486,23 @@ namespace KaiChe.Gameplay.Survivor
                 new Vector3(0f, 0.00f, -0.03f),
                 0.54f);
             chest.transform.SetParent(root.transform, false);
+            chest.transform.localScale = new Vector3(0.62f, 0.58f, 1f);
+
+            GameObject chestLight = CreateQuad(
+                "PlayerChestLight",
+                new Color(0.76f, 0.58f, 0.22f),
+                new Vector3(0f, 0.13f, -0.045f),
+                0.22f);
+            chestLight.transform.SetParent(root.transform, false);
+            chestLight.transform.localScale = new Vector3(0.42f, 0.08f, 1f);
+
+            GameObject belt = CreateQuad(
+                "PlayerBelt",
+                new Color(0.11f, 0.075f, 0.045f),
+                new Vector3(0f, -0.31f, -0.04f),
+                0.38f);
+            belt.transform.SetParent(root.transform, false);
+            belt.transform.localScale = new Vector3(0.62f, 0.10f, 1f);
 
             GameObject helmet = CreateQuad(
                 "PlayerHelmet",
@@ -445,6 +510,23 @@ namespace KaiChe.Gameplay.Survivor
                 new Vector3(0f, 0.50f, -0.04f),
                 0.42f);
             helmet.transform.SetParent(root.transform, false);
+            helmet.transform.localScale = new Vector3(0.46f, 0.40f, 1f);
+
+            GameObject helmetRidge = CreateQuad(
+                "PlayerHelmetRidge",
+                new Color(0.66f, 0.51f, 0.23f),
+                new Vector3(0f, 0.72f, -0.055f),
+                0.18f);
+            helmetRidge.transform.SetParent(root.transform, false);
+            helmetRidge.transform.localScale = new Vector3(0.09f, 0.30f, 1f);
+
+            GameObject visor = CreateQuad(
+                "PlayerVisor",
+                new Color(0.10f, 0.12f, 0.13f),
+                new Vector3(0f, 0.51f, -0.06f),
+                0.24f);
+            visor.transform.SetParent(root.transform, false);
+            visor.transform.localScale = new Vector3(0.34f, 0.08f, 1f);
 
             GameObject leftShoulder = CreateQuad(
                 "PlayerShoulderLeft",
@@ -460,12 +542,21 @@ namespace KaiChe.Gameplay.Survivor
                 0.30f);
             rightShoulder.transform.SetParent(root.transform, false);
 
+            GameObject shieldRim = CreateQuad(
+                "PlayerShieldRim",
+                new Color(0.57f, 0.43f, 0.19f),
+                new Vector3(-0.60f, -0.04f, -0.055f),
+                0.66f);
+            shieldRim.transform.SetParent(root.transform, false);
+            shieldRim.transform.localScale = new Vector3(0.56f, 0.72f, 1f);
+
             GameObject shield = CreateQuad(
                 "PlayerShield",
-                new Color(0.15f, 0.17f, 0.18f),
-                new Vector3(-0.58f, -0.03f, -0.06f),
+                new Color(0.13f, 0.15f, 0.16f),
+                new Vector3(-0.60f, -0.04f, -0.065f),
                 0.58f);
             shield.transform.SetParent(root.transform, false);
+            shield.transform.localScale = new Vector3(0.48f, 0.64f, 1f);
 
             GameObject shieldBoss = CreateQuad(
                 "PlayerShieldBoss",
@@ -476,12 +567,30 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject sword = CreateQuad(
                 "PlayerSword",
-                new Color(0.78f, 0.77f, 0.68f),
-                new Vector3(0.62f, 0.06f, -0.05f),
+                new Color(0.84f, 0.83f, 0.72f),
+                new Vector3(0.67f, 0.10f, -0.05f),
                 0.16f);
             sword.transform.SetParent(root.transform, false);
-            sword.transform.localScale = new Vector3(0.14f, 1.08f, 1f);
+            sword.transform.localScale = new Vector3(0.11f, 1.16f, 1f);
             sword.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
+
+            GameObject swordGuard = CreateQuad(
+                "PlayerSwordGuard",
+                new Color(0.64f, 0.46f, 0.17f),
+                new Vector3(0.47f, -0.36f, -0.065f),
+                0.28f);
+            swordGuard.transform.SetParent(root.transform, false);
+            swordGuard.transform.localScale = new Vector3(0.42f, 0.09f, 1f);
+            swordGuard.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
+
+            GameObject swordGrip = CreateQuad(
+                "PlayerSwordGrip",
+                new Color(0.12f, 0.075f, 0.04f),
+                new Vector3(0.39f, -0.52f, -0.055f),
+                0.20f);
+            swordGrip.transform.SetParent(root.transform, false);
+            swordGrip.transform.localScale = new Vector3(0.10f, 0.34f, 1f);
+            swordGrip.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
 
             return root;
         }
