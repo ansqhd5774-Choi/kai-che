@@ -72,8 +72,6 @@ namespace KaiChe.Gameplay.Survivor
         public int UnspentAttributePoints => _progression.UnspentAttributePoints;
         public bool IsAttributeAllocationPending =>
             _progression.UnspentAttributePoints > 0;
-        public float AttackPulse =>
-            Mathf.Clamp01(_attackAnimationTime / AttackAnimationDuration);
 
         public void Initialize(Material materialTemplate)
         {

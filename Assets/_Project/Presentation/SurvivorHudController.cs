@@ -11,6 +11,7 @@ namespace KaiChe.Presentation
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
         private Vector2 _joystickOrigin;
+        private bool _joystickVisible;
         private Texture2D _joystickBase;
         private Texture2D _joystickKnob;
         private Texture2D _panelOuter;
@@ -18,16 +19,12 @@ namespace KaiChe.Presentation
         private Texture2D _healthFill;
         private Texture2D _experienceFill;
         private Texture2D _barBack;
-        private Texture2D _actionPrimary;
-        private Texture2D _actionSecondary;
         private Texture2D _buttonBack;
         private Texture2D _buttonPressed;
         private Texture2D _modalDim;
         private GUIStyle _hudStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
-        private GUIStyle _actionStyle;
-        private GUIStyle _actionSmallStyle;
         private GUIStyle _deathStyle;
 
         public void Bind(SurvivorArenaController arena)
@@ -49,12 +46,6 @@ namespace KaiChe.Presentation
             _healthFill = CreateSolidTexture(new Color(0.62f, 0.10f, 0.075f, 0.98f));
             _experienceFill = CreateSolidTexture(new Color(0.16f, 0.32f, 0.64f, 0.98f));
             _barBack = CreateSolidTexture(new Color(0.02f, 0.02f, 0.02f, 0.90f));
-            _actionPrimary = CreateCircleTexture(
-                128,
-                new Color(0.50f, 0.16f, 0.10f, 0.94f));
-            _actionSecondary = CreateCircleTexture(
-                128,
-                new Color(0.16f, 0.15f, 0.13f, 0.88f));
             _buttonBack = CreateSolidTexture(
                 new Color(0.12f, 0.105f, 0.08f, 0.98f));
             _buttonPressed = CreateSolidTexture(
@@ -91,11 +82,11 @@ namespace KaiChe.Presentation
                 Touch touch = Input.GetTouch(i);
 
                 if (_activeFingerId < 0
-                    && touch.phase == TouchPhase.Began
-                    && IsMoveTouch(touch.position))
+                    && touch.phase == TouchPhase.Began)
                 {
                     _activeFingerId = touch.fingerId;
-                    _joystickOrigin = JoystickCenterScreen;
+                    _joystickOrigin = touch.position;
+                    _joystickVisible = true;
                 }
 
                 if (touch.fingerId != _activeFingerId) continue;
@@ -104,6 +95,7 @@ namespace KaiChe.Presentation
                     || touch.phase == TouchPhase.Canceled)
                 {
                     _activeFingerId = -1;
+                    _joystickVisible = false;
                     return Vector2.zero;
                 }
 
@@ -114,6 +106,7 @@ namespace KaiChe.Presentation
             if (_activeFingerId >= 0)
             {
                 _activeFingerId = -1;
+                _joystickVisible = false;
             }
 
             return Vector2.zero;
@@ -123,6 +116,7 @@ namespace KaiChe.Presentation
         {
             _activeFingerId = -1;
             _joystickInput = Vector2.zero;
+            _joystickVisible = false;
         }
 
         private static Vector2 ReadFallbackInput()
@@ -205,10 +199,7 @@ namespace KaiChe.Presentation
             bool modalOpen = _arena.IsDead
                 || _arena.IsAttributeAllocationPending;
             if (!modalOpen)
-            {
                 DrawJoystick();
-                DrawActionDeck(safe);
-            }
 
             Rect exitRect = new Rect(
                 safe.xMax - margin - 168f,
@@ -226,8 +217,10 @@ namespace KaiChe.Presentation
 
         private void DrawJoystick()
         {
+            if (!_joystickVisible) return;
+
             float radius = JoystickRadius;
-            Vector2 center = JoystickCenterScreen;
+            Vector2 center = _joystickOrigin;
 
             Rect baseRect = ScreenRect(center, radius);
             GUI.DrawTexture(baseRect, _joystickBase, ScaleMode.StretchToFill, true);
@@ -235,67 +228,6 @@ namespace KaiChe.Presentation
             Vector2 knobCenter = center + _joystickInput * radius * 0.62f;
             Rect knobRect = ScreenRect(knobCenter, radius * 0.40f);
             GUI.DrawTexture(knobRect, _joystickKnob, ScaleMode.StretchToFill, true);
-
-            Rect labelRect = new Rect(
-                baseRect.x,
-                baseRect.yMax + 4f,
-                baseRect.width,
-                34f);
-            GUI.Label(labelRect, "이동", _actionSmallStyle);
-        }
-
-        private void DrawActionDeck(Rect safe)
-        {
-            float primary = Mathf.Clamp(safe.width * 0.105f, 128f, 178f);
-            float secondary = primary * 0.68f;
-            float margin = Mathf.Max(24f, safe.width * 0.026f);
-
-            Vector2 primaryCenter = new Vector2(
-                safe.xMax - margin - primary,
-                safe.yMax - margin - primary);
-
-            Rect primaryBaseRect = new Rect(
-                primaryCenter.x - primary,
-                primaryCenter.y - primary,
-                primary * 2f,
-                primary * 2f);
-            float pulse = Mathf.Clamp01(_arena.AttackPulse);
-            float pulseInset = primary * pulse * 0.08f;
-            Rect primaryRect = new Rect(
-                primaryBaseRect.x - pulseInset,
-                primaryBaseRect.y - pulseInset,
-                primaryBaseRect.width + pulseInset * 2f,
-                primaryBaseRect.height + pulseInset * 2f);
-            GUI.DrawTexture(
-                primaryRect,
-                _actionPrimary,
-                ScaleMode.StretchToFill,
-                true);
-            GUI.Label(primaryRect, "베기\nAUTO", _actionStyle);
-
-            Rect skillOne = new Rect(
-                primaryBaseRect.x - secondary * 1.35f,
-                primaryBaseRect.y + primary * 0.10f,
-                secondary * 2f,
-                secondary * 2f);
-            Rect skillTwo = new Rect(
-                primaryBaseRect.x + primary * 0.18f,
-                primaryBaseRect.y - secondary * 1.45f,
-                secondary * 2f,
-                secondary * 2f);
-
-            GUI.DrawTexture(
-                skillOne,
-                _actionSecondary,
-                ScaleMode.StretchToFill,
-                true);
-            GUI.DrawTexture(
-                skillTwo,
-                _actionSecondary,
-                ScaleMode.StretchToFill,
-                true);
-            GUI.Label(skillOne, "방패\n잠금", _actionSmallStyle);
-            GUI.Label(skillTwo, "돌진\n잠금", _actionSmallStyle);
         }
 
         private void DrawAttributeAllocationOverlay()
@@ -443,20 +375,6 @@ namespace KaiChe.Presentation
                 alignment = TextAnchor.MiddleCenter
             };
 
-            _actionStyle = new GUIStyle(skin.label)
-            {
-                fontSize = Mathf.Max(26, baseSize - 4),
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-
-            _actionSmallStyle = new GUIStyle(skin.label)
-            {
-                fontSize = Mathf.Max(20, baseSize - 12),
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-
             _deathStyle = new GUIStyle(skin.label)
             {
                 fontSize = baseSize + 22,
@@ -467,9 +385,6 @@ namespace KaiChe.Presentation
             Color parchment = new Color(0.92f, 0.84f, 0.65f);
             _hudStyle.normal.textColor = parchment;
             _smallStyle.normal.textColor = new Color(0.78f, 0.72f, 0.58f);
-            _actionStyle.normal.textColor = parchment;
-            _actionSmallStyle.normal.textColor =
-                new Color(0.84f, 0.77f, 0.61f);
             _deathStyle.normal.textColor = new Color(0.96f, 0.80f, 0.36f);
             _buttonStyle.normal.textColor = parchment;
             _buttonStyle.hover.textColor = parchment;
@@ -551,19 +466,6 @@ namespace KaiChe.Presentation
         private float JoystickRadius =>
             Mathf.Clamp(Screen.width * 0.125f, 132f, 210f);
 
-        private Vector2 JoystickCenterScreen
-        {
-            get
-            {
-                Rect safe = Screen.safeArea;
-                float radius = JoystickRadius;
-                float inset = Mathf.Max(22f, safe.width * 0.022f);
-                return new Vector2(
-                    safe.x + inset + radius,
-                    safe.y + inset + radius);
-            }
-        }
-
         private static Rect SafeGuiRect
         {
             get
@@ -575,13 +477,6 @@ namespace KaiChe.Presentation
                     safe.width,
                     safe.height);
             }
-        }
-
-        private static bool IsMoveTouch(Vector2 screenPosition)
-        {
-            Rect safe = Screen.safeArea;
-            return screenPosition.x <= safe.x + safe.width * 0.56f
-                && screenPosition.y <= safe.y + safe.height * 0.58f;
         }
 
         private static Rect ScreenRect(Vector2 screenCenter, float radius)
