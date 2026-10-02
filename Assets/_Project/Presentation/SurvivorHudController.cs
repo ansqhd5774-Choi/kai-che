@@ -254,11 +254,18 @@ namespace KaiChe.Presentation
                 safe.xMax - margin - primary,
                 safe.yMax - margin - primary);
 
-            Rect primaryRect = new Rect(
+            Rect primaryBaseRect = new Rect(
                 primaryCenter.x - primary,
                 primaryCenter.y - primary,
                 primary * 2f,
                 primary * 2f);
+            float pulse = Mathf.Clamp01(_arena.AttackPulse);
+            float pulseInset = primary * pulse * 0.08f;
+            Rect primaryRect = new Rect(
+                primaryBaseRect.x - pulseInset,
+                primaryBaseRect.y - pulseInset,
+                primaryBaseRect.width + pulseInset * 2f,
+                primaryBaseRect.height + pulseInset * 2f);
             GUI.DrawTexture(
                 primaryRect,
                 _actionPrimary,
@@ -267,13 +274,13 @@ namespace KaiChe.Presentation
             GUI.Label(primaryRect, "베기\nAUTO", _actionStyle);
 
             Rect skillOne = new Rect(
-                primaryRect.x - secondary * 1.35f,
-                primaryRect.y + primary * 0.10f,
+                primaryBaseRect.x - secondary * 1.35f,
+                primaryBaseRect.y + primary * 0.10f,
                 secondary * 2f,
                 secondary * 2f);
             Rect skillTwo = new Rect(
-                primaryRect.x + primary * 0.18f,
-                primaryRect.y - secondary * 1.45f,
+                primaryBaseRect.x + primary * 0.18f,
+                primaryBaseRect.y - secondary * 1.45f,
                 secondary * 2f,
                 secondary * 2f);
 

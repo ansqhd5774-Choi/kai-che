@@ -11,6 +11,8 @@ namespace KaiChe.Gameplay.Survivor
         {
             public GameObject View;
             public float Health;
+            public float AnimationPhase;
+            public float BaseScale;
         }
 
         private sealed class ProjectileState
@@ -21,15 +23,30 @@ namespace KaiChe.Gameplay.Survivor
             public float Life;
         }
 
+        private sealed class EffectState
+        {
+            public GameObject View;
+            public float Life;
+            public float MaxLife;
+            public Vector3 StartScale;
+            public float SpinSpeed;
+        }
+
         private readonly List<EnemyState> _enemies = new List<EnemyState>();
         private readonly List<ProjectileState> _projectiles = new List<ProjectileState>();
+        private readonly List<EffectState> _effects = new List<EffectState>();
         private Material _materialTemplate;
         private GameObject _player;
+        private Transform _weaponRoot;
         private Vector2 _moveInput;
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
         private float _shotTimer;
+        private float _moveAnimationTime;
+        private float _attackAnimationTime;
         private bool _initialized;
+        private const float PlayerBaseScale = 1.18f;
+        private const float AttackAnimationDuration = 0.18f;
         private const string ProgressionSavePrefix =
             "KaiChe.PrototypeProgression.";
 
@@ -55,6 +72,8 @@ namespace KaiChe.Gameplay.Survivor
         public int UnspentAttributePoints => _progression.UnspentAttributePoints;
         public bool IsAttributeAllocationPending =>
             _progression.UnspentAttributePoints > 0;
+        public float AttackPulse =>
+            Mathf.Clamp01(_attackAnimationTime / AttackAnimationDuration);
 
         public void Initialize(Material materialTemplate)
         {
@@ -101,6 +120,8 @@ namespace KaiChe.Gameplay.Survivor
             UpdateEnemies(deltaTime);
             UpdateShooting(deltaTime);
             UpdateProjectiles(deltaTime);
+            UpdatePlayerAnimation(deltaTime);
+            UpdateEffects(deltaTime);
         }
 
         private static void ConfigureCamera()
@@ -138,6 +159,53 @@ namespace KaiChe.Gameplay.Survivor
             }
         }
 
+        private void UpdatePlayerAnimation(float deltaTime)
+        {
+            if (_player == null) return;
+
+            bool moving = _moveInput.sqrMagnitude > 0.01f;
+            if (moving)
+                _moveAnimationTime += deltaTime * 9f;
+            else
+                _moveAnimationTime = Mathf.MoveTowards(
+                    _moveAnimationTime,
+                    0f,
+                    deltaTime * 12f);
+
+            float stride = moving ? Mathf.Sin(_moveAnimationTime) : 0f;
+            float bob = moving ? Mathf.Abs(stride) * 0.055f : 0f;
+            float sway = moving ? stride * 1.8f : 0f;
+            float scalePulse = moving ? Mathf.Abs(stride) * 0.018f : 0f;
+
+            _player.transform.position = new Vector3(
+                _playerWorldPosition.x,
+                _playerWorldPosition.y + bob,
+                0f);
+            _player.transform.localScale =
+                Vector3.one * (PlayerBaseScale + scalePulse);
+            _player.transform.rotation =
+                Quaternion.Euler(0f, 0f, sway);
+
+            _attackAnimationTime = Mathf.Max(
+                0f,
+                _attackAnimationTime - deltaTime);
+
+            if (_weaponRoot != null)
+            {
+                float attackProgress = _attackAnimationTime > 0f
+                    ? 1f - (_attackAnimationTime / AttackAnimationDuration)
+                    : 0f;
+                float swing = _attackAnimationTime > 0f
+                    ? Mathf.Sin(attackProgress * Mathf.PI) * -62f
+                    : 0f;
+
+                _weaponRoot.localRotation =
+                    Quaternion.Euler(0f, 0f, swing);
+                _weaponRoot.localPosition =
+                    new Vector3(0f, bob * 0.2f, 0f);
+            }
+        }
+
         private void UpdateSpawning(float deltaTime)
         {
             _spawnTimer -= deltaTime;
@@ -168,13 +236,19 @@ namespace KaiChe.Gameplay.Survivor
                 spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
 
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
+            float variantScale = Random.Range(0.88f, 1.12f);
             var enemy = new EnemyState
             {
                 View = CreateEnemyView(
                     definition.Id,
                     new Vector3(spawn.x, spawn.y, 0f)),
-                Health = definition.MaxHealth
+                Health = definition.MaxHealth,
+                AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
+                BaseScale = variantScale
             };
+
+            if (enemy.View != null)
+                enemy.View.transform.localScale = Vector3.one * variantScale;
 
             _enemies.Add(enemy);
         }
@@ -202,6 +276,16 @@ namespace KaiChe.Gameplay.Survivor
                         new Vector3(position.x, position.y, 0f);
                 }
 
+                enemy.AnimationPhase += deltaTime * 5.2f;
+                float enemyPulse =
+                    1f + Mathf.Sin(enemy.AnimationPhase) * 0.035f;
+                enemy.View.transform.localScale =
+                    Vector3.one * enemy.BaseScale * enemyPulse;
+                enemy.View.transform.rotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    Mathf.Sin(enemy.AnimationPhase * 0.73f) * 2.5f);
+
                 if (distance < 0.62f)
                 {
                     PlayerHealth = Mathf.Max(
@@ -227,19 +311,29 @@ namespace KaiChe.Gameplay.Survivor
             Vector2 targetPosition = target.View.transform.position;
             Vector2 direction = (targetPosition - origin).normalized;
 
+            GameObject projectileView = CreateQuad(
+                "Projectile_" + skill.Id,
+                new Color(0.96f, 0.78f, 0.30f),
+                new Vector3(origin.x, origin.y, -0.1f),
+                1f);
+            projectileView.transform.localScale =
+                new Vector3(0.46f, 0.10f, 1f);
+            projectileView.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
             var projectile = new ProjectileState
             {
-                View = CreateQuad(
-                    "Projectile_" + skill.Id,
-                    new Color(0.92f, 0.72f, 0.22f),
-                    new Vector3(origin.x, origin.y, -0.1f),
-                    0.16f),
+                View = projectileView,
                 Target = target,
                 Direction = direction,
                 Life = 2.2f
             };
 
             _projectiles.Add(projectile);
+            _attackAnimationTime = AttackAnimationDuration;
+            CreateSlashEffect(origin, direction);
             _shotTimer = skill.Cooldown;
         }
 
@@ -288,6 +382,12 @@ namespace KaiChe.Gameplay.Survivor
                 position += (Vector3)(
                     projectile.Direction * skill.ProjectileSpeed * deltaTime);
                 projectile.View.transform.position = position;
+                projectile.View.transform.rotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    Mathf.Atan2(
+                        projectile.Direction.y,
+                        projectile.Direction.x) * Mathf.Rad2Deg);
                 projectile.Life -= deltaTime;
 
                 bool hit = projectile.Target != null
@@ -298,6 +398,7 @@ namespace KaiChe.Gameplay.Survivor
                 if (hit)
                 {
                     _skillMastery.RecordUse(skill.Id);
+                    CreateImpactEffect(position);
                     DamageEnemy(projectile.Target, skill.Damage);
                     Destroy(projectile.View);
                     _projectiles.RemoveAt(i);
@@ -308,7 +409,109 @@ namespace KaiChe.Gameplay.Survivor
                     _projectiles.RemoveAt(i);
                 }
             }
-        }        private void DamageEnemy(EnemyState enemy, float damage)
+        }
+
+        private void UpdateEffects(float deltaTime)
+        {
+            for (int i = _effects.Count - 1; i >= 0; i--)
+            {
+                EffectState effect = _effects[i];
+                if (effect.View == null)
+                {
+                    _effects.RemoveAt(i);
+                    continue;
+                }
+
+                effect.Life -= deltaTime;
+                float t = 1f - Mathf.Clamp01(effect.Life / effect.MaxLife);
+                float scale = Mathf.Lerp(1f, 0.08f, t);
+                effect.View.transform.localScale =
+                    effect.StartScale * scale;
+                effect.View.transform.Rotate(
+                    0f,
+                    0f,
+                    effect.SpinSpeed * deltaTime);
+
+                if (effect.Life > 0f) continue;
+
+                Destroy(effect.View);
+                _effects.RemoveAt(i);
+            }
+        }
+
+        private void CreateSlashEffect(Vector2 origin, Vector2 direction)
+        {
+            var root = new GameObject("SlashEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position = new Vector3(
+                origin.x + direction.x * 0.72f,
+                origin.y + direction.y * 0.72f,
+                -0.16f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            GameObject core = CreateQuad(
+                "SlashCore",
+                new Color(1f, 0.82f, 0.34f, 0.96f),
+                Vector3.zero,
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale = new Vector3(0.95f, 0.10f, 1f);
+
+            GameObject glow = CreateQuad(
+                "SlashGlow",
+                new Color(0.95f, 0.42f, 0.12f, 0.72f),
+                Vector3.zero,
+                1f);
+            glow.transform.SetParent(root.transform, false);
+            glow.transform.localScale = new Vector3(0.58f, 0.22f, 1f);
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.16f,
+                MaxLife = 0.16f,
+                StartScale = Vector3.one,
+                SpinSpeed = -180f
+            });
+        }
+
+        private void CreateImpactEffect(Vector3 position)
+        {
+            var root = new GameObject("ImpactEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.18f);
+
+            for (int i = 0; i < 4; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "ImpactRay_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.72f, 0.20f, 0.96f)
+                        : new Color(0.92f, 0.26f, 0.08f, 0.90f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(0.42f, 0.07f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 45f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.20f,
+                MaxLife = 0.20f,
+                StartScale = Vector3.one,
+                SpinSpeed = 240f
+            });
+        }
+
+        private void DamageEnemy(EnemyState enemy, float damage)
         {
             if (enemy == null || enemy.View == null) return;
 
@@ -396,39 +599,102 @@ namespace KaiChe.Gameplay.Survivor
             root.transform.SetParent(transform, false);
             root.transform.position = position;
 
+            GameObject shadow = CreateQuad(
+                "EnemyShadow",
+                new Color(0.015f, 0.010f, 0.008f, 0.55f),
+                new Vector3(0f, -0.38f, 0.08f),
+                1f);
+            shadow.transform.SetParent(root.transform, false);
+            shadow.transform.localScale = new Vector3(0.92f, 0.28f, 1f);
+
+            GameObject leftLeg = CreateQuad(
+                "EnemyLegLeft",
+                new Color(0.19f, 0.045f, 0.038f),
+                new Vector3(-0.18f, -0.48f, 0.01f),
+                0.30f);
+            leftLeg.transform.SetParent(root.transform, false);
+            leftLeg.transform.localScale = new Vector3(0.22f, 0.52f, 1f);
+
+            GameObject rightLeg = CreateQuad(
+                "EnemyLegRight",
+                new Color(0.19f, 0.045f, 0.038f),
+                new Vector3(0.18f, -0.48f, 0.01f),
+                0.30f);
+            rightLeg.transform.SetParent(root.transform, false);
+            rightLeg.transform.localScale = new Vector3(0.22f, 0.52f, 1f);
+
             GameObject body = CreateQuad(
                 "EnemyBody",
                 new Color(0.30f, 0.075f, 0.060f),
                 Vector3.zero,
                 0.72f);
             body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(0.66f, 0.82f, 1f);
 
             GameObject chest = CreateQuad(
                 "EnemyChest",
-                new Color(0.48f, 0.12f, 0.085f),
-                new Vector3(0f, -0.04f, -0.02f),
+                new Color(0.50f, 0.12f, 0.075f),
+                new Vector3(0f, -0.03f, -0.02f),
                 0.42f);
             chest.transform.SetParent(root.transform, false);
+            chest.transform.localScale = new Vector3(0.48f, 0.48f, 1f);
+
+            GameObject leftArm = CreateQuad(
+                "EnemyArmLeft",
+                new Color(0.25f, 0.055f, 0.045f),
+                new Vector3(-0.43f, 0.02f, -0.01f),
+                0.28f);
+            leftArm.transform.SetParent(root.transform, false);
+            leftArm.transform.localScale = new Vector3(0.22f, 0.52f, 1f);
+            leftArm.transform.localRotation = Quaternion.Euler(0f, 0f, 16f);
+
+            GameObject rightArm = CreateQuad(
+                "EnemyArmRight",
+                new Color(0.25f, 0.055f, 0.045f),
+                new Vector3(0.43f, 0.02f, -0.01f),
+                0.28f);
+            rightArm.transform.SetParent(root.transform, false);
+            rightArm.transform.localScale = new Vector3(0.22f, 0.52f, 1f);
+            rightArm.transform.localRotation = Quaternion.Euler(0f, 0f, -16f);
 
             GameObject head = CreateQuad(
                 "EnemyHead",
-                new Color(0.14f, 0.14f, 0.13f),
-                new Vector3(0f, 0.40f, -0.035f),
-                0.34f);
+                new Color(0.12f, 0.12f, 0.11f),
+                new Vector3(0f, 0.43f, -0.035f),
+                0.36f);
             head.transform.SetParent(root.transform, false);
+            head.transform.localScale = new Vector3(0.40f, 0.34f, 1f);
+
+            GameObject hornLeft = CreateQuad(
+                "EnemyHornLeft",
+                new Color(0.60f, 0.46f, 0.25f),
+                new Vector3(-0.20f, 0.68f, -0.04f),
+                0.22f);
+            hornLeft.transform.SetParent(root.transform, false);
+            hornLeft.transform.localScale = new Vector3(0.08f, 0.30f, 1f);
+            hornLeft.transform.localRotation = Quaternion.Euler(0f, 0f, 28f);
+
+            GameObject hornRight = CreateQuad(
+                "EnemyHornRight",
+                new Color(0.60f, 0.46f, 0.25f),
+                new Vector3(0.20f, 0.68f, -0.04f),
+                0.22f);
+            hornRight.transform.SetParent(root.transform, false);
+            hornRight.transform.localScale = new Vector3(0.08f, 0.30f, 1f);
+            hornRight.transform.localRotation = Quaternion.Euler(0f, 0f, -28f);
 
             GameObject leftEye = CreateQuad(
                 "EnemyEyeLeft",
-                new Color(0.95f, 0.38f, 0.10f),
-                new Vector3(-0.09f, 0.42f, -0.05f),
-                0.07f);
+                new Color(1f, 0.34f, 0.06f),
+                new Vector3(-0.10f, 0.44f, -0.06f),
+                0.075f);
             leftEye.transform.SetParent(root.transform, false);
 
             GameObject rightEye = CreateQuad(
                 "EnemyEyeRight",
-                new Color(0.95f, 0.38f, 0.10f),
-                new Vector3(0.09f, 0.42f, -0.05f),
-                0.07f);
+                new Color(1f, 0.34f, 0.06f),
+                new Vector3(0.10f, 0.44f, -0.06f),
+                0.075f);
             rightEye.transform.SetParent(root.transform, false);
 
             return root;
@@ -439,7 +705,7 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("Player");
             root.transform.SetParent(transform, false);
             root.transform.position = Vector3.zero;
-            root.transform.localScale = Vector3.one * 1.18f;
+            root.transform.localScale = Vector3.one * PlayerBaseScale;
 
             GameObject shadow = CreateQuad(
                 "PlayerShadow",
@@ -565,12 +831,16 @@ namespace KaiChe.Gameplay.Survivor
                 0.20f);
             shieldBoss.transform.SetParent(root.transform, false);
 
+            var weapon = new GameObject("PlayerWeapon");
+            weapon.transform.SetParent(root.transform, false);
+            _weaponRoot = weapon.transform;
+
             GameObject sword = CreateQuad(
                 "PlayerSword",
                 new Color(0.84f, 0.83f, 0.72f),
                 new Vector3(0.67f, 0.10f, -0.05f),
                 0.16f);
-            sword.transform.SetParent(root.transform, false);
+            sword.transform.SetParent(_weaponRoot, false);
             sword.transform.localScale = new Vector3(0.11f, 1.16f, 1f);
             sword.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
 
@@ -579,7 +849,7 @@ namespace KaiChe.Gameplay.Survivor
                 new Color(0.64f, 0.46f, 0.17f),
                 new Vector3(0.47f, -0.36f, -0.065f),
                 0.28f);
-            swordGuard.transform.SetParent(root.transform, false);
+            swordGuard.transform.SetParent(_weaponRoot, false);
             swordGuard.transform.localScale = new Vector3(0.42f, 0.09f, 1f);
             swordGuard.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
 
@@ -588,7 +858,7 @@ namespace KaiChe.Gameplay.Survivor
                 new Color(0.12f, 0.075f, 0.04f),
                 new Vector3(0.39f, -0.52f, -0.055f),
                 0.20f);
-            swordGrip.transform.SetParent(root.transform, false);
+            swordGrip.transform.SetParent(_weaponRoot, false);
             swordGrip.transform.localScale = new Vector3(0.10f, 0.34f, 1f);
             swordGrip.transform.rotation = Quaternion.Euler(0f, 0f, -24f);
 
