@@ -1,0 +1,33 @@
+name: Unity Project Preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+
+jobs:
+  validate-unity-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Unity project structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d Assets
+          test -d Packages
+          test -d ProjectSettings
+          test -f ProjectSettings/ProjectVersion.txt
+          echo "Unity project structure: PASS"
+
+      - name: Show Unity editor version
+        shell: bash
+        run: |
+          grep -E '^m_EditorVersion:' ProjectSettings/ProjectVersion.txt || true
