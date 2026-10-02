@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using KaiChe.Core.Content;
 using KaiChe.Core.Progression;
+using KaiChe.Gameplay.Adventure;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace KaiChe.Gameplay.Survivor
 {
@@ -13,6 +15,7 @@ namespace KaiChe.Gameplay.Survivor
             public float Health;
             public float AnimationPhase;
             public float BaseScale;
+            public bool IsAggro;
         }
 
         private sealed class ProjectileState
@@ -45,8 +48,14 @@ namespace KaiChe.Gameplay.Survivor
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private bool _initialized;
-        private const float PlayerBaseScale = 1.18f;
+        private const float PlayerBaseScale = 0.58f;
         private const float AttackAnimationDuration = 0.18f;
+        private const float EnemyAggroRadius = 3.0f;
+        private const float EnemyContactRadius = 0.34f;
+        private const int MaxVisibleEnemies = 100;
+        private static readonly Vector2 TownEntrancePosition =
+            new Vector2(0f, -8.5f);
+        private const float TownEntranceRadius = 0.72f;
         private const string ProgressionSavePrefix =
             "KaiChe.PrototypeProgression.";
 
@@ -77,6 +86,8 @@ namespace KaiChe.Gameplay.Survivor
         {
             _materialTemplate = materialTemplate;
             LoadPrototypeProgression();
+            PrototypeAdventureState.EnsureLoaded();
+            PlayerHealth = PrototypeAdventureState.Health;
             ConfigureCamera();
 
             CreateBattlefieldBackdrop();
@@ -114,6 +125,7 @@ namespace KaiChe.Gameplay.Survivor
 
             float deltaTime = Time.deltaTime;
             UpdateWorldMovement(deltaTime);
+            UpdateTownEntrance();
             UpdateSpawning(deltaTime);
             UpdateEnemies(deltaTime);
             UpdateShooting(deltaTime);
@@ -128,7 +140,7 @@ namespace KaiChe.Gameplay.Survivor
             if (camera == null) return;
 
             camera.orthographic = true;
-            camera.orthographicSize = 8f;
+            camera.orthographicSize = 11f;
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.transform.rotation = Quaternion.identity;
             camera.backgroundColor = new Color(0.018f, 0.022f, 0.018f);
@@ -157,6 +169,18 @@ namespace KaiChe.Gameplay.Survivor
             }
         }
 
+        private void UpdateTownEntrance()
+        {
+            if ((_playerWorldPosition - TownEntrancePosition).sqrMagnitude
+                > TownEntranceRadius * TownEntranceRadius)
+                return;
+
+            PrototypeAdventureState.SetHealth(PlayerHealth);
+            _moveInput = Vector2.zero;
+            _initialized = false;
+            SceneManager.LoadScene("Town");
+        }
+
         private void UpdatePlayerAnimation(float deltaTime)
         {
             if (_player == null) return;
@@ -171,9 +195,9 @@ namespace KaiChe.Gameplay.Survivor
                     deltaTime * 12f);
 
             float stride = moving ? Mathf.Sin(_moveAnimationTime) : 0f;
-            float bob = moving ? Mathf.Abs(stride) * 0.055f : 0f;
+            float bob = moving ? Mathf.Abs(stride) * 0.028f : 0f;
             float sway = moving ? stride * 1.8f : 0f;
-            float scalePulse = moving ? Mathf.Abs(stride) * 0.018f : 0f;
+            float scalePulse = moving ? Mathf.Abs(stride) * 0.009f : 0f;
 
             _player.transform.position = new Vector3(
                 _playerWorldPosition.x,
@@ -207,7 +231,7 @@ namespace KaiChe.Gameplay.Survivor
         private void UpdateSpawning(float deltaTime)
         {
             _spawnTimer -= deltaTime;
-            if (_spawnTimer > 0f || _enemies.Count >= 60) return;
+            if (_spawnTimer > 0f || _enemies.Count >= MaxVisibleEnemies) return;
 
             SpawnEnemy();
 
@@ -234,7 +258,7 @@ namespace KaiChe.Gameplay.Survivor
                 spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
 
             MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
-            float variantScale = Random.Range(0.88f, 1.12f);
+            float variantScale = Random.Range(0.46f, 0.58f);
             var enemy = new EnemyState
             {
                 View = CreateEnemyView(
@@ -242,7 +266,8 @@ namespace KaiChe.Gameplay.Survivor
                     new Vector3(spawn.x, spawn.y, 0f)),
                 Health = definition.MaxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
-                BaseScale = variantScale
+                BaseScale = variantScale,
+                IsAggro = false
             };
 
             if (enemy.View != null)
@@ -267,7 +292,10 @@ namespace KaiChe.Gameplay.Survivor
                 Vector2 offset = playerPosition - position;
                 float distance = offset.magnitude;
 
-                if (distance > 0.001f)
+                if (!enemy.IsAggro && distance <= EnemyAggroRadius)
+                    enemy.IsAggro = true;
+
+                if (enemy.IsAggro && distance > 0.001f)
                 {
                     position += offset / distance * definition.MoveSpeed * deltaTime;
                     enemy.View.transform.position =
@@ -284,7 +312,7 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     Mathf.Sin(enemy.AnimationPhase * 0.73f) * 2.5f);
 
-                if (distance < 0.62f)
+                if (enemy.IsAggro && distance < EnemyContactRadius)
                 {
                     PlayerHealth = Mathf.Max(
                         0f,
@@ -549,6 +577,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreateRoadEdge(-2.52f);
             CreateRoadEdge(2.52f);
+            CreateTownEntranceMarker();
 
             for (int i = -18; i <= 18; i++)
             {
@@ -578,6 +607,26 @@ namespace KaiChe.Gameplay.Survivor
                     new Vector3(1.35f, 0.72f, 1f) * size;
                 stone.transform.rotation =
                     Quaternion.Euler(0f, 0f, (i * 37f) % 360f);
+            }
+        }
+
+        private void CreateTownEntranceMarker()
+        {
+            GameObject glow = CreateQuad(
+                "TownEntrance",
+                new Color(0.24f, 0.46f, 0.22f, 0.52f),
+                new Vector3(TownEntrancePosition.x, TownEntrancePosition.y, 1.95f),
+                1f);
+            glow.transform.localScale = new Vector3(1.35f, 0.72f, 1f);
+
+            for (int side = -1; side <= 1; side += 2)
+            {
+                GameObject post = CreateQuad(
+                    side < 0 ? "TownGateLeft" : "TownGateRight",
+                    new Color(0.31f, 0.24f, 0.13f),
+                    new Vector3(side * 0.95f, TownEntrancePosition.y, 1.90f),
+                    1f);
+                post.transform.localScale = new Vector3(0.22f, 1.75f, 1f);
             }
         }
 

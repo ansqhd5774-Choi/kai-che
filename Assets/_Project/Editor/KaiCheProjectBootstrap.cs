@@ -17,12 +17,14 @@ namespace KaiChe.EditorTools
             CreateScene("Boot", false);
             CreateScene("Main", false);
             CreateScene("Game", true);
+            CreateScene("Town", true);
 
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene($"{ScenesFolder}/Boot.unity", true),
                 new EditorBuildSettingsScene($"{ScenesFolder}/Main.unity", true),
-                new EditorBuildSettingsScene($"{ScenesFolder}/Game.unity", true)
+                new EditorBuildSettingsScene($"{ScenesFolder}/Game.unity", true),
+                new EditorBuildSettingsScene($"{ScenesFolder}/Town.unity", true)
             };
 
             AssetDatabase.SaveAssets();

@@ -1,4 +1,5 @@
 using System.Collections;
+using KaiChe.Gameplay.Adventure;
 using KaiChe.Gameplay.Survivor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -47,6 +48,8 @@ namespace KaiChe.Presentation
 
             if (scene.name == "Game")
                 SetupSurvivorWorld();
+            else if (scene.name == "Town")
+                SetupTownWorld();
         }
 
         private IEnumerator AdvanceFromBoot()
@@ -104,6 +107,22 @@ namespace KaiChe.Presentation
 
             var hud = root.AddComponent<SurvivorHudController>();
             hud.Bind(arena);
+        }
+
+        private static void SetupTownWorld()
+        {
+            if (GameObject.Find("KaiCheTownPrototype") != null) return;
+
+            Material template = Resources.Load<Material>("KaiCheRuntimeLit");
+            if (template == null)
+            {
+                Debug.LogError("KAI_CHE_RUNTIME_MATERIAL_NOT_FOUND");
+                return;
+            }
+
+            var root = new GameObject("KaiCheTownPrototype");
+            var town = root.AddComponent<TownController>();
+            town.Initialize(template);
         }
 
         private void EnsureStyles()
