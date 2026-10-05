@@ -114,23 +114,29 @@ jobs:
           if errorlevel 1 exit /b 40
           ping -n 9 127.0.0.1 >nul
 
-          rem Connected Galaxy device is physically 1440x3200 and rotates the Unity surface to 3200x1440.
-          rem The BUILD R17 game-start button center is around landscape (1600,970).
-          rem Try both inverse ROTATION_90 mappings and stop immediately once the R17 marker appears.
-          "%ADB_EXE%" shell input tap 970 1600
+          rem ADB input coordinates follow the current logical display orientation.
+          rem Evidence screenshot is 3200x1440; game-start button center is about (1600,970).
+          "%ADB_EXE%" shell input tap 1600 970
           ping -n 7 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
           findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
           if not errorlevel 1 goto environment_active
 
-          "%ADB_EXE%" shell input tap 470 1600
-          ping -n 7 127.0.0.1 >nul
+          rem Keep two nearby fallback taps in case of small UI scaling differences.
+          "%ADB_EXE%" shell input tap 1600 900
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
+          if not errorlevel 1 goto environment_active
+
+          "%ADB_EXE%" shell input tap 1600 1040
+          ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
           findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
           if not errorlevel 1 goto environment_active
 
           "%ADB_EXE%" exec-out screencap -p > Logs\r17-game-screen.png 2>nul
-          echo [ERROR] R17 3D environment activation marker not found after both rotation-safe start taps.
+          echo [ERROR] R17 3D environment activation marker not found after landscape start taps.
           exit /b 42
 
           :environment_active
