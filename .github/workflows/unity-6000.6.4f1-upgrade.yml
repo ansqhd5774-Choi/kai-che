@@ -55,9 +55,6 @@ jobs:
 
           start "" /b cmd /v:on /c ""%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log" & echo !errorlevel!>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt""
 
-          set "LASTSIZE=-1"
-          set /a STALE=0
-
           :monitor
           if exist "Logs\unity-exit.txt" goto finished
 
