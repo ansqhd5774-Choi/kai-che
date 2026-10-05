@@ -31,42 +31,78 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
           if not exist Logs mkdir Logs
           if not exist "%ADB_EXE%" exit /b 20
-          "%ADB_EXE%" kill-server >nul 2>&1
-          "%ADB_EXE%" start-server
-          ping -n 8 127.0.0.1 >nul
+
+          del /q Logs\r17-devices-before.txt Logs\r17-devices-after.txt Logs\r17-mdns.txt Logs\r17-mdns-current.txt Logs\r17-connect.txt Logs\r17-server-before.txt Logs\r17-server-after.txt Logs\r17-adb-log-matches.txt 2>nul
+
+          "%ADB_EXE%" version > Logs\r17-adb-version.txt 2>&1
+          "%ADB_EXE%" server-status > Logs\r17-server-before.txt 2>&1
           "%ADB_EXE%" devices -l > Logs\r17-devices-before.txt 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 goto device_ready
 
-          "%ADB_EXE%" mdns services > Logs\r17-mdns.txt 2>&1
-          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns.txt') do (
-            echo [INFO] Trying %%E >> Logs\r17-connect.txt
-            "%ADB_EXE%" connect %%E >> Logs\r17-connect.txt 2>&1
-            ping -n 3 127.0.0.1 >nul
-            "%ADB_EXE%" get-state >nul 2>&1
-            if not errorlevel 1 goto device_ready
-          )
+          echo [INFO] No online device; trying current adb server and mDNS first. > Logs\r17-connect.txt
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
 
+          echo [INFO] mDNS connect did not recover device; trying adb reconnect. >> Logs\r17-connect.txt
           "%ADB_EXE%" reconnect >> Logs\r17-connect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
-          "%ADB_EXE%" mdns services >> Logs\r17-mdns.txt 2>&1
-          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns.txt') do (
-            echo [INFO] Retry %%E >> Logs\r17-connect.txt
-            "%ADB_EXE%" connect %%E >> Logs\r17-connect.txt 2>&1
-            ping -n 3 127.0.0.1 >nul
-            "%ADB_EXE%" get-state >nul 2>&1
-            if not errorlevel 1 goto device_ready
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          echo [INFO] Soft recovery failed; restarting adb server and retrying mDNS. >> Logs\r17-connect.txt
+          set "ADB_TRACE=mdns,sockets"
+          "%ADB_EXE%" kill-server >nul 2>&1
+          "%ADB_EXE%" start-server >> Logs\r17-connect.txt 2>&1
+          ping -n 8 127.0.0.1 >nul
+          "%ADB_EXE%" server-status > Logs\r17-server-after.txt 2>&1
+
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
+
+          set "ADB_LOG=%LOCALAPPDATA%\Temp\adb.log"
+          if exist "!ADB_LOG!" (
+            findstr /I /C:"_adb-tls-connect._tcp" "!ADB_LOG!" > Logs\r17-adb-log-matches.txt 2>&1
+            echo ===== RECENT ADB LOG TLS MATCHES =====
+            type Logs\r17-adb-log-matches.txt
           )
 
           "%ADB_EXE%" devices -l > Logs\r17-devices-after.txt 2>&1
-          echo [ERROR] Android device unavailable after reconnect attempts.
+          echo [ERROR] Android device unavailable after soft reconnect, adb restart, and mDNS retries.
           exit /b 30
+
+          :try_mdns
+          "%ADB_EXE%" mdns services > Logs\r17-mdns-current.txt 2>&1
+          type Logs\r17-mdns-current.txt >> Logs\r17-mdns.txt
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns-current.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              echo [INFO] Trying !ENDPOINT! >> Logs\r17-connect.txt
+              "%ADB_EXE%" connect !ENDPOINT! >> Logs\r17-connect.txt 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 exit /b 0
+            )
+          )
+          exit /b 1
 
           :device_ready
           "%ADB_EXE%" devices -l > Logs\r17-devices-after.txt 2>&1
+          echo ===== ADB DEVICES BEFORE =====
+          type Logs\r17-devices-before.txt
+          echo ===== ADB MDNS =====
+          if exist Logs\r17-mdns.txt type Logs\r17-mdns.txt
+          echo ===== ADB CONNECT =====
+          if exist Logs\r17-connect.txt type Logs\r17-connect.txt
+          echo ===== ADB DEVICES AFTER =====
+          type Logs\r17-devices-after.txt
           echo [PASS] Android device ready.
+          exit /b 0
 
       - name: Launch R17 and enter game
         shell: cmd
@@ -105,10 +141,15 @@ jobs:
         with:
           name: R17-Environment-Device-Smoke
           path: |
+            Logs/r17-adb-version.txt
+            Logs/r17-server-before.txt
+            Logs/r17-server-after.txt
             Logs/r17-devices-before.txt
             Logs/r17-devices-after.txt
             Logs/r17-mdns.txt
+            Logs/r17-mdns-current.txt
             Logs/r17-connect.txt
+            Logs/r17-adb-log-matches.txt
             Logs/r17-pid.txt
             Logs/r17-logcat.txt
             Logs/r17-game-screen.png
