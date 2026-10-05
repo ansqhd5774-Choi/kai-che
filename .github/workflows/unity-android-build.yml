@@ -26,7 +26,6 @@ jobs:
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
-      LOCAL_LOG_DIR: C:\actions-runner-kaise\local-build-logs
 
     steps:
       - name: Checkout repository
@@ -51,17 +50,31 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          setlocal EnableExtensions
+          setlocal EnableExtensions EnableDelayedExpansion
           if not exist Logs mkdir Logs
-          del /q "Logs\android-build.log" 2>nul
+          del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
-          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile -
-          set "RC=%ERRORLEVEL%"
 
-          if not "%RC%"=="0" (
-            echo [ERROR] Unity exited with code %RC%.
-            exit /b %RC%
+          start "" /b cmd /v:on /c ""%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log" & echo !errorlevel!>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt""
+
+          :monitor
+          if exist "Logs\unity-exit.txt" goto finished
+          if exist "Logs\android-build.log" (
+            for %%A in ("Logs\android-build.log") do set "SIZE=%%~zA"
+            echo [HEARTBEAT] %TIME% log_bytes=!SIZE!
+          ) else (
+            echo [HEARTBEAT] %TIME% waiting_for_log
+          )
+          ping -n 31 127.0.0.1 >nul
+          goto monitor
+
+          :finished
+          set /p RC=<"Logs\unity-exit.txt"
+          if exist "Logs\android-build.log" type "Logs\android-build.log"
+          if not "!RC!"=="0" (
+            echo [ERROR] Unity exited with code !RC!.
+            exit /b !RC!
           )
           if not exist "Builds\Android\KaiChe-dev.apk" (
             echo [ERROR] Unity exited successfully but APK is missing.
