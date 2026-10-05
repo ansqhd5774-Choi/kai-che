@@ -1,0 +1,88 @@
+name: R16 Modal Gameplay Smoke
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/r16-modal-gameplay-smoke.yml"
+
+concurrency:
+  group: kaise-r16-modal-gameplay-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  observe-r16-modal:
+    name: Observe R16 selection modal on Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 12
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+
+    steps:
+      - name: Verify Android device
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" exit /b 20
+          "%ADB_EXE%" start-server
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state
+          if errorlevel 1 exit /b 30
+          "%ADB_EXE%" devices -l > Logs\r16-smoke-devices.txt 2>&1
+          "%ADB_EXE%" shell wm size > Logs\r16-smoke-wm-size.txt 2>&1
+          echo [PASS] Android device online.
+
+      - name: Capture saved progression
+        shell: cmd
+        continue-on-error: true
+        run: |
+          @echo off
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% ls -la shared_prefs > Logs\r16-playerprefs-list.txt 2>&1
+          "%ADB_EXE%" shell "run-as %PACKAGE_ID% sh -c 'cat shared_prefs/*'" > Logs\r16-playerprefs-before.txt 2>&1
+          exit /b 0
+
+      - name: Launch and enter combat
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 40
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-main.png 2>nul
+
+          rem Current paired device is 1440x3200. Game Start center is ~720,1840.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-combat-5s.png 2>nul
+
+          ping -n 26 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-combat-30s.png 2>nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-smoke-pid.txt 2>&1
+          "%ADB_EXE%" logcat -d -t 1600 > Logs\r16-smoke-logcat.txt 2>&1
+          echo [PASS] R16 observation evidence captured.
+
+      - name: Upload R16 gameplay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: R16-Modal-Gameplay-Smoke
+          path: |
+            Logs/r16-smoke-devices.txt
+            Logs/r16-smoke-wm-size.txt
+            Logs/r16-playerprefs-list.txt
+            Logs/r16-playerprefs-before.txt
+            Logs/r16-smoke-main.png
+            Logs/r16-smoke-combat-5s.png
+            Logs/r16-smoke-combat-30s.png
+            Logs/r16-smoke-pid.txt
+            Logs/r16-smoke-logcat.txt
+          if-no-files-found: warn
+          retention-days: 3
