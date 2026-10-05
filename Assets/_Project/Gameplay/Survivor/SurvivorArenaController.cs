@@ -58,7 +58,7 @@ namespace KaiChe.Gameplay.Survivor
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
         private const float AttackAnimationDuration = 0.18f;
-        private const float EnemyAggroRadius = 3.0f;
+        private const float EnemyAggroRadius = 14.0f;
         private const float EnemyContactRadius = 0.34f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
