@@ -16,6 +16,7 @@ namespace KaiChe.Gameplay.Survivor
             public float AnimationPhase;
             public float BaseScale;
             public bool IsAggro;
+            public float SlowTimer;
         }
 
         private sealed class ProjectileState
@@ -24,6 +25,8 @@ namespace KaiChe.Gameplay.Survivor
             public EnemyState Target;
             public Vector2 Direction;
             public float Life;
+            public SkillDefinition Skill;
+            public bool IsIceBall;
         }
 
         private sealed class EffectState
@@ -45,11 +48,15 @@ namespace KaiChe.Gameplay.Survivor
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
         private float _shotTimer;
+        private float _iceShotTimer;
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
+        private bool _iceballFirstShotLogged;
         private const float PlayerBaseScale = 0.58f;
+        private const float IceSlowDuration = 2.0f;
+        private const float IceSlowMultiplier = 0.60f;
         private const float AttackAnimationDuration = 0.18f;
         private const float EnemyAggroRadius = 3.0f;
         private const float EnemyContactRadius = 0.34f;
@@ -96,6 +103,7 @@ namespace KaiChe.Gameplay.Survivor
 
             _spawnTimer = 0.2f;
             _shotTimer = 0.1f;
+            _iceShotTimer = 0.45f;
             _initialized = true;
         }
 
@@ -289,6 +297,10 @@ namespace KaiChe.Gameplay.Survivor
                     continue;
                 }
 
+                enemy.SlowTimer = Mathf.Max(
+                    0f,
+                    enemy.SlowTimer - deltaTime);
+
                 Vector2 position = enemy.View.transform.position;
                 Vector2 offset = playerPosition - position;
                 float distance = offset.magnitude;
@@ -298,7 +310,10 @@ namespace KaiChe.Gameplay.Survivor
 
                 if (enemy.IsAggro && distance > 0.001f)
                 {
-                    position += offset / distance * definition.MoveSpeed * deltaTime;
+                    float moveSpeed = enemy.SlowTimer > 0f
+                        ? definition.MoveSpeed * IceSlowMultiplier
+                        : definition.MoveSpeed;
+                    position += offset / distance * moveSpeed * deltaTime;
                     enemy.View.transform.position =
                         new Vector3(position.x, position.y, 0f);
                 }
@@ -325,7 +340,17 @@ namespace KaiChe.Gameplay.Survivor
         private void UpdateShooting(float deltaTime)
         {
             _shotTimer -= deltaTime;
-            if (_shotTimer > 0f) return;            SkillDefinition skill = RuntimeContentCatalog.StarterSkill;
+            _iceShotTimer -= deltaTime;
+
+            UpdateFireballShooting();
+            UpdateIceballShooting();
+        }
+
+        private void UpdateFireballShooting()
+        {
+            if (_shotTimer > 0f) return;
+
+            SkillDefinition skill = RuntimeContentCatalog.StarterSkill;
             EnemyState target = FindNearestEnemy(skill.Range);
 
             if (target == null)
@@ -341,23 +366,66 @@ namespace KaiChe.Gameplay.Survivor
             GameObject projectileView =
                 CreateFireballProjectile(origin, direction, skill.Id);
 
-            var projectile = new ProjectileState
+            _projectiles.Add(new ProjectileState
             {
                 View = projectileView,
                 Target = target,
                 Direction = direction,
-                Life = 2.2f
-            };
+                Life = 2.2f,
+                Skill = skill,
+                IsIceBall = false
+            });
 
-            _projectiles.Add(projectile);
             if (!_fireballFirstShotLogged)
             {
                 _fireballFirstShotLogged = true;
                 Debug.Log("KAI_CHE_FIREBALL_FIRST_SHOT");
             }
+
             _attackAnimationTime = AttackAnimationDuration;
             CreateFireballCastEffect(origin, direction);
             _shotTimer = skill.Cooldown;
+        }
+
+        private void UpdateIceballShooting()
+        {
+            if (_iceShotTimer > 0f) return;
+
+            SkillDefinition skill = RuntimeContentCatalog.IceBall;
+            EnemyState target = FindNearestEnemy(skill.Range);
+
+            if (target == null)
+            {
+                _iceShotTimer = 0.10f;
+                return;
+            }
+
+            Vector2 origin = PlayerPosition;
+            Vector2 targetPosition = target.View.transform.position;
+            Vector2 direction = (targetPosition - origin).normalized;
+
+            GameObject projectileView =
+                CreateIceballProjectile(origin, direction, skill.Id);
+
+            _projectiles.Add(new ProjectileState
+            {
+                View = projectileView,
+                Target = target,
+                Direction = direction,
+                Life = 2.4f,
+                Skill = skill,
+                IsIceBall = true
+            });
+
+            if (!_iceballFirstShotLogged)
+            {
+                _iceballFirstShotLogged = true;
+                Debug.Log("KAI_CHE_ICEBALL_FIRST_SHOT");
+            }
+
+            _attackAnimationTime = AttackAnimationDuration;
+            CreateIceballCastEffect(origin, direction);
+            _iceShotTimer = skill.Cooldown;
         }
 
         private GameObject CreateFireballProjectile(
@@ -424,6 +492,70 @@ namespace KaiChe.Gameplay.Survivor
             return root;
         }
 
+        private GameObject CreateIceballProjectile(
+            Vector2 origin,
+            Vector2 direction,
+            string skillId)
+        {
+            var root = new GameObject("IceBall_" + skillId);
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(origin.x, origin.y, -0.15f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            GameObject outerGlow = CreateQuad(
+                "IceBallGlow",
+                new Color(0.22f, 0.78f, 1f, 0.40f),
+                Vector3.zero,
+                1f);
+            outerGlow.transform.SetParent(root.transform, false);
+            outerGlow.transform.localScale =
+                new Vector3(0.78f, 0.78f, 1f);
+
+            GameObject shard = CreateQuad(
+                "IceBallShard",
+                new Color(0.30f, 0.84f, 1f, 0.98f),
+                Vector3.zero,
+                1f);
+            shard.transform.SetParent(root.transform, false);
+            shard.transform.localScale =
+                new Vector3(0.62f, 0.42f, 1f);
+            shard.transform.localRotation =
+                Quaternion.Euler(0f, 0f, 45f);
+
+            GameObject core = CreateQuad(
+                "IceBallCore",
+                new Color(0.88f, 0.98f, 1f, 1f),
+                new Vector3(0.05f, 0f, -0.02f),
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale =
+                new Vector3(0.28f, 0.28f, 1f);
+
+            GameObject trailOuter = CreateQuad(
+                "IceBallTrailOuter",
+                new Color(0.12f, 0.55f, 1f, 0.56f),
+                new Vector3(-0.42f, 0f, 0.03f),
+                1f);
+            trailOuter.transform.SetParent(root.transform, false);
+            trailOuter.transform.localScale =
+                new Vector3(0.62f, 0.18f, 1f);
+
+            GameObject trailInner = CreateQuad(
+                "IceBallTrailInner",
+                new Color(0.72f, 0.94f, 1f, 0.82f),
+                new Vector3(-0.28f, 0f, 0.01f),
+                1f);
+            trailInner.transform.SetParent(root.transform, false);
+            trailInner.transform.localScale =
+                new Vector3(0.42f, 0.08f, 1f);
+
+            return root;
+        }
+
         private EnemyState FindNearestEnemy(float range)
         {
             EnemyState nearest = null;
@@ -446,8 +578,6 @@ namespace KaiChe.Gameplay.Survivor
 
         private void UpdateProjectiles(float deltaTime)
         {
-            SkillDefinition skill = RuntimeContentCatalog.StarterSkill;
-
             for (int i = _projectiles.Count - 1; i >= 0; i--)
             {
                 ProjectileState projectile = _projectiles[i];
@@ -457,10 +587,14 @@ namespace KaiChe.Gameplay.Survivor
                     continue;
                 }
 
+                SkillDefinition skill =
+                    projectile.Skill ?? RuntimeContentCatalog.StarterSkill;
+
                 if (projectile.Target != null && projectile.Target.View != null)
                 {
                     Vector2 current = projectile.View.transform.position;
-                    Vector2 target = projectile.Target.View.transform.position;                    Vector2 offset = target - current;
+                    Vector2 target = projectile.Target.View.transform.position;
+                    Vector2 offset = target - current;
                     if (offset.sqrMagnitude > 0.0001f)
                         projectile.Direction = offset.normalized;
                 }
@@ -485,7 +619,19 @@ namespace KaiChe.Gameplay.Survivor
                 if (hit)
                 {
                     _skillMastery.RecordUse(skill.Id);
-                    CreateImpactEffect(position);
+
+                    if (projectile.IsIceBall)
+                    {
+                        projectile.Target.SlowTimer = Mathf.Max(
+                            projectile.Target.SlowTimer,
+                            IceSlowDuration);
+                        CreateIceImpactEffect(position);
+                    }
+                    else
+                    {
+                        CreateImpactEffect(position);
+                    }
+
                     DamageEnemy(projectile.Target, skill.Damage);
                     Destroy(projectile.View);
                     _projectiles.RemoveAt(i);
@@ -564,6 +710,80 @@ namespace KaiChe.Gameplay.Survivor
                 MaxLife = 0.18f,
                 StartScale = Vector3.one,
                 SpinSpeed = 210f
+            });
+        }
+
+        private void CreateIceballCastEffect(
+            Vector2 origin,
+            Vector2 direction)
+        {
+            var root = new GameObject("IceBallCastEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position = new Vector3(
+                origin.x + direction.x * 0.42f,
+                origin.y + direction.y * 0.42f,
+                -0.17f);
+
+            GameObject ring = CreateQuad(
+                "IceBallCastRing",
+                new Color(0.20f, 0.72f, 1f, 0.58f),
+                Vector3.zero,
+                1f);
+            ring.transform.SetParent(root.transform, false);
+            ring.transform.localScale =
+                new Vector3(0.68f, 0.68f, 1f);
+            ring.transform.localRotation =
+                Quaternion.Euler(0f, 0f, 45f);
+
+            GameObject flash = CreateQuad(
+                "IceBallCastFlash",
+                new Color(0.86f, 0.98f, 1f, 0.94f),
+                Vector3.zero,
+                1f);
+            flash.transform.SetParent(root.transform, false);
+            flash.transform.localScale =
+                new Vector3(0.24f, 0.24f, 1f);
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.20f,
+                MaxLife = 0.20f,
+                StartScale = Vector3.one,
+                SpinSpeed = -180f
+            });
+        }
+
+        private void CreateIceImpactEffect(Vector3 position)
+        {
+            var root = new GameObject("IceImpactEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.18f);
+
+            for (int i = 0; i < 6; i++)
+            {
+                GameObject shard = CreateQuad(
+                    "IceImpactShard_" + i,
+                    i % 2 == 0
+                        ? new Color(0.72f, 0.95f, 1f, 0.96f)
+                        : new Color(0.16f, 0.62f, 1f, 0.90f),
+                    Vector3.zero,
+                    1f);
+                shard.transform.SetParent(root.transform, false);
+                shard.transform.localScale =
+                    new Vector3(0.48f, 0.06f, 1f);
+                shard.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 30f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.24f,
+                MaxLife = 0.24f,
+                StartScale = Vector3.one,
+                SpinSpeed = -220f
             });
         }
 

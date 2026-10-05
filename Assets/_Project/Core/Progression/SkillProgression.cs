@@ -13,7 +13,8 @@ namespace KaiChe.Core.Progression
         Pierce = 1 << 3,
         MultiHit = 1 << 4,
         Chain = 1 << 5,
-        Fusion = 1 << 6
+        Fusion = 1 << 6,
+        Frost = 1 << 7
     }
 
     public sealed class SkillProgressionDefinition
@@ -59,6 +60,7 @@ namespace KaiChe.Core.Progression
         public const string PulseShot = "SKILL_0001";
         public const string OrbitBlade = "SKILL_0002";
         public const string ArcSpark = "SKILL_0003";
+        public const string IceBall = "SKILL_0004";
         public const string PiercingPulse = "SKILL_0101";
         public const string TwinOrbit = "SKILL_0102";
         public const string ChainSpark = "SKILL_0103";
@@ -72,6 +74,8 @@ namespace KaiChe.Core.Progression
                 OrbitBlade, "Orbit Blade", SkillTags.Orbit),
             new SkillProgressionDefinition(
                 ArcSpark, "Arc Spark", SkillTags.Lightning),
+            new SkillProgressionDefinition(
+                IceBall, "Ice Ball", SkillTags.Projectile | SkillTags.Frost),
             new SkillProgressionDefinition(
                 PiercingPulse, "Piercing Pulse",
                 SkillTags.Projectile | SkillTags.Pierce,
