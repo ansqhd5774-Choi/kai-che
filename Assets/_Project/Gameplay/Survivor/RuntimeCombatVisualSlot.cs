@@ -42,6 +42,10 @@ namespace KaiChe.Gameplay.Survivor
                 AnimatorBridge = instance.AddComponent<RuntimeCombatVisualAnimator>();
             AnimatorBridge.Bind(instance);
 
+            if (WeaponRoot != null)
+                WeaponRoot.gameObject.SetActive(
+                    AnimatorBridge == null || !AnimatorBridge.SupportsAttack);
+
             Debug.Log(
                 "KAI_CHE_VISUAL_PREFAB_REPLACED_"
                 + ContentId);
