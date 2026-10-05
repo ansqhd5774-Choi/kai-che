@@ -135,6 +135,18 @@ namespace KaiChe.Gameplay.Survivor
         private const float ArcaneChainRadius = 3.4f;
         private const float BossFinishSlowMotionScale = 0.22f;
         private const float BossFinishSlowMotionDuration = 0.42f;
+        private const float LevelDamagePerLevel = 0.06f;
+        private const float LevelHealthPerLevel = 5f;
+        private const float LevelHealFraction = 0.30f;
+        private const float BodyHealthPerPoint = 20f;
+        private const float AgilityMoveSpeedPerPoint = 0.05f;
+        private const float PerceptionRangePerPoint = 0.06f;
+        private const float PerceptionProjectileSpeedPerPoint = 0.06f;
+        private const float IntelligenceDamagePerPoint = 0.08f;
+        private const float WisdomCooldownPerPoint = 0.05f;
+        private const float WillDamageReductionPerPoint = 0.06f;
+        private const float GoodIceDamagePerPoint = 0.10f;
+        private const float EvilFireDamagePerPoint = 0.10f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -146,6 +158,14 @@ namespace KaiChe.Gameplay.Survivor
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
 
         public float PlayerHealth { get; private set; } = 100f;
+        public float MaxPlayerHealth =>
+            100f
+            + Mathf.Min(Mathf.Max(0, Level - 1), 50) * LevelHealthPerLevel
+            + GetAttributeValue(CharacterAttribute.Body) * BodyHealthPerPoint;
+        public float LevelDamageBonusPercent =>
+            Mathf.Min(Mathf.Max(0, Level - 1), 25)
+            * LevelDamagePerLevel
+            * 100f;
         public int Kills { get; private set; }
         public int Experience { get; private set; }
         public bool IsDead => PlayerHealth <= 0f;
@@ -321,7 +341,9 @@ namespace KaiChe.Gameplay.Survivor
             _materialTemplate = materialTemplate;
             LoadPrototypeProgression();
             PrototypeAdventureState.EnsureLoaded();
-            PlayerHealth = PrototypeAdventureState.Health;
+            PlayerHealth = Mathf.Min(
+                MaxPlayerHealth,
+                PrototypeAdventureState.Health);
             ConfigureCamera();
 
             CreateBattlefieldBackdrop();
@@ -347,10 +369,28 @@ namespace KaiChe.Gameplay.Survivor
 
         public bool TrySpendAttributePoint(CharacterAttribute attribute)
         {
+            float oldMaxHealth = MaxPlayerHealth;
             bool spent = _progression.TrySpendAttributePoints(attribute);
-            if (spent)
-                SavePrototypeProgression();
-            return spent;
+            if (!spent)
+                return false;
+
+            if (attribute == CharacterAttribute.Body)
+            {
+                float healthGain = Mathf.Max(
+                    0f,
+                    MaxPlayerHealth - oldMaxHealth);
+                PlayerHealth = Mathf.Min(
+                    MaxPlayerHealth,
+                    PlayerHealth + healthGain);
+            }
+
+            SavePrototypeProgression();
+            Debug.Log(
+                "KAI_CHE_ATTRIBUTE_POWER_"
+                + attribute
+                + "_"
+                + GetAttributeValue(attribute));
+            return true;
         }
 
         private void Update()
@@ -424,7 +464,11 @@ namespace KaiChe.Gameplay.Survivor
 
         private void UpdateWorldMovement(float deltaTime)
         {
-            const float speed = 4.5f;
+            float speed =
+                4.5f
+                * (1f
+                    + GetAttributeValue(CharacterAttribute.Agility)
+                    * AgilityMoveSpeedPerPoint);
             _playerWorldPosition += _moveInput * speed * deltaTime;
 
             if (_player != null)
@@ -882,9 +926,16 @@ namespace KaiChe.Gameplay.Survivor
             float damage,
             Vector2 playerPosition)
         {
+            float damageReduction = Mathf.Min(
+                0.60f,
+                GetAttributeValue(CharacterAttribute.Will)
+                * WillDamageReductionPerPoint);
+            float finalDamage =
+                damage * Mathf.Max(0.40f, 1f - damageReduction);
+
             PlayerHealth = Mathf.Max(
                 0f,
-                PlayerHealth - damage);
+                PlayerHealth - finalDamage);
             _playerHitFlashTimer = PlayerHitFlashDuration;
             CreatePlayerHitEffect(playerPosition);
 
@@ -909,7 +960,7 @@ namespace KaiChe.Gameplay.Survivor
             if (_shotTimer > 0f) return;
 
             SkillDefinition skill = RuntimeContentCatalog.StarterSkill;
-            EnemyState target = FindNearestEnemy(skill.Range);
+            EnemyState target = FindNearestEnemy(GetSkillRange(skill));
 
             if (target == null)
             {
@@ -950,7 +1001,7 @@ namespace KaiChe.Gameplay.Survivor
             if (_iceShotTimer > 0f) return;
 
             SkillDefinition skill = RuntimeContentCatalog.IceBall;
-            EnemyState target = FindNearestEnemy(skill.Range);
+            EnemyState target = FindNearestEnemy(GetSkillRange(skill));
 
             if (target == null)
             {
@@ -988,25 +1039,69 @@ namespace KaiChe.Gameplay.Survivor
 
         private float GetSkillCooldown(SkillDefinition skill, bool isIceBall)
         {
-            float reduction = _arcaneUpgradeRank * ArcaneCooldownPerRank;
+            float reduction =
+                _arcaneUpgradeRank * ArcaneCooldownPerRank
+                + GetAttributeValue(CharacterAttribute.Wisdom)
+                    * WisdomCooldownPerPoint;
             if (!isIceBall)
                 reduction += _fireUpgradeRank * FireCooldownPerRank;
 
-            return Mathf.Max(0.18f, skill.Cooldown * Mathf.Max(0.42f, 1f - reduction));
+            return Mathf.Max(
+                0.18f,
+                skill.Cooldown * Mathf.Max(0.42f, 1f - reduction));
+        }
+
+        private float GetSkillRange(SkillDefinition skill)
+        {
+            return skill.Range
+                * (1f
+                    + GetAttributeValue(CharacterAttribute.Perception)
+                    * PerceptionRangePerPoint);
         }
 
         private float GetProjectileSpeed(SkillDefinition skill)
         {
+            float perceptionMultiplier =
+                1f
+                + GetAttributeValue(CharacterAttribute.Perception)
+                    * PerceptionProjectileSpeedPerPoint;
+            float arcaneMultiplier =
+                1f + _arcaneUpgradeRank * ArcaneProjectileSpeedPerRank;
+
             return skill.ProjectileSpeed
-                * (1f + _arcaneUpgradeRank * ArcaneProjectileSpeedPerRank);
+                * perceptionMultiplier
+                * arcaneMultiplier;
         }
 
         private float GetProjectileDamage(SkillDefinition skill, bool isIceBall)
         {
-            float multiplier = isIceBall
+            float buildMultiplier = isIceBall
                 ? 1f + _iceUpgradeRank * IceDamagePerRank
                 : 1f + _fireUpgradeRank * FireDamagePerRank;
-            return skill.Damage * multiplier;
+
+            float levelMultiplier =
+                1f
+                + Mathf.Min(Mathf.Max(0, Level - 1), 25)
+                    * LevelDamagePerLevel;
+
+            float intelligenceMultiplier =
+                1f
+                + GetAttributeValue(CharacterAttribute.Intelligence)
+                    * IntelligenceDamagePerPoint;
+
+            float elementMultiplier = isIceBall
+                ? 1f
+                    + GetAttributeValue(CharacterAttribute.Good)
+                        * GoodIceDamagePerPoint
+                : 1f
+                    + GetAttributeValue(CharacterAttribute.Evil)
+                        * EvilFireDamagePerPoint;
+
+            return skill.Damage
+                * buildMultiplier
+                * levelMultiplier
+                * intelligenceMultiplier
+                * elementMultiplier;
         }
 
         private GameObject CreateFireballProjectile(
@@ -1977,6 +2072,20 @@ namespace KaiChe.Gameplay.Survivor
                 _pendingSkillChoices += levelsGained;
                 _moveInput = Vector2.zero;
 
+                float healAmount =
+                    MaxPlayerHealth * LevelHealFraction;
+                PlayerHealth = Mathf.Min(
+                    MaxPlayerHealth,
+                    PlayerHealth + healAmount);
+
+                CreateLevelUpPowerEffect(PlayerPosition);
+                TriggerImpactFeedback(0.10f, false);
+                Debug.Log(
+                    "KAI_CHE_LEVEL_POWER_"
+                    + Level
+                    + "_DAMAGE_"
+                    + Mathf.RoundToInt(LevelDamageBonusPercent));
+
                 if (!_skillChoiceFirstLogged)
                 {
                     _skillChoiceFirstLogged = true;
@@ -1989,6 +2098,39 @@ namespace KaiChe.Gameplay.Survivor
 
             Destroy(enemy.View);
             enemy.View = null;
+        }
+
+        private void CreateLevelUpPowerEffect(Vector2 position)
+        {
+            var root = new GameObject("LevelUpPowerEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.23f);
+
+            for (int i = 0; i < 16; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "LevelUpRay_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.86f, 0.28f, 0.94f)
+                        : new Color(0.34f, 0.78f, 1f, 0.82f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(1.35f, 0.075f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 11.25f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.38f,
+                MaxLife = 0.38f,
+                StartScale = Vector3.one * 1.18f,
+                SpinSpeed = 120f
+            });
         }
 
         private void TriggerBossDefeat(Vector2 position)
