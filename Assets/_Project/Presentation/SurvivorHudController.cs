@@ -218,6 +218,20 @@ namespace KaiChe.Presentation
             if (!modalOpen)
                 DrawJoystick();
 
+            if (_arena.HasBossAlive)
+            {
+                Rect bossRect = new Rect(
+                    safe.x + safe.width * 0.14f,
+                    hudPanel.yMax + 18f,
+                    safe.width * 0.72f,
+                    64f);
+                DrawProgressBar(
+                    bossRect,
+                    _arena.BossHealthNormalized,
+                    _experienceFill,
+                    "BOSS · " + _arena.BossName);
+            }
+
             Rect exitRect = new Rect(
                 safe.xMax - margin - 168f,
                 safe.y + margin,
