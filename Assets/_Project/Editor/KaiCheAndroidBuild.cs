@@ -27,9 +27,17 @@ namespace KaiChe.EditorTools
             Debug.Log("KAI_CHE_BUILD_STAGE:CONFIGURE_PLAYER_SETTINGS_OK");
 
             Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_BEGIN");
-            if (!EditorUserBuildSettings.SwitchActiveBuildTarget(
-                    BuildTargetGroup.Android, BuildTarget.Android))
-                throw new InvalidOperationException("Failed to switch build target to Android.");
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                if (!EditorUserBuildSettings.SwitchActiveBuildTarget(
+                        BuildTargetGroup.Android, BuildTarget.Android))
+                    throw new InvalidOperationException("Failed to switch build target to Android.");
+                Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_CHANGED");
+            }
+            else
+            {
+                Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_SKIPPED_ALREADY_ACTIVE");
+            }
             Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_OK");
 
             Debug.Log("KAI_CHE_BUILD_STAGE:ENSURE_RUNTIME_MATERIAL_BEGIN");
@@ -67,6 +75,15 @@ namespace KaiChe.EditorTools
 
         private static void EnsureRuntimeMaterial()
         {
+            Material material =
+                AssetDatabase.LoadAssetAtPath<Material>(RuntimeMaterialPath);
+
+            if (material != null)
+            {
+                Debug.Log("KAI_CHE_BUILD_STAGE:RUNTIME_MATERIAL_REUSED");
+                return;
+            }
+
             if (!AssetDatabase.IsValidFolder(RuntimeResourcesFolder))
                 AssetDatabase.CreateFolder("Assets/_Project", "Resources");
 
@@ -74,27 +91,18 @@ namespace KaiChe.EditorTools
             if (shader == null)
                 shader = Shader.Find("Standard");
             if (shader == null)
-                throw new InvalidOperationException("Built-in runtime shader was not found in the Editor.");
+                throw new InvalidOperationException(
+                    "Built-in runtime shader was not found in the Editor.");
 
-            Material material = AssetDatabase.LoadAssetAtPath<Material>(RuntimeMaterialPath);
-            if (material == null)
-            {
-                material = new Material(shader);
-                AssetDatabase.CreateAsset(material, RuntimeMaterialPath);
-            }
-            else
-            {
-                material.shader = shader;
-            }
-
+            material = new Material(shader);
             if (material.HasProperty("_BaseColor"))
                 material.SetColor("_BaseColor", Color.white);
             else
                 material.color = Color.white;
 
-            EditorUtility.SetDirty(material);
+            AssetDatabase.CreateAsset(material, RuntimeMaterialPath);
             AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
+            Debug.Log("KAI_CHE_BUILD_STAGE:RUNTIME_MATERIAL_CREATED");
         }
 
         private static void ConfigurePlayerSettings()
