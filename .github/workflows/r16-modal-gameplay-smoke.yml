@@ -15,13 +15,14 @@ permissions:
   contents: read
 
 jobs:
-  observe-r16-modal:
-    name: Observe R16 selection modal on Android device
+  verify-r16-modal-input:
+    name: Verify R16 modal touch input with restored save
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 12
     env:
       ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
       PACKAGE_ID: com.kaiche.rpg
+      PREFS_FILE: shared_prefs/com.kaiche.rpg.v2.playerprefs.xml
 
     steps:
       - name: Verify Android device
@@ -34,69 +35,107 @@ jobs:
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" get-state
           if errorlevel 1 exit /b 30
-          "%ADB_EXE%" devices -l > Logs\r16-smoke-devices.txt 2>&1
-          "%ADB_EXE%" shell wm size > Logs\r16-smoke-wm-size.txt 2>&1
+          "%ADB_EXE%" devices -l > Logs\r16-forced-devices.txt 2>&1
+          "%ADB_EXE%" shell wm size > Logs\r16-forced-wm-size.txt 2>&1
           echo [PASS] Android device online.
 
-      - name: Capture saved progression
+      - name: Backup save and inject three unspent points
         shell: cmd
-        continue-on-error: true
         run: |
           @echo off
-          "%ADB_EXE%" shell run-as %PACKAGE_ID% ls -la shared_prefs > Logs\r16-playerprefs-list.txt 2>&1
-          "%ADB_EXE%" shell "run-as %PACKAGE_ID% sh -c 'cat shared_prefs/*'" > Logs\r16-playerprefs-before.txt 2>&1
-          exit /b 0
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          ping -n 3 127.0.0.1 >nul
 
-      - name: Launch and enter combat
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-original.xml 2>&1
+          if errorlevel 1 exit /b 40
+
+          >Logs\r16-inject.sh echo cp %PREFS_FILE% files/r16-playerprefs-backup.xml
+          >>Logs\r16-inject.sh echo sed -i '/UnspentAttributePoints/s/value="0"/value="3"/' %PREFS_FILE%
+          type Logs\r16-inject.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          if errorlevel 1 exit /b 41
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-injected.xml 2>&1
+          if errorlevel 1 exit /b 42
+          findstr /C:"UnspentAttributePoints" Logs\r16-prefs-injected.xml
+          findstr /C:"value=\"3\"" Logs\r16-prefs-injected.xml >nul
+          if errorlevel 1 (
+            echo [ERROR] Failed to inject three unspent attribute points.
+            exit /b 43
+          )
+          echo [PASS] Temporary pending attribute state injected.
+
+      - name: Launch, show modal, and tap three choices
         shell: cmd
         run: |
           @echo off
           "%ADB_EXE%" logcat -c
-          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
           "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
-          if errorlevel 1 exit /b 40
+          if errorlevel 1 exit /b 50
           ping -n 6 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-main.png 2>nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-main.png 2>nul
 
-          rem Current paired device is 1440x3200. Game Start center is ~720,1840.
           "%ADB_EXE%" shell input tap 720 1840
           ping -n 6 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-combat-5s.png 2>nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-modal-before.png 2>nul
 
-          ping -n 26 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-combat-30s.png 2>nul
-
-          rem The saved R16 state has 3 unspent attribute points. Tap the visible
-          rem first attribute button three times and verify the modal can close.
           "%ADB_EXE%" shell input tap 300 1430
           ping -n 2 127.0.0.1 >nul
           "%ADB_EXE%" shell input tap 300 1430
           ping -n 2 127.0.0.1 >nul
           "%ADB_EXE%" shell input tap 300 1430
 
-          ping -n 11 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-after-selection.png 2>nul
-          "%ADB_EXE%" shell "run-as %PACKAGE_ID% sh -c 'cat shared_prefs/*'" > Logs\r16-playerprefs-after.txt 2>&1
-          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-smoke-pid.txt 2>&1
-          "%ADB_EXE%" logcat -d -t 2000 > Logs\r16-smoke-logcat.txt 2>&1
-          echo [PASS] R16 modal input evidence captured.
+          ping -n 9 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-after-input.png 2>nul
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-after-input.xml 2>&1
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-forced-pid.txt 2>&1
+          "%ADB_EXE%" logcat -d -t 1200 > Logs\r16-forced-logcat.txt 2>&1
 
-      - name: Upload R16 gameplay evidence
+          findstr /C:"UnspentAttributePoints" Logs\r16-prefs-after-input.xml
+          findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r16-prefs-after-input.xml >nul
+          if errorlevel 1 (
+            echo [ERROR] Three modal taps did not consume all pending points.
+            exit /b 51
+          )
+          echo [PASS] R16 modal touch input consumed all three pending points.
+
+      - name: Restore original PlayerPrefs
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+
+          >Logs\r16-restore.sh echo if [ -f files/r16-playerprefs-backup.xml ]; then
+          >>Logs\r16-restore.sh echo cp files/r16-playerprefs-backup.xml %PREFS_FILE%
+          >>Logs\r16-restore.sh echo rm -f files/r16-playerprefs-backup.xml
+          >>Logs\r16-restore.sh echo fi
+          type Logs\r16-restore.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-restored.xml 2>&1
+          fc /b Logs\r16-prefs-original.xml Logs\r16-prefs-restored.xml > Logs\r16-prefs-restore-compare.txt 2>&1
+          if errorlevel 1 (
+            echo [ERROR] PlayerPrefs restore verification failed.
+            exit /b 60
+          )
+          echo [PASS] Original PlayerPrefs restored byte-for-byte.
+
+      - name: Upload R16 forced-state evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: R16-Modal-Gameplay-Smoke
+          name: R16-Modal-Forced-State-Smoke
           path: |
-            Logs/r16-smoke-devices.txt
-            Logs/r16-smoke-wm-size.txt
-            Logs/r16-playerprefs-list.txt
-            Logs/r16-playerprefs-before.txt
-            Logs/r16-smoke-main.png
-            Logs/r16-smoke-combat-5s.png
-            Logs/r16-smoke-combat-30s.png
-            Logs/r16-smoke-after-selection.png
-            Logs/r16-playerprefs-after.txt
-            Logs/r16-smoke-pid.txt
-            Logs/r16-smoke-logcat.txt
+            Logs/r16-forced-devices.txt
+            Logs/r16-forced-wm-size.txt
+            Logs/r16-prefs-original.xml
+            Logs/r16-prefs-injected.xml
+            Logs/r16-prefs-after-input.xml
+            Logs/r16-prefs-restored.xml
+            Logs/r16-prefs-restore-compare.txt
+            Logs/r16-forced-main.png
+            Logs/r16-forced-modal-before.png
+            Logs/r16-forced-after-input.png
+            Logs/r16-forced-pid.txt
+            Logs/r16-forced-logcat.txt
           if-no-files-found: warn
           retention-days: 3
