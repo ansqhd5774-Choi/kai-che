@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R10";
+        private const string BuildLabel = "R11";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -186,9 +186,12 @@ namespace KaiChe.Presentation
                 30f);
             DrawProgressBar(
                 hpRect,
-                Mathf.Clamp01(_arena.PlayerHealth / 100f),
+                Mathf.Clamp01(
+                    _arena.PlayerHealth
+                    / Mathf.Max(1f, _arena.MaxPlayerHealth)),
                 _healthFill,
-                $"체력 {Mathf.CeilToInt(_arena.PlayerHealth)} / 100");
+                $"체력 {Mathf.CeilToInt(_arena.PlayerHealth)}"
+                + $" / {Mathf.CeilToInt(_arena.MaxPlayerHealth)}");
 
             float xpMax = Mathf.Max(1f, _arena.ExperienceRequiredForNextLevel);
             Rect xpRect = new Rect(
@@ -345,8 +348,10 @@ namespace KaiChe.Presentation
                 $"능력치 포인트 {_arena.UnspentAttributePoints}",
                 _hudStyle);
             GUI.Label(
-                new Rect(panel.x + 30f, panel.y + 200f, panel.width - 60f, 52f),
-                "레벨이 올랐습니다. 능력치 포인트를 배분하세요.",
+                new Rect(panel.x + 30f, panel.y + 198f, panel.width - 60f, 72f),
+                $"레벨 기본 강화: 스킬 피해 +{Mathf.RoundToInt(_arena.LevelDamageBonusPercent)}%"
+                + " · 최대체력 증가 · 체력 30% 회복\n"
+                + "능력치 포인트를 배분하면 즉시 전투 성능에 반영됩니다.",
                 _smallStyle);
 
             CharacterAttribute[] attributes =
@@ -387,10 +392,39 @@ namespace KaiChe.Presentation
             CharacterAttribute attribute)
         {
             int value = _arena.GetAttributeValue(attribute);
-            string label = $"{GetAttributeLabel(attribute)}  {value}\n+1";
+            string label =
+                $"{GetAttributeLabel(attribute)}  {value}\n"
+                + GetAttributeEffectLabel(attribute)
+                + "\n+1";
 
             if (GUI.Button(rect, label, _buttonStyle))
                 _arena.TrySpendAttributePoint(attribute);
+        }
+
+        private static string GetAttributeEffectLabel(
+            CharacterAttribute attribute)
+        {
+            switch (attribute)
+            {
+                case CharacterAttribute.Body:
+                    return "최대체력 +20";
+                case CharacterAttribute.Agility:
+                    return "이동속도 +5%";
+                case CharacterAttribute.Perception:
+                    return "사거리·탄속 +6%";
+                case CharacterAttribute.Intelligence:
+                    return "스킬 피해 +8%";
+                case CharacterAttribute.Wisdom:
+                    return "재사용시간 -5%";
+                case CharacterAttribute.Will:
+                    return "받는 피해 -6%";
+                case CharacterAttribute.Good:
+                    return "냉기 피해 +10%";
+                case CharacterAttribute.Evil:
+                    return "화염 피해 +10%";
+                default:
+                    return string.Empty;
+            }
         }
 
         private static string GetAttributeLabel(CharacterAttribute attribute)
