@@ -128,7 +128,7 @@ namespace KaiChe.Gameplay.Survivor
                 materialTemplate);
 
             var weapon = new GameObject("PlayerWeapon");
-            weapon.transform.SetParent(modelRoot, false);
+            weapon.transform.SetParent(root.transform, false);
             weaponRoot = weapon.transform;
 
             CreatePart(
