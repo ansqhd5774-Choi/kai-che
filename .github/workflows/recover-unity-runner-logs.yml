@@ -1,0 +1,39 @@
+name: Recover Unity Runner Logs
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/recover-unity-runner-logs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover-logs:
+    name: Recover persisted Unity logs
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 5
+
+    steps:
+      - name: Inspect persisted Unity logs
+        shell: cmd
+        run: |
+          @echo off
+          echo GITHUB_WORKSPACE=%GITHUB_WORKSPACE%
+          if exist "%GITHUB_WORKSPACE%\Logs" dir /a "%GITHUB_WORKSPACE%\Logs"
+          if exist "C:\actions-runner-kaise\local-build-logs" dir /a "C:\actions-runner-kaise\local-build-logs"
+          echo [PASS] Persisted log locations inspected.
+
+      - name: Upload recovered Unity logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Recovered-Unity-Logs-${{ github.run_id }}
+          path: |
+            Logs/android-build.log
+            C:/actions-runner-kaise/local-build-logs/*.log
+          if-no-files-found: warn
+          retention-days: 14
