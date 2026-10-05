@@ -76,7 +76,9 @@ jobs:
           ping -n 8 127.0.0.1 >nul
 
           set "SIZE="
-          for /f "tokens=3" %%S in ('"%ADB_EXE%" -s %ADB_SERIAL% shell wm size ^| findstr /C:"Physical size:"') do set "SIZE=%%S"
+          "%ADB_EXE%" -s %ADB_SERIAL% shell wm size > screen-size.txt
+          for /f "tokens=3" %%S in ('findstr /C:"Physical size:" screen-size.txt') do set "SIZE=%%S"
+          type screen-size.txt
           if defined SIZE (
             for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
               set /a TAPX=%%W/2
