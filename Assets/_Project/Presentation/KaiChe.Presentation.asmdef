@@ -3,7 +3,8 @@
   "rootNamespace": "KaiChe.Presentation",
   "references": [
     "KaiChe.Core",
-    "KaiChe.Gameplay"
+    "KaiChe.Gameplay",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

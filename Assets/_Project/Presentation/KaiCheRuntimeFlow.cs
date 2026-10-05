@@ -15,7 +15,7 @@ namespace KaiChe.Presentation
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _buildStyle;
-        private const string BuildLabel = "R13";
+        private const string BuildLabel = "R14";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
@@ -120,6 +120,10 @@ namespace KaiChe.Presentation
 
             var hud = root.AddComponent<SurvivorHudController>();
             hud.Bind(arena);
+            hud.SetVisualsEnabled(false);
+
+            var uguiHud = root.AddComponent<UguiSurvivorHudController>();
+            uguiHud.Bind(arena);
         }
 
         private static void SetupTownWorld()
