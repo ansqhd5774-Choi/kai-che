@@ -33,6 +33,7 @@ jobs:
     timeout-minutes: 60
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
 
     steps:
       - name: Checkout repository
@@ -81,6 +82,16 @@ jobs:
           if not "!RC!"=="0" exit /b !RC!
           if not exist "Builds\Android\KaiChe-dev.apk" exit /b 40
           echo [PASS] Android APK created.
+
+      - name: Persist APK on runner
+        if: success()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%LOCAL_APK_DIR%" mkdir "%LOCAL_APK_DIR%"
+          copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" exit /b 41
+          for %%A in ("%LOCAL_APK_DIR%\KaiChe-dev.apk") do echo [PASS] Local APK persisted: %%~fA (%%~zA bytes)
 
       - name: Upload Android APK
         if: success()
