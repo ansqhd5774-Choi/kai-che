@@ -24,6 +24,7 @@ jobs:
       ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
       APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
       PACKAGE_ID: com.kaiche.rpg
+      PREFS_FILE: shared_prefs/com.kaiche.rpg.v2.playerprefs.xml
       ADB_MDNS: 1
       ADB_MDNS_OPENSCREEN: 0
 
@@ -128,6 +129,29 @@ jobs:
           if errorlevel 1 exit /b 41
           echo [PASS] KaiChe installed.
 
+      - name: Backup PlayerPrefs for R18 smoke
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          ping -n 2 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-original.xml 2>&1
+          if errorlevel 1 (
+            echo [ERROR] Could not read PlayerPrefs before R18 smoke.
+            exit /b 45
+          )
+
+          >Logs\r18-prefs-backup.sh echo cp %PREFS_FILE% files/r18-prefs-backup.xml
+          type Logs\r18-prefs-backup.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          if errorlevel 1 (
+            echo [ERROR] Could not back up PlayerPrefs on device.
+            exit /b 46
+          )
+
+          echo [PASS] R18 smoke PlayerPrefs backed up.
+
       - name: Launch KaiChe
         shell: cmd
         run: |
@@ -171,6 +195,29 @@ jobs:
           "%ADB_EXE%" exec-out screencap -p > Logs\device-game-screen.png 2>nul
           echo [PASS] Game scene loaded.
 
+          rem Saved progression may open the level-up attribute modal and block movement.
+          rem Reuse the R16-verified first attribute touch point until all 3 points are consumed.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 3 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-after-attributes.xml 2>&1
+          findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r18-prefs-after-attributes.xml >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
+            echo [ERROR] R18 smoke could not resolve pending attribute points.
+            exit /b 63
+          )
+
+          rem If a skill-choice modal follows, this same tested point selects the first option.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
+          echo [PASS] Pending level-up modal resolved for R18 route test.
+
           rem Portrait route: downward screen drag means negative Unity Y toward the town entrance.
           "%ADB_EXE%" shell input swipe 720 1500 720 2850 2800
           ping -n 5 127.0.0.1 >nul
@@ -212,6 +259,35 @@ jobs:
           "%ADB_EXE%" exec-out screencap -p > Logs\device-screen.png 2>nul
           echo [INFO] Runtime evidence captured.
 
+      - name: Restore original PlayerPrefs
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs\r18-prefs-original.xml (
+            echo [WARN] No R18 PlayerPrefs backup was created; restore skipped.
+            exit /b 0
+          )
+
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+
+          >Logs\r18-prefs-restore.sh echo if [ -f files/r18-prefs-backup.xml ]; then
+          >>Logs\r18-prefs-restore.sh echo cp files/r18-prefs-backup.xml %PREFS_FILE%
+          >>Logs\r18-prefs-restore.sh echo rm -f files/r18-prefs-backup.xml
+          >>Logs\r18-prefs-restore.sh echo fi
+          type Logs\r18-prefs-restore.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-restored.xml 2>&1
+          fc /b Logs\r18-prefs-original.xml Logs\r18-prefs-restored.xml > Logs\r18-prefs-restore-compare.txt 2>&1
+          if errorlevel 1 (
+            echo [ERROR] PlayerPrefs restore verification failed.
+            exit /b 70
+          )
+
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          echo [PASS] Original PlayerPrefs restored byte-for-byte and app relaunched.
+
       - name: Upload device evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -234,5 +310,10 @@ jobs:
             Logs/device-town-screen.png
             Logs/device-main-failure.png
             Logs/device-town-failure.png
+            Logs/device-after-modal.png
+            Logs/r18-prefs-original.xml
+            Logs/r18-prefs-after-attributes.xml
+            Logs/r18-prefs-restored.xml
+            Logs/r18-prefs-restore-compare.txt
           if-no-files-found: warn
           retention-days: 7
