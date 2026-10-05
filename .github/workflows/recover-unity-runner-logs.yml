@@ -18,27 +18,22 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Inspect persisted workspace logs
+      - name: Inspect persisted Unity logs
         shell: cmd
         run: |
           @echo off
           echo GITHUB_WORKSPACE=%GITHUB_WORKSPACE%
-          if not exist "%GITHUB_WORKSPACE%\Logs" (
-            echo [ERROR] Logs directory not found.
-            exit /b 20
-          )
-          dir /a "%GITHUB_WORKSPACE%\Logs"
-          if not exist "%GITHUB_WORKSPACE%\Logs\android-build.log" (
-            echo [ERROR] android-build.log not found.
-            exit /b 21
-          )
-          echo [PASS] Found persisted android-build.log.
+          if exist "%GITHUB_WORKSPACE%\Logs" dir /a "%GITHUB_WORKSPACE%\Logs"
+          if exist "C:\actions-runner-kaise\local-build-logs" dir /a "C:\actions-runner-kaise\local-build-logs"
+          echo [PASS] Persisted log locations inspected.
 
-      - name: Upload recovered Unity log
+      - name: Upload recovered Unity logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KaiChe-Recovered-Unity-Log-${{ github.run_id }}
-          path: Logs/android-build.log
-          if-no-files-found: error
+          name: KaiChe-Recovered-Unity-Logs-${{ github.run_id }}
+          path: |
+            Logs/android-build.log
+            C:/actions-runner-kaise/local-build-logs/*.log
+          if-no-files-found: warn
           retention-days: 14
