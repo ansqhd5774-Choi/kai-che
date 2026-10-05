@@ -1,0 +1,29 @@
+name: Probe ADB Wireless Endpoint
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/adb-log-endpoint-probe.yml"
+
+jobs:
+  probe:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 3
+    steps:
+      - name: Probe adb log for wireless endpoint
+        shell: cmd
+        run: |
+          @echo off
+          set "ADB_LOG=%LOCALAPPDATA%\Temp\adb.log"
+          echo USERNAME=%USERNAME%
+          echo USERPROFILE=%USERPROFILE%
+          echo ADB_LOG=%ADB_LOG%
+          if not exist "%ADB_LOG%" (
+            echo [ERROR] adb.log not found
+            exit /b 20
+          )
+          echo ===== MATCHES =====
+          findstr /I /C:"192.168.0.8" /C:"_adb-tls-connect" /C:"adb-R3CR108LHBV" "%ADB_LOG%"
+          exit /b 0
