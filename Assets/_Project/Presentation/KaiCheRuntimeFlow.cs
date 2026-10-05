@@ -14,6 +14,8 @@ namespace KaiChe.Presentation
         private GUIStyle _bodyStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
+        private GUIStyle _buildStyle;
+        private const string BuildLabel = "R10";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
@@ -76,8 +78,19 @@ namespace KaiChe.Presentation
             var panel = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
 
             GUI.Box(panel, GUIContent.none);
-            GUI.Label(new Rect(panel.x + 32f, panel.y + 44f, panel.width - 64f, 90f), "KaiChe", _titleStyle);
-            GUI.Label(new Rect(panel.x + 32f, panel.y + 150f, panel.width - 64f, 120f),
+
+            Rect buildRect = new Rect(
+                panel.x + 40f,
+                panel.y + 18f,
+                panel.width - 80f,
+                72f);
+            GUI.Label(
+                buildRect,
+                "BUILD " + BuildLabel,
+                _buildStyle);
+
+            GUI.Label(new Rect(panel.x + 32f, panel.y + 92f, panel.width - 64f, 90f), "KaiChe", _titleStyle);
+            GUI.Label(new Rect(panel.x + 32f, panel.y + 190f, panel.width - 64f, 120f),
                 "판타지 전투 프로토타입\n공용 RPG 데이터 / 코어", _bodyStyle);
 
             float buttonWidth = Mathf.Min(panel.width - 64f, 560f);
@@ -158,6 +171,15 @@ namespace KaiChe.Presentation
                 fontSize = Mathf.Max(26, baseSize - 2),
                 fontStyle = FontStyle.Bold
             };
+
+            _buildStyle = new GUIStyle(skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = Mathf.Max(46, baseSize + 14),
+                fontStyle = FontStyle.Bold
+            };
+            _buildStyle.normal.textColor =
+                new Color(1f, 0.84f, 0.24f);
         }
     }
 }
