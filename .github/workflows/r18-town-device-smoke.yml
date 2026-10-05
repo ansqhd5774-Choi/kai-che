@@ -1,0 +1,148 @@
+name: R18 Town Device Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/r18-town-device-smoke.yml"
+
+concurrency:
+  group: kaise-r18-town-device-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-r18-town:
+    name: Verify R18 3D town on Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+      ADB_MDNS: 1
+      ADB_MDNS_OPENSCREEN: 0
+
+    steps:
+      - name: Verify Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" exit /b 20
+
+          "%ADB_EXE%" devices -l > Logs\r18-devices-before.txt 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" mdns services > Logs\r18-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\r18-mdns.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              "%ADB_EXE%" connect !ENDPOINT! >> Logs\r18-connect.txt 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 goto device_ready
+            )
+          )
+
+          echo [ERROR] Android device unavailable.
+          exit /b 30
+
+          :device_ready
+          "%ADB_EXE%" devices -l > Logs\r18-devices-after.txt 2>&1
+          echo [PASS] Android device ready.
+
+      - name: Launch R18 and enter game
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 40
+          ping -n 6 127.0.0.1 >nul
+
+          rem Main screen can appear in portrait or landscape.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\r18-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r18-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\r18-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r18-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r18-main-failure.png 2>nul
+          echo [ERROR] Game scene did not load.
+          exit /b 41
+
+          :game_ready
+          echo [PASS] Game scene loaded.
+
+      - name: Traverse field gate into R18 town
+        shell: cmd
+        run: |
+          @echo off
+
+          rem Portrait: drag downward on the screen => negative Unity Y movement toward town entrance.
+          "%ADB_EXE%" shell input swipe 720 1500 720 2850 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\r18-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\r18-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          rem Landscape fallback.
+          "%ADB_EXE%" shell input swipe 1600 560 1600 1320 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\r18-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\r18-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r18-town-failure.png 2>nul
+          echo [ERROR] R18 town activation marker not found.
+          exit /b 50
+
+          :town_ready
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r18-pid.txt 2>&1
+          for %%A in (Logs\r18-pid.txt) do if %%~zA EQU 0 (
+            echo [ERROR] KaiChe process stopped during R18 town smoke.
+            exit /b 51
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r18-town-screen.png 2>nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\r18-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R15_3D_VISUALS_ACTIVE" Logs\r18-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Shared 3D warrior visual marker not found.
+            exit /b 52
+          )
+
+          echo [PASS] R18 3D town loaded with shared 3D warrior visual.
+
+      - name: Upload R18 town evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: R18-Town-Device-Smoke
+          path: |
+            Logs/r18-devices-before.txt
+            Logs/r18-devices-after.txt
+            Logs/r18-mdns.txt
+            Logs/r18-connect.txt
+            Logs/r18-pid.txt
+            Logs/r18-logcat.txt
+            Logs/r18-main-failure.png
+            Logs/r18-town-failure.png
+            Logs/r18-town-screen.png
+          if-no-files-found: warn
+          retention-days: 7
