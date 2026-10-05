@@ -19,6 +19,8 @@ namespace KaiChe.Gameplay.Survivor
             public bool IsAggro;
             public float SlowTimer;
             public float AttackTimer;
+            public float SpecialTimer;
+            public float BurstTimer;
             public GameObject SlowAura;
         }
 
@@ -62,6 +64,8 @@ namespace KaiChe.Gameplay.Survivor
         private bool _playerHitFirstLogged;
         private bool _runnerSpawnLogged;
         private bool _bruteSpawnLogged;
+        private bool _runnerDashLogged;
+        private bool _bruteSlamLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -70,6 +74,12 @@ namespace KaiChe.Gameplay.Survivor
         private const float EnemyAttackInterval = 0.55f;
         private const float EnemyContactKnockback = 0.22f;
         private const float PlayerHitFlashDuration = 0.18f;
+        private const float RunnerDashInterval = 2.6f;
+        private const float RunnerDashDuration = 0.42f;
+        private const float RunnerDashSpeedMultiplier = 2.15f;
+        private const float BruteSlamRadius = 0.82f;
+        private const float BruteSlamInterval = 1.65f;
+        private const float BruteSlamKnockback = 0.38f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -338,7 +348,8 @@ namespace KaiChe.Gameplay.Survivor
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
                 BaseScale = variantScale,
                 IsAggro = true,
-                AttackTimer = Random.Range(0.15f, EnemyAttackInterval)
+                AttackTimer = Random.Range(0.15f, EnemyAttackInterval),
+                SpecialTimer = Random.Range(0.6f, 1.2f)
             };
 
             if (enemy.View != null)
@@ -362,6 +373,8 @@ namespace KaiChe.Gameplay.Survivor
 
                 MonsterDefinition definition =
                     enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
+                bool isRunner = definition.Id == ContentIds.RunnerMonster;
+                bool isBrute = definition.Id == ContentIds.BruteMonster;
 
                 enemy.SlowTimer = Mathf.Max(
                     0f,
@@ -369,6 +382,12 @@ namespace KaiChe.Gameplay.Survivor
                 enemy.AttackTimer = Mathf.Max(
                     0f,
                     enemy.AttackTimer - deltaTime);
+                enemy.SpecialTimer = Mathf.Max(
+                    0f,
+                    enemy.SpecialTimer - deltaTime);
+                enemy.BurstTimer = Mathf.Max(
+                    0f,
+                    enemy.BurstTimer - deltaTime);
 
                 if (enemy.SlowTimer <= 0f && enemy.SlowAura != null)
                 {
@@ -380,11 +399,37 @@ namespace KaiChe.Gameplay.Survivor
                 Vector2 offset = playerPosition - position;
                 float distance = offset.magnitude;
 
+                if (isRunner
+                    && enemy.SpecialTimer <= 0f
+                    && distance > 1.2f
+                    && distance < 8f)
+                {
+                    enemy.BurstTimer = RunnerDashDuration;
+                    enemy.SpecialTimer = RunnerDashInterval;
+                    CreateRunnerDashEffect(
+                        position,
+                        offset / distance);
+
+                    if (!_runnerDashLogged)
+                    {
+                        _runnerDashLogged = true;
+                        Debug.Log("KAI_CHE_RUNNER_DASH_FIRST");
+                    }
+                }
+
                 if (distance > 0.001f)
                 {
-                    float moveSpeed = enemy.SlowTimer > 0f
-                        ? definition.MoveSpeed * IceSlowMultiplier
-                        : definition.MoveSpeed;
+                    float slowMultiplier = enemy.SlowTimer > 0f
+                        ? IceSlowMultiplier
+                        : 1f;
+                    float burstMultiplier =
+                        isRunner && enemy.BurstTimer > 0f
+                            ? RunnerDashSpeedMultiplier
+                            : 1f;
+                    float moveSpeed =
+                        definition.MoveSpeed
+                        * slowMultiplier
+                        * burstMultiplier;
                     position += offset / distance * moveSpeed * deltaTime;
                     enemy.View.transform.position =
                         new Vector3(position.x, position.y, 0f);
@@ -400,24 +445,41 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     Mathf.Sin(enemy.AnimationPhase * 0.73f) * 2.5f);
 
-                if (enemy.IsAggro
+                if (isBrute
+                    && distance < BruteSlamRadius
+                    && enemy.SpecialTimer <= 0f)
+                {
+                    float slamDamage =
+                        definition.ContactDamagePerSecond
+                        * BruteSlamInterval;
+                    ApplyPlayerHit(slamDamage, playerPosition);
+                    enemy.SpecialTimer = BruteSlamInterval;
+                    CreateBruteSlamEffect(position);
+
+                    if (!_bruteSlamLogged)
+                    {
+                        _bruteSlamLogged = true;
+                        Debug.Log("KAI_CHE_BRUTE_SLAM_FIRST");
+                    }
+
+                    if (distance > 0.001f)
+                    {
+                        Vector2 recoilDirection = -offset / distance;
+                        position += recoilDirection * BruteSlamKnockback;
+                        enemy.View.transform.position =
+                            new Vector3(position.x, position.y, 0f);
+                    }
+                }
+                else if (!isBrute
+                    && enemy.IsAggro
                     && distance < EnemyContactRadius
                     && enemy.AttackTimer <= 0f)
                 {
                     float attackDamage =
-                        definition.ContactDamagePerSecond * EnemyAttackInterval;
-                    PlayerHealth = Mathf.Max(
-                        0f,
-                        PlayerHealth - attackDamage);
+                        definition.ContactDamagePerSecond
+                        * EnemyAttackInterval;
+                    ApplyPlayerHit(attackDamage, playerPosition);
                     enemy.AttackTimer = EnemyAttackInterval;
-                    _playerHitFlashTimer = PlayerHitFlashDuration;
-                    CreatePlayerHitEffect(playerPosition);
-
-                    if (!_playerHitFirstLogged)
-                    {
-                        _playerHitFirstLogged = true;
-                        Debug.Log("KAI_CHE_PLAYER_HIT_FIRST");
-                    }
 
                     if (distance > 0.001f)
                     {
@@ -427,6 +489,23 @@ namespace KaiChe.Gameplay.Survivor
                             new Vector3(position.x, position.y, 0f);
                     }
                 }
+            }
+        }
+
+        private void ApplyPlayerHit(
+            float damage,
+            Vector2 playerPosition)
+        {
+            PlayerHealth = Mathf.Max(
+                0f,
+                PlayerHealth - damage);
+            _playerHitFlashTimer = PlayerHitFlashDuration;
+            CreatePlayerHitEffect(playerPosition);
+
+            if (!_playerHitFirstLogged)
+            {
+                _playerHitFirstLogged = true;
+                Debug.Log("KAI_CHE_PLAYER_HIT_FIRST");
             }
         }
 
@@ -878,6 +957,76 @@ namespace KaiChe.Gameplay.Survivor
                 new Vector3(0.12f, 1.75f, 1f);
 
             enemy.SlowAura = root;
+        }
+
+        private void CreateRunnerDashEffect(
+            Vector2 position,
+            Vector2 direction)
+        {
+            var root = new GameObject("RunnerDashEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.16f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            for (int i = 0; i < 3; i++)
+            {
+                GameObject streak = CreateQuad(
+                    "RunnerDashStreak_" + i,
+                    i == 0
+                        ? new Color(0.36f, 1f, 0.86f, 0.64f)
+                        : new Color(0.10f, 0.58f, 0.62f, 0.42f),
+                    new Vector3(-0.30f - i * 0.16f, 0f, 0f),
+                    1f);
+                streak.transform.SetParent(root.transform, false);
+                streak.transform.localScale =
+                    new Vector3(0.48f - i * 0.08f, 0.08f, 1f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.18f,
+                MaxLife = 0.18f,
+                StartScale = Vector3.one,
+                SpinSpeed = 0f
+            });
+        }
+
+        private void CreateBruteSlamEffect(Vector2 position)
+        {
+            var root = new GameObject("BruteSlamEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.19f);
+
+            for (int i = 0; i < 8; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "BruteSlamRay_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.64f, 0.12f, 0.88f)
+                        : new Color(0.62f, 0.38f, 0.10f, 0.70f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(0.76f, 0.08f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 22.5f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.28f,
+                MaxLife = 0.28f,
+                StartScale = Vector3.one,
+                SpinSpeed = 95f
+            });
         }
 
         private void CreatePlayerHitEffect(Vector2 position)
