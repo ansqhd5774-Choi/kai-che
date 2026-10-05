@@ -24,7 +24,7 @@ namespace KaiChe.Gameplay.Survivor
             root.transform.localScale = Vector3.one * baseScale;
 
             var modelObject = new GameObject("PlayerModelRoot");
-            modelObject.transform.SetParent(modelRoot, false);
+            modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
 
             CreatePart(
@@ -39,7 +39,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Capsule,
-                root.transform,
+                modelRoot,
                 "PlayerBody3D",
                 new Color(0.18f, 0.21f, 0.24f),
                 new Vector3(0f, -0.03f, 0f),
@@ -49,7 +49,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "PlayerChest3D",
                 new Color(0.58f, 0.43f, 0.17f),
                 new Vector3(0f, 0.05f, -0.28f),
@@ -59,7 +59,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "PlayerHelmet3D",
                 new Color(0.34f, 0.36f, 0.35f),
                 new Vector3(0f, 0.72f, -0.02f),
@@ -69,7 +69,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "PlayerVisor3D",
                 new Color(0.08f, 0.10f, 0.12f),
                 new Vector3(0f, 0.71f, -0.38f),
@@ -79,7 +79,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "PlayerCape3D",
                 new Color(0.28f, 0.06f, 0.04f),
                 new Vector3(0f, -0.08f, 0.30f),
@@ -89,7 +89,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "PlayerShoulderLeft3D",
                 new Color(0.42f, 0.34f, 0.20f),
                 new Vector3(-0.56f, 0.24f, -0.02f),
@@ -99,7 +99,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "PlayerShoulderRight3D",
                 new Color(0.42f, 0.34f, 0.20f),
                 new Vector3(0.56f, 0.24f, -0.02f),
@@ -109,7 +109,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "PlayerShield3D",
                 new Color(0.14f, 0.17f, 0.18f),
                 new Vector3(-0.78f, -0.05f, -0.18f),
@@ -119,7 +119,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "PlayerShieldBoss3D",
                 new Color(0.66f, 0.49f, 0.18f),
                 new Vector3(-0.78f, 0.04f, -0.31f),
@@ -215,7 +215,7 @@ namespace KaiChe.Gameplay.Survivor
             root.transform.position = position;
 
             var modelObject = new GameObject("EnemyModelRoot");
-            modelObject.transform.SetParent(modelRoot, false);
+            modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
 
             CreatePart(
@@ -230,7 +230,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Capsule,
-                root.transform,
+                modelRoot,
                 "EnemyBody3D",
                 bodyColor,
                 new Vector3(0f, -0.05f, 0f),
@@ -240,7 +240,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "EnemyChest3D",
                 armorColor,
                 new Vector3(0f, 0.02f, -0.34f),
@@ -250,7 +250,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "EnemyHead3D",
                 isBoss ? new Color(0.12f, 0.03f, 0.18f) : new Color(0.12f, 0.11f, 0.10f),
                 new Vector3(0f, isBoss ? 0.82f : 0.68f, -0.02f),
@@ -260,7 +260,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Capsule,
-                root.transform,
+                modelRoot,
                 "EnemyArmLeft3D",
                 bodyColor,
                 new Vector3(-0.56f, 0.02f, -0.02f),
@@ -270,7 +270,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Capsule,
-                root.transform,
+                modelRoot,
                 "EnemyArmRight3D",
                 bodyColor,
                 new Vector3(0.56f, 0.02f, -0.02f),
@@ -280,7 +280,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "EnemyHornLeft3D",
                 armorColor,
                 new Vector3(-0.23f, isBoss ? 1.14f : 0.95f, -0.04f),
@@ -290,7 +290,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Cube,
-                root.transform,
+                modelRoot,
                 "EnemyHornRight3D",
                 armorColor,
                 new Vector3(0.23f, isBoss ? 1.14f : 0.95f, -0.04f),
@@ -300,7 +300,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "EnemyEyeLeft3D",
                 accentColor,
                 new Vector3(-0.11f, isBoss ? 0.84f : 0.70f, -0.38f),
@@ -310,7 +310,7 @@ namespace KaiChe.Gameplay.Survivor
 
             CreatePart(
                 PrimitiveType.Sphere,
-                root.transform,
+                modelRoot,
                 "EnemyEyeRight3D",
                 accentColor,
                 new Vector3(0.11f, isBoss ? 0.84f : 0.70f, -0.38f),
@@ -322,7 +322,7 @@ namespace KaiChe.Gameplay.Survivor
             {
                 CreatePart(
                     PrimitiveType.Cube,
-                    root.transform,
+                    modelRoot,
                     "EnemyRunnerMark3D",
                     accentColor,
                     new Vector3(0f, 0.15f, -0.46f),
@@ -334,7 +334,7 @@ namespace KaiChe.Gameplay.Survivor
             {
                 CreatePart(
                     PrimitiveType.Cube,
-                    root.transform,
+                    modelRoot,
                     "EnemyBruteArmor3D",
                     armorColor,
                     new Vector3(0f, 0.12f, -0.46f),
@@ -346,7 +346,7 @@ namespace KaiChe.Gameplay.Survivor
             {
                 CreatePart(
                     PrimitiveType.Sphere,
-                    root.transform,
+                    modelRoot,
                     "EnemyBossCore3D",
                     accentColor,
                     new Vector3(0f, 0.06f, -0.53f),
@@ -356,7 +356,7 @@ namespace KaiChe.Gameplay.Survivor
 
                 CreatePart(
                     PrimitiveType.Cube,
-                    root.transform,
+                    modelRoot,
                     "EnemyBossCrown3D",
                     new Color(0.82f, 0.46f, 1f),
                     new Vector3(0f, 1.28f, -0.05f),
