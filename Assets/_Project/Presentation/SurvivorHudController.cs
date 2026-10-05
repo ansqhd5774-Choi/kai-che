@@ -61,7 +61,7 @@ namespace KaiChe.Presentation
         {
             if (_arena == null) return;
 
-            if (_arena.IsAttributeAllocationPending)
+            if (_arena.IsAttributeAllocationPending || _arena.IsSkillChoicePending)
             {
                 ResetJoystick();
                 _arena.SetMoveInput(Vector2.zero);
@@ -208,11 +208,13 @@ namespace KaiChe.Presentation
                     32f),
                 $"{_arena.ActiveSkillName} {_arena.ActiveSkillMastery}"
                 + $"   ·   {_arena.IceSkillName} {_arena.IceSkillMastery}"
-                + $"   ·   해금 {_arena.UnlockedSkillCount}",
+                + $"   ·   빌드 F{_arena.FireUpgradeRank}"
+                + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}",
                 _smallStyle);
 
             bool modalOpen = _arena.IsDead
-                || _arena.IsAttributeAllocationPending;
+                || _arena.IsAttributeAllocationPending
+                || _arena.IsSkillChoicePending;
             if (!modalOpen)
                 DrawJoystick();
 
@@ -228,6 +230,52 @@ namespace KaiChe.Presentation
                 DrawDeathOverlay();
             else if (_arena.IsAttributeAllocationPending)
                 DrawAttributeAllocationOverlay();
+            else if (_arena.IsSkillChoicePending)
+                DrawSkillChoiceOverlay();
+        }
+
+        private void DrawSkillChoiceOverlay()
+        {
+            Rect safe = SafeGuiRect;
+            float width = Mathf.Min(safe.width * 0.92f, 1120f);
+            float height = Mathf.Min(safe.height * 0.72f, 1120f);
+            Rect panel = new Rect(
+                safe.x + (safe.width - width) * 0.5f,
+                safe.y + (safe.height - height) * 0.5f,
+                width,
+                height);
+
+            GUI.DrawTexture(safe, _modalDim, ScaleMode.StretchToFill, true);
+            DrawFantasyPanel(panel);
+
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 34f, panel.width - 60f, 86f),
+                "전투 진화 선택",
+                _deathStyle);
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 116f, panel.width - 60f, 58f),
+                $"남은 선택 {_arena.PendingSkillChoices} · 한 계열을 집중하면 진화합니다.",
+                _smallStyle);
+
+            const float gap = 22f;
+            float top = panel.y + 196f;
+            float buttonHeight = (panel.height - 242f - gap * 2f) / 3f;
+
+            for (int i = 0; i < 3; i++)
+            {
+                Rect buttonRect = new Rect(
+                    panel.x + 30f,
+                    top + i * (buttonHeight + gap),
+                    panel.width - 60f,
+                    buttonHeight);
+
+                string label = _arena.GetSkillUpgradeTitle(i)
+                    + "\n"
+                    + _arena.GetSkillUpgradeDescription(i);
+
+                if (GUI.Button(buttonRect, label, _buttonStyle))
+                    _arena.TryChooseSkillUpgrade(i);
+            }
         }
 
         private void DrawJoystick()
