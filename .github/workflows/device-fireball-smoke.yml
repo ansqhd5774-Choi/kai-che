@@ -1,0 +1,117 @@
+name: KAISE Device Fireball Smoke
+
+on:
+  push:
+    branches:
+      - ops/device-fireball-smoke
+    paths:
+      - ".github/workflows/device-fireball-smoke.yml"
+
+jobs:
+  device-smoke:
+    name: Install and launch KAISE on Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
+      PACKAGE_ID: com.kaiche.rpg
+
+    steps:
+      - name: Verify wireless ADB device
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" start-server
+          "%ADB_EXE%" devices
+          "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
+          if errorlevel 1 (
+            echo [ERROR] No authorized ADB device is connected.
+            exit /b 20
+          )
+          echo [PASS] ADB device connected.
+
+      - name: Verify persisted APK
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%APK_PATH%" (
+            echo [ERROR] APK not found: %APK_PATH%
+            exit /b 21
+          )
+          for %%A in ("%APK_PATH%") do echo [PASS] APK found: %%~fA ^(%%~zA bytes^)
+
+      - name: Install APK
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" install -r "%APK_PATH%"
+          if errorlevel 1 exit /b 22
+          echo [PASS] APK installed.
+
+      - name: Launch game and enter combat
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 23
+          ping -n 8 127.0.0.1 >nul
+
+          set "SIZE="
+          for /f "tokens=3" %%S in ('"%ADB_EXE%" shell wm size ^| findstr /C:"Physical size:"') do set "SIZE=%%S"
+          if defined SIZE (
+            for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
+              set /a TAPX=%%W/2
+              set /a TAPY=%%X*63/100
+            )
+            setlocal EnableDelayedExpansion
+            echo [INFO] Screen=!SIZE! tap=!TAPX!,!TAPY!
+            "%ADB_EXE%" shell input tap !TAPX! !TAPY!
+            endlocal
+          ) else (
+            echo [WARN] Could not read physical screen size; skipping automated Game Start tap.
+          )
+
+          ping -n 12 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > device-pid.txt
+          set /p PID=<device-pid.txt
+          if not defined PID (
+            echo [ERROR] KAISE process is not running.
+            "%ADB_EXE%" logcat -d -t 200
+            exit /b 24
+          )
+          echo [PASS] KAISE running. PID=%PID%
+
+      - name: Verify fireball runtime marker
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -d -t 1200 > fireball-log.txt
+          findstr /C:"KAI_CHE_FIREBALL_FIRST_SHOT" fireball-log.txt
+          if errorlevel 1 (
+            echo [WARN] Fireball runtime marker not observed in this APK/run.
+            exit /b 25
+          )
+          echo [PASS] Fireball first-shot marker observed on device.
+
+      - name: Capture device screenshot
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" exec-out screencap -p > device-fireball-smoke.png
+          if exist device-fireball-smoke.png echo [PASS] Device screenshot captured.
+
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Device-Fireball-Smoke
+          path: |
+            fireball-log.txt
+            device-fireball-smoke.png
+            device-pid.txt
+          if-no-files-found: warn
+          retention-days: 7
