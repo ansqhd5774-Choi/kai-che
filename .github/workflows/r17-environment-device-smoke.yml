@@ -114,10 +114,26 @@ jobs:
           if errorlevel 1 exit /b 40
           ping -n 9 127.0.0.1 >nul
 
-          rem Main screen game-start button center for the connected 1440px-wide device.
-          "%ADB_EXE%" shell input tap 720 1840
-          ping -n 9 127.0.0.1 >nul
+          rem Connected Galaxy device is physically 1440x3200 and rotates the Unity surface to 3200x1440.
+          rem The BUILD R17 game-start button center is around landscape (1600,970).
+          rem Try both inverse ROTATION_90 mappings and stop immediately once the R17 marker appears.
+          "%ADB_EXE%" shell input tap 970 1600
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
+          if not errorlevel 1 goto environment_active
 
+          "%ADB_EXE%" shell input tap 470 1600
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
+          if not errorlevel 1 goto environment_active
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r17-game-screen.png 2>nul
+          echo [ERROR] R17 3D environment activation marker not found after both rotation-safe start taps.
+          exit /b 42
+
+          :environment_active
           "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r17-pid.txt 2>&1
           for %%A in (Logs\r17-pid.txt) do if %%~zA EQU 0 (
             echo [ERROR] KaiChe process stopped during R17 smoke.
@@ -126,13 +142,6 @@ jobs:
 
           "%ADB_EXE%" exec-out screencap -p > Logs\r17-game-screen.png 2>nul
           "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
-
-          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
-          if errorlevel 1 (
-            echo [ERROR] R17 3D environment activation marker not found.
-            exit /b 42
-          )
-
           echo [PASS] R17 Game scene loaded and 3D environment activated.
 
       - name: Upload R17 device evidence
