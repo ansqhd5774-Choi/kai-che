@@ -2730,6 +2730,14 @@ namespace KaiChe.Gameplay.Survivor
             MonsterDefinition definition,
             Vector3 position)
         {
+            GameObject runtime3D = RuntimeCombatVisualFactory.CreateEnemy(
+                transform,
+                _materialTemplate,
+                definition,
+                position);
+            if (runtime3D != null)
+                return runtime3D;
+
             string id = definition.Id;
             bool isRunner = id == ContentIds.RunnerMonster;
             bool isBrute = id == ContentIds.BruteMonster;
@@ -2928,6 +2936,17 @@ namespace KaiChe.Gameplay.Survivor
 
         private GameObject CreateWarriorView()
         {
+            GameObject runtime3D = RuntimeCombatVisualFactory.CreateWarrior(
+                transform,
+                _materialTemplate,
+                PlayerBaseScale,
+                out Transform runtimeWeaponRoot);
+            if (runtime3D != null)
+            {
+                _weaponRoot = runtimeWeaponRoot;
+                return runtime3D;
+            }
+
             var root = new GameObject("Player");
             root.transform.SetParent(transform, false);
             root.transform.position = Vector3.zero;
