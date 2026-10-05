@@ -24,6 +24,11 @@ namespace KaiChe.Gameplay.Survivor
             public float BurstTimer;
             public bool SpecialArmed;
             public bool PhaseTwoTriggered;
+            public bool IsElite;
+            public int EliteKind;
+            public float MoveMultiplier = 1f;
+            public float DamageMultiplier = 1f;
+            public int ExperienceMultiplier = 1;
             public GameObject SlowAura;
         }
 
@@ -72,6 +77,10 @@ namespace KaiChe.Gameplay.Survivor
         private int _iceUpgradeRank;
         private int _arcaneUpgradeRank;
         private int _projectileHitSequence;
+        private int _pendingBossRewards;
+        private int _bossAttackRewardRank;
+        private int _bossVitalityRewardRank;
+        private int _bossTempoRewardRank;
         private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
@@ -86,6 +95,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _thermalShockFirstLogged;
         private bool _arcaneChainFirstLogged;
         private bool _bossDefeatLogged;
+        private bool _eliteSpawnLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -147,6 +157,19 @@ namespace KaiChe.Gameplay.Survivor
         private const float WillDamageReductionPerPoint = 0.06f;
         private const float GoodIceDamagePerPoint = 0.10f;
         private const float EvilFireDamagePerPoint = 0.10f;
+        private const int EliteSpawnInterval = 7;
+        private const float EliteSwiftHealthMultiplier = 1.40f;
+        private const float EliteSwiftMoveMultiplier = 1.35f;
+        private const float EliteSwiftDamageMultiplier = 1.18f;
+        private const float EliteBulwarkHealthMultiplier = 2.20f;
+        private const float EliteBulwarkMoveMultiplier = 0.82f;
+        private const float EliteBulwarkDamageMultiplier = 1.34f;
+        private const float EliteFrenzyHealthMultiplier = 1.70f;
+        private const float EliteFrenzyMoveMultiplier = 1.12f;
+        private const float EliteFrenzyDamageMultiplier = 1.55f;
+        private const float BossRewardDamagePerRank = 0.18f;
+        private const float BossRewardHealthPerRank = 28f;
+        private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -161,7 +184,8 @@ namespace KaiChe.Gameplay.Survivor
         public float MaxPlayerHealth =>
             100f
             + Mathf.Min(Mathf.Max(0, Level - 1), 50) * LevelHealthPerLevel
-            + GetAttributeValue(CharacterAttribute.Body) * BodyHealthPerPoint;
+            + GetAttributeValue(CharacterAttribute.Body) * BodyHealthPerPoint
+            + _bossVitalityRewardRank * BossRewardHealthPerRank;
         public float LevelDamageBonusPercent =>
             Mathf.Min(Mathf.Max(0, Level - 1), 25)
             * LevelDamagePerLevel
@@ -240,6 +264,25 @@ namespace KaiChe.Gameplay.Survivor
         public int FireUpgradeRank => _fireUpgradeRank;
         public int IceUpgradeRank => _iceUpgradeRank;
         public int ArcaneUpgradeRank => _arcaneUpgradeRank;
+        public int EliteCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < _enemies.Count; i++)
+                {
+                    EnemyState enemy = _enemies[i];
+                    if (enemy != null && enemy.View != null && enemy.IsElite)
+                        count += 1;
+                }
+                return count;
+            }
+        }
+        public bool IsBossRewardPending => _pendingBossRewards > 0;
+        public int PendingBossRewards => _pendingBossRewards;
+        public int BossAttackRewardRank => _bossAttackRewardRank;
+        public int BossVitalityRewardRank => _bossVitalityRewardRank;
+        public int BossTempoRewardRank => _bossTempoRewardRank;
         public bool IsThermalShockUnlocked =>
             _fireUpgradeRank >= ThermalShockRequiredFireRank
             && _iceUpgradeRank >= ThermalShockRequiredIceRank;
@@ -264,6 +307,64 @@ namespace KaiChe.Gameplay.Survivor
 
                 return false;
             }
+        }
+
+        public string GetBossRewardTitle(int choiceIndex)
+        {
+            switch (choiceIndex)
+            {
+                case 0: return "전리품 · 파괴의 인장";
+                case 1: return "전리품 · 생명의 핵";
+                case 2: return "전리품 · 시간의 파편";
+                default: return "알 수 없는 전리품";
+            }
+        }
+
+        public string GetBossRewardDescription(int choiceIndex)
+        {
+            switch (choiceIndex)
+            {
+                case 0:
+                    return $"+{Mathf.RoundToInt(BossRewardDamagePerRank * 100f)}% 전체 스킬 피해";
+                case 1:
+                    return $"+{Mathf.RoundToInt(BossRewardHealthPerRank)} 최대 체력 · 즉시 회복";
+                case 2:
+                    return $"재사용 대기시간 -{Mathf.RoundToInt(BossRewardCooldownPerRank * 100f)}%";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public bool TryChooseBossReward(int choiceIndex)
+        {
+            if (_pendingBossRewards <= 0)
+                return false;
+
+            switch (choiceIndex)
+            {
+                case 0:
+                    _bossAttackRewardRank += 1;
+                    Debug.Log("KAI_CHE_BOSS_REWARD_ATTACK_" + _bossAttackRewardRank);
+                    break;
+                case 1:
+                    _bossVitalityRewardRank += 1;
+                    PlayerHealth = Mathf.Min(
+                        MaxPlayerHealth,
+                        PlayerHealth + BossRewardHealthPerRank);
+                    Debug.Log("KAI_CHE_BOSS_REWARD_VITALITY_" + _bossVitalityRewardRank);
+                    break;
+                case 2:
+                    _bossTempoRewardRank += 1;
+                    Debug.Log("KAI_CHE_BOSS_REWARD_TEMPO_" + _bossTempoRewardRank);
+                    break;
+                default:
+                    return false;
+            }
+
+            _pendingBossRewards -= 1;
+            CreateLevelUpPowerEffect(PlayerPosition);
+            TriggerImpactFeedback(0.11f, false);
+            return true;
         }
 
         public string GetSkillUpgradeTitle(int choiceIndex)
@@ -357,7 +458,9 @@ namespace KaiChe.Gameplay.Survivor
 
         public void SetMoveInput(Vector2 input)
         {
-            _moveInput = IsAttributeAllocationPending || IsSkillChoicePending
+            _moveInput = IsAttributeAllocationPending
+                || IsSkillChoicePending
+                || IsBossRewardPending
                 ? Vector2.zero
                 : Vector2.ClampMagnitude(input, 1f);
         }
@@ -405,7 +508,10 @@ namespace KaiChe.Gameplay.Survivor
                 0f,
                 _playerHitFlashTimer - deltaTime);
 
-            if (IsDead || IsAttributeAllocationPending || IsSkillChoicePending)
+            if (IsDead
+                || IsAttributeAllocationPending
+                || IsSkillChoicePending
+                || IsBossRewardPending)
                 return;
 
             UpdateSurvivalWave(deltaTime);
@@ -686,10 +792,49 @@ namespace KaiChe.Gameplay.Survivor
                 forcedDefinition ?? SelectMonsterDefinition();
             float variantScale = GetMonsterScale(definition.Id);
             bool isBoss = definition.Id == ContentIds.BossMonster;
+            bool isElite =
+                !isBoss
+                && forcedDefinition == null
+                && Wave >= 2
+                && _spawnSequence > 0
+                && _spawnSequence % EliteSpawnInterval == 0;
+
+            int eliteKind = isElite
+                ? (_spawnSequence / EliteSpawnInterval) % 3
+                : -1;
+            float eliteHealthMultiplier = 1f;
+            float eliteMoveMultiplier = 1f;
+            float eliteDamageMultiplier = 1f;
+            int eliteExperienceMultiplier = 1;
+
+            if (isElite)
+            {
+                if (eliteKind == 0)
+                {
+                    eliteHealthMultiplier = EliteSwiftHealthMultiplier;
+                    eliteMoveMultiplier = EliteSwiftMoveMultiplier;
+                    eliteDamageMultiplier = EliteSwiftDamageMultiplier;
+                }
+                else if (eliteKind == 1)
+                {
+                    eliteHealthMultiplier = EliteBulwarkHealthMultiplier;
+                    eliteMoveMultiplier = EliteBulwarkMoveMultiplier;
+                    eliteDamageMultiplier = EliteBulwarkDamageMultiplier;
+                }
+                else
+                {
+                    eliteHealthMultiplier = EliteFrenzyHealthMultiplier;
+                    eliteMoveMultiplier = EliteFrenzyMoveMultiplier;
+                    eliteDamageMultiplier = EliteFrenzyDamageMultiplier;
+                }
+
+                eliteExperienceMultiplier = 3;
+            }
+
             float healthScale = isBoss
                 ? 1f + Mathf.Max(0, Wave - BossWaveInterval)
                     * BossHealthScalePerWave
-                : 1f;
+                : eliteHealthMultiplier;
             float maxHealth = definition.MaxHealth * healthScale;
             var enemy = new EnemyState
             {
@@ -700,14 +845,34 @@ namespace KaiChe.Gameplay.Survivor
                 Health = maxHealth,
                 MaxHealth = maxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
-                BaseScale = variantScale,
+                BaseScale = variantScale * (isElite ? 1.12f : 1f),
                 IsAggro = true,
+                IsElite = isElite,
+                EliteKind = eliteKind,
+                MoveMultiplier = eliteMoveMultiplier,
+                DamageMultiplier = eliteDamageMultiplier,
+                ExperienceMultiplier = eliteExperienceMultiplier,
                 AttackTimer = Random.Range(0.15f, EnemyAttackInterval),
                 SpecialTimer = Random.Range(0.6f, 1.2f)
             };
 
             if (enemy.View != null)
-                enemy.View.transform.localScale = Vector3.one * variantScale;
+            {
+                enemy.View.transform.localScale =
+                    Vector3.one * enemy.BaseScale;
+
+                if (isElite)
+                    CreateEliteAura(enemy);
+            }
+
+            if (isElite && !_eliteSpawnLogged)
+            {
+                _eliteSpawnLogged = true;
+                Debug.Log("KAI_CHE_ELITE_SPAWN_FIRST");
+            }
+
+            if (isElite)
+                Debug.Log("KAI_CHE_ELITE_KIND_" + eliteKind);
 
             _enemies.Add(enemy);
         }
@@ -826,6 +991,7 @@ namespace KaiChe.Gameplay.Survivor
                             : 1f;
                     float moveSpeed =
                         definition.MoveSpeed
+                        * enemy.MoveMultiplier
                         * slowMultiplier
                         * burstMultiplier
                         * bossChargeMultiplier;
@@ -856,6 +1022,7 @@ namespace KaiChe.Gameplay.Survivor
                             : 1f;
                         float pulseDamage =
                             definition.ContactDamagePerSecond
+                            * enemy.DamageMultiplier
                             * BossPulseDamageWindow
                             * phaseMultiplier;
                         ApplyPlayerHit(pulseDamage, playerPosition);
@@ -880,6 +1047,7 @@ namespace KaiChe.Gameplay.Survivor
                 {
                     float slamDamage =
                         definition.ContactDamagePerSecond
+                        * enemy.DamageMultiplier
                         * BruteSlamInterval;
                     ApplyPlayerHit(slamDamage, playerPosition);
                     enemy.SpecialTimer = BruteSlamInterval;
@@ -907,6 +1075,7 @@ namespace KaiChe.Gameplay.Survivor
                 {
                     float attackDamage =
                         definition.ContactDamagePerSecond
+                        * enemy.DamageMultiplier
                         * EnemyAttackInterval;
                     ApplyPlayerHit(attackDamage, playerPosition);
                     enemy.AttackTimer = EnemyAttackInterval;
@@ -919,6 +1088,36 @@ namespace KaiChe.Gameplay.Survivor
                             new Vector3(position.x, position.y, 0f);
                     }
                 }
+            }
+        }
+
+        private void CreateEliteAura(EnemyState enemy)
+        {
+            if (enemy == null || enemy.View == null)
+                return;
+
+            Color color = enemy.EliteKind == 0
+                ? new Color(0.18f, 1f, 0.78f, 0.72f)
+                : enemy.EliteKind == 1
+                    ? new Color(1f, 0.72f, 0.12f, 0.76f)
+                    : new Color(1f, 0.16f, 0.18f, 0.78f);
+
+            GameObject root = new GameObject("EliteAura");
+            root.transform.SetParent(enemy.View.transform, false);
+            root.transform.localPosition = new Vector3(0f, 0f, 0.06f);
+
+            for (int i = 0; i < 8; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "EliteAuraRay_" + i,
+                    color,
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(0.82f, 0.055f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 22.5f);
             }
         }
 
@@ -1042,7 +1241,8 @@ namespace KaiChe.Gameplay.Survivor
             float reduction =
                 _arcaneUpgradeRank * ArcaneCooldownPerRank
                 + GetAttributeValue(CharacterAttribute.Wisdom)
-                    * WisdomCooldownPerPoint;
+                    * WisdomCooldownPerPoint
+                + _bossTempoRewardRank * BossRewardCooldownPerRank;
             if (!isIceBall)
                 reduction += _fireUpgradeRank * FireCooldownPerRank;
 
@@ -1097,11 +1297,15 @@ namespace KaiChe.Gameplay.Survivor
                     + GetAttributeValue(CharacterAttribute.Evil)
                         * EvilFireDamagePerPoint;
 
+            float bossRewardMultiplier =
+                1f + _bossAttackRewardRank * BossRewardDamagePerRank;
+
             return skill.Damage
                 * buildMultiplier
                 * levelMultiplier
                 * intelligenceMultiplier
-                * elementMultiplier;
+                * elementMultiplier
+                * bossRewardMultiplier;
         }
 
         private GameObject CreateFireballProjectile(
@@ -2060,10 +2264,13 @@ namespace KaiChe.Gameplay.Survivor
                 enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
             bool isBoss = definition.Id == ContentIds.BossMonster;
             Vector2 defeatedPosition = enemy.View.transform.position;
-            Experience += definition.ExperienceReward;
+            int experienceReward =
+                definition.ExperienceReward
+                * Mathf.Max(1, enemy.ExperienceMultiplier);
+            Experience += experienceReward;
             int levelsGained =
                 _progression.AddExperienceAndApplyPrototypeLevelUp(
-                    definition.ExperienceReward);
+                    experienceReward);
             SavePrototypeProgression();
             Kills += 1;
 
@@ -2094,7 +2301,12 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             if (isBoss)
+            {
+                _pendingBossRewards += 1;
+                _moveInput = Vector2.zero;
                 TriggerBossDefeat(defeatedPosition);
+                Debug.Log("KAI_CHE_BOSS_REWARD_READY");
+            }
 
             Destroy(enemy.View);
             enemy.View = null;

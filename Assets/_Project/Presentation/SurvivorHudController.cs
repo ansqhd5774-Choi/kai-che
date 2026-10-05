@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R11";
+        private const string BuildLabel = "R12";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -63,7 +63,9 @@ namespace KaiChe.Presentation
         {
             if (_arena == null) return;
 
-            if (_arena.IsAttributeAllocationPending || _arena.IsSkillChoicePending)
+            if (_arena.IsAttributeAllocationPending
+                || _arena.IsSkillChoicePending
+                || _arena.IsBossRewardPending)
             {
                 ResetJoystick();
                 _arena.SetMoveInput(Vector2.zero);
@@ -216,12 +218,14 @@ namespace KaiChe.Presentation
                 + $"   ·   빌드 F{_arena.FireUpgradeRank}"
                 + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}"
                 + (_arena.IsThermalShockUnlocked ? "   ·   열충격" : string.Empty)
-                + (_arena.IsArcaneChainUnlocked ? "   ·   비전연쇄" : string.Empty),
+                + (_arena.IsArcaneChainUnlocked ? "   ·   비전연쇄" : string.Empty)
+                + (_arena.EliteCount > 0 ? $"   ·   엘리트 {_arena.EliteCount}" : string.Empty),
                 _smallStyle);
 
             bool modalOpen = _arena.IsDead
                 || _arena.IsAttributeAllocationPending
-                || _arena.IsSkillChoicePending;
+                || _arena.IsSkillChoicePending
+                || _arena.IsBossRewardPending;
             if (!modalOpen)
                 DrawJoystick();
 
@@ -263,8 +267,54 @@ namespace KaiChe.Presentation
                 DrawDeathOverlay();
             else if (_arena.IsAttributeAllocationPending)
                 DrawAttributeAllocationOverlay();
+            else if (_arena.IsBossRewardPending)
+                DrawBossRewardOverlay();
             else if (_arena.IsSkillChoicePending)
                 DrawSkillChoiceOverlay();
+        }
+
+        private void DrawBossRewardOverlay()
+        {
+            Rect safe = SafeGuiRect;
+            float width = Mathf.Min(safe.width * 0.90f, 1100f);
+            float height = Mathf.Min(safe.height * 0.68f, 1040f);
+            Rect panel = new Rect(
+                safe.x + (safe.width - width) * 0.5f,
+                safe.y + (safe.height - height) * 0.5f,
+                width,
+                height);
+
+            GUI.DrawTexture(safe, _modalDim, ScaleMode.StretchToFill, true);
+            DrawFantasyPanel(panel);
+
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 34f, panel.width - 60f, 86f),
+                "보스 전리품 선택",
+                _deathStyle);
+            GUI.Label(
+                new Rect(panel.x + 30f, panel.y + 118f, panel.width - 60f, 62f),
+                $"남은 전리품 {_arena.PendingBossRewards} · 이번 전투의 방향을 강화합니다.",
+                _smallStyle);
+
+            const float gap = 22f;
+            float top = panel.y + 208f;
+            float buttonHeight = (panel.height - 250f - gap * 2f) / 3f;
+
+            for (int i = 0; i < 3; i++)
+            {
+                Rect buttonRect = new Rect(
+                    panel.x + 30f,
+                    top + i * (buttonHeight + gap),
+                    panel.width - 60f,
+                    buttonHeight);
+
+                string label = _arena.GetBossRewardTitle(i)
+                    + "\n"
+                    + _arena.GetBossRewardDescription(i);
+
+                if (GUI.Button(buttonRect, label, _buttonStyle))
+                    _arena.TryChooseBossReward(i);
+            }
         }
 
         private void DrawSkillChoiceOverlay()
