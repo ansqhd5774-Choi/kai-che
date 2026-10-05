@@ -79,7 +79,7 @@ jobs:
             echo [HEARTBEAT] %TIME% waiting_for_log
           )
 
-          timeout /t 30 /nobreak >nul
+          ping -n 31 127.0.0.1 >nul
           goto monitor
 
           :finished
