@@ -10,7 +10,6 @@ on:
       - "Packages/**"
       - "ProjectSettings/**"
       - ".github/workflows/unity-android-build.yml"
-      - ".github/scripts/run-unity-build-watchdog.cmd"
 
 concurrency:
   group: kaise-unity-android-selfhosted
@@ -23,10 +22,11 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 12
+    timeout-minutes: 60
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
+      LOCAL_LOG_DIR: C:\actions-runner-kaise\local-build-logs
 
     steps:
       - name: Checkout repository
@@ -47,12 +47,27 @@ jobs:
           if errorlevel 1 exit /b 30
           echo [PASS] Unity host and project version verified.
 
-      - name: Build Android APK with watchdog
+      - name: Build Android APK
         shell: cmd
         run: |
           @echo off
-          call ".github\scripts\run-unity-build-watchdog.cmd"
-          exit /b %ERRORLEVEL%
+          setlocal EnableExtensions
+          if not exist Logs mkdir Logs
+          del /q "Logs\android-build.log" 2>nul
+          if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile -
+          set "RC=%ERRORLEVEL%"
+
+          if not "%RC%"=="0" (
+            echo [ERROR] Unity exited with code %RC%.
+            exit /b %RC%
+          )
+          if not exist "Builds\Android\KaiChe-dev.apk" (
+            echo [ERROR] Unity exited successfully but APK is missing.
+            exit /b 40
+          )
+          echo [PASS] Android APK created.
 
       - name: Persist APK on runner
         if: success()
@@ -79,9 +94,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: KaiChe-Android-Log-${{ github.sha }}
-          path: |
-            Logs/android-build.log
-            Logs/unity-watchdog.txt
-            Logs/unity-exit-code.txt
+          path: Logs/android-build.log
           if-no-files-found: warn
           retention-days: 14
