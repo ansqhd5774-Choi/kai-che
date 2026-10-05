@@ -30,6 +30,7 @@ namespace KaiChe.Presentation
         private GUIStyle _deathStyle;
         private GUIStyle _buildStyle;
         private bool _visualsEnabled = true;
+        private bool _modalFallbackEnabled;
 
         public void Bind(SurvivorArenaController arena)
         {
@@ -39,6 +40,11 @@ namespace KaiChe.Presentation
         public void SetVisualsEnabled(bool enabled)
         {
             _visualsEnabled = enabled;
+        }
+
+        public void SetModalFallbackEnabled(bool enabled)
+        {
+            _modalFallbackEnabled = enabled;
         }
 
         private void Awake()
@@ -157,11 +163,30 @@ namespace KaiChe.Presentation
 
             if (!_visualsEnabled)
             {
-                bool inputBlocked = _arena.IsDead
+                bool modalOpen = _arena.IsDead
                     || _arena.IsAttributeAllocationPending
                     || _arena.IsSkillChoicePending
                     || _arena.IsBossRewardPending;
-                if (!inputBlocked)
+
+                if (modalOpen && _modalFallbackEnabled)
+                {
+                    EnsureStyles();
+                    if (_hudStyle == null)
+                        return;
+
+                    if (_arena.IsDead)
+                        DrawDeathOverlay();
+                    else if (_arena.IsAttributeAllocationPending)
+                        DrawAttributeAllocationOverlay();
+                    else if (_arena.IsBossRewardPending)
+                        DrawBossRewardOverlay();
+                    else if (_arena.IsSkillChoicePending)
+                        DrawSkillChoiceOverlay();
+
+                    return;
+                }
+
+                if (!modalOpen)
                     DrawJoystick();
                 return;
             }

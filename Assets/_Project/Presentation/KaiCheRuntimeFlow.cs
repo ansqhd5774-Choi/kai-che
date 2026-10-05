@@ -121,6 +121,7 @@ namespace KaiChe.Presentation
             var hud = root.AddComponent<SurvivorHudController>();
             hud.Bind(arena);
             hud.SetVisualsEnabled(false);
+            hud.SetModalFallbackEnabled(true);
 
             var uguiHud = root.AddComponent<UguiSurvivorHudController>();
             uguiHud.Bind(arena);
