@@ -46,54 +46,69 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
           if not exist Logs mkdir Logs
+
+          del /q Logs\adb-version.txt Logs\adb-server-before.txt Logs\adb-server-after.txt Logs\adb-mdns.txt Logs\adb-mdns-current.txt Logs\adb-devices-before.txt Logs\adb-devices-after.txt Logs\adb-reconnect.txt 2>nul
 
           "%ADB_EXE%" version > Logs\adb-version.txt 2>&1
           "%ADB_EXE%" server-status > Logs\adb-server-before.txt 2>&1
-          "%ADB_EXE%" kill-server >nul 2>&1
-          "%ADB_EXE%" start-server
-          ping -n 8 127.0.0.1 >nul
-          "%ADB_EXE%" server-status > Logs\adb-server-after.txt 2>&1
-          "%ADB_EXE%" mdns services > Logs\adb-mdns.txt 2>&1
           "%ADB_EXE%" devices -l > Logs\adb-devices-before.txt 2>&1
-
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 (
             echo [INFO] Android device already online; preserving current wireless ADB session. > Logs\adb-reconnect.txt
-            "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
             goto device_ready
           )
 
-          echo [INFO] No online device yet; attempting direct mDNS connect. > Logs\adb-reconnect.txt
-          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\adb-mdns.txt') do (
-            echo [INFO] Trying %%E >> Logs\adb-reconnect.txt
-            "%ADB_EXE%" connect %%E >> Logs\adb-reconnect.txt 2>&1
-            ping -n 3 127.0.0.1 >nul
-            "%ADB_EXE%" get-state >nul 2>&1
-            if not errorlevel 1 goto device_ready_after_connect
-          )
+          echo [INFO] No online device; trying current adb server and mDNS first. > Logs\adb-reconnect.txt
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
 
-          echo [INFO] Direct mDNS connect did not recover device; attempting adb reconnect fallback. >> Logs\adb-reconnect.txt
+          echo [INFO] mDNS connect did not recover device; trying adb reconnect. >> Logs\adb-reconnect.txt
           "%ADB_EXE%" reconnect >> Logs\adb-reconnect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
-
-          :device_ready_after_connect
-          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
-          if errorlevel 1 (
-            echo [ERROR] No single online Android device is available through ADB.
-            exit /b 30
+          if not errorlevel 1 goto device_ready
+
+          echo [INFO] Soft recovery failed; restarting adb server and retrying mDNS. >> Logs\adb-reconnect.txt
+          "%ADB_EXE%" kill-server >nul 2>&1
+          "%ADB_EXE%" start-server >> Logs\adb-reconnect.txt 2>&1
+          ping -n 8 127.0.0.1 >nul
+          "%ADB_EXE%" server-status > Logs\adb-server-after.txt 2>&1
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
+          echo [ERROR] No single online Android device is available through ADB.
+          exit /b 30
+
+          :try_mdns
+          "%ADB_EXE%" mdns services > Logs\adb-mdns-current.txt 2>&1
+          type Logs\adb-mdns-current.txt >> Logs\adb-mdns.txt
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\adb-mdns-current.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              echo [INFO] Trying !ENDPOINT! >> Logs\adb-reconnect.txt
+              "%ADB_EXE%" connect !ENDPOINT! >> Logs\adb-reconnect.txt 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 exit /b 0
+            )
           )
+          exit /b 1
 
           :device_ready
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
           echo ===== ADB VERSION =====
           type Logs\adb-version.txt
           echo ===== ADB SERVER BEFORE =====
           type Logs\adb-server-before.txt
           echo ===== ADB SERVER AFTER =====
-          type Logs\adb-server-after.txt
+          if exist Logs\adb-server-after.txt type Logs\adb-server-after.txt
           echo ===== ADB MDNS SERVICES =====
-          type Logs\adb-mdns.txt
+          if exist Logs\adb-mdns.txt type Logs\adb-mdns.txt
           echo ===== ADB DEVICES BEFORE =====
           type Logs\adb-devices-before.txt
           echo ===== ADB RECONNECT =====
@@ -101,6 +116,7 @@ jobs:
           echo ===== ADB DEVICES AFTER =====
           type Logs\adb-devices-after.txt
           echo [PASS] Android device online.
+          exit /b 0
 
       - name: Install latest KaiChe APK
         shell: cmd
