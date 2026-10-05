@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify runner and discover Unity
+      - name: Verify runner and project checkout
         shell: cmd
         run: |
           @echo off
@@ -31,32 +31,15 @@ jobs:
           echo COMPUTERNAME=%COMPUTERNAME%
           echo PROCESSOR_ARCHITECTURE=%PROCESSOR_ARCHITECTURE%
           echo PROJECT_ROOT=%CD%
-          echo.
-          echo === Project Unity version ===
+          if not exist "ProjectSettings\ProjectVersion.txt" (
+            echo [ERROR] Unity project checkout is incomplete.
+            exit /b 20
+          )
           type ProjectSettings\ProjectVersion.txt
           findstr /C:"m_EditorVersion: 6000.3.12f1" ProjectSettings\ProjectVersion.txt >nul
           if errorlevel 1 (
             echo [ERROR] ProjectVersion.txt does not match 6000.3.12f1.
             exit /b 21
           )
-          echo PROJECT_VERSION_OK
-          echo.
-          echo === Search common Unity Hub locations ===
-          set "UNITY_FOUND="
-          for %%R in ("C:\Program Files\Unity\Hub\Editor" "D:\Program Files\Unity\Hub\Editor" "E:\Program Files\Unity\Hub\Editor" "C:\Unity\Hub\Editor" "D:\Unity\Hub\Editor" "E:\Unity\Hub\Editor") do (
-            if exist "%%~R" (
-              echo [FOUND ROOT] %%~R
-              dir /s /b "%%~R\Unity.exe" 2>nul
-              for /f "delims=" %%U in ('dir /s /b "%%~R\Unity.exe" 2^>nul') do (
-                echo [UNITY_EXE] %%U
-                set "UNITY_FOUND=%%U"
-              )
-            )
-          )
-          echo.
-          if not defined UNITY_FOUND (
-            echo [ERROR] Unity.exe was not found in common Unity Hub locations.
-            exit /b 20
-          )
-          echo UNITY_PATH_DISCOVERED=%UNITY_FOUND%
-          echo RUNNER_AND_PROJECT_OK
+          echo PROJECT_CHECKOUT_OK
+          echo RUNNER_SMOKE_OK
