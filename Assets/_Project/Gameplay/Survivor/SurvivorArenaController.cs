@@ -24,6 +24,9 @@ namespace KaiChe.Gameplay.Survivor
             public float BurstTimer;
             public bool SpecialArmed;
             public bool PhaseTwoTriggered;
+            public bool BossUsesLineSpecial;
+            public Vector2 SpecialDirection;
+            public int SpecialSequence;
             public bool IsElite;
             public int EliteKind;
             public float MoveMultiplier = 1f;
@@ -49,6 +52,7 @@ namespace KaiChe.Gameplay.Survivor
             public float MaxLife;
             public Vector3 StartScale;
             public float SpinSpeed;
+            public Vector3 Velocity;
         }
 
         private readonly List<EnemyState> _enemies = new List<EnemyState>();
@@ -96,6 +100,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _arcaneChainFirstLogged;
         private bool _bossDefeatLogged;
         private bool _eliteSpawnLogged;
+        private bool _bossLineLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -133,6 +138,9 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossPhaseTwoPulseRadius = 3.35f;
         private const float BossPhaseTwoPulseInterval = 2.45f;
         private const float BossPhaseTwoTelegraphDuration = 0.50f;
+        private const float BossLineLength = 7.0f;
+        private const float BossLineHalfWidth = 0.72f;
+        private const float BossLineDamageMultiplier = 1.15f;
         private const int ThermalShockRequiredFireRank = 2;
         private const int ThermalShockRequiredIceRank = 2;
         private const float ThermalShockBonusMultiplier = 0.90f;
@@ -542,6 +550,41 @@ namespace KaiChe.Gameplay.Survivor
 
             if (_slowMotionTimer <= 0f)
                 Time.timeScale = 1f;
+        }
+
+        private void TriggerHitStop(
+            EnemyState enemy,
+            float damage)
+        {
+            if (_slowMotionTimer > 0.10f)
+                return;
+
+            bool isBoss = enemy != null
+                && enemy.Definition != null
+                && enemy.Definition.Id == ContentIds.BossMonster;
+            bool isElite = enemy != null && enemy.IsElite;
+
+            float duration = isBoss
+                ? 0.070f
+                : isElite
+                    ? 0.055f
+                    : 0.035f;
+            float scale = isBoss
+                ? 0.35f
+                : isElite
+                    ? 0.42f
+                    : 0.55f;
+
+            _slowMotionTimer = Mathf.Max(
+                _slowMotionTimer,
+                duration);
+            Time.timeScale = Mathf.Min(Time.timeScale, scale);
+            CreateDamageNumber(
+                enemy != null && enemy.View != null
+                    ? (Vector2)enemy.View.transform.position
+                    : PlayerPosition,
+                damage,
+                isElite || isBoss);
         }
 
         private static void ConfigureCamera()
@@ -962,18 +1005,35 @@ namespace KaiChe.Gameplay.Survivor
                     && distance < GetBossPulseRadius(enemy) + 1.8f)
                 {
                     enemy.SpecialArmed = true;
+                    enemy.SpecialSequence += 1;
+                    enemy.BossUsesLineSpecial =
+                        enemy.PhaseTwoTriggered
+                        && enemy.SpecialSequence % 2 == 0;
+                    enemy.SpecialDirection = distance > 0.001f
+                        ? offset / distance
+                        : Vector2.down;
                     enemy.BurstTimer = enemy.PhaseTwoTriggered
                         ? BossPhaseTwoTelegraphDuration
                         : BossTelegraphDuration;
                     enemy.SpecialTimer = enemy.PhaseTwoTriggered
                         ? BossPhaseTwoPulseInterval
                         : BossPulseInterval;
-                    CreateBossTelegraphEffect(
-                        position,
-                        GetBossPulseRadius(enemy),
-                        enemy.PhaseTwoTriggered);
 
-                    Debug.Log("KAI_CHE_BOSS_PULSE_TELEGRAPH");
+                    if (enemy.BossUsesLineSpecial)
+                    {
+                        CreateBossLineTelegraph(
+                            position,
+                            enemy.SpecialDirection);
+                        Debug.Log("KAI_CHE_BOSS_LINE_TELEGRAPH");
+                    }
+                    else
+                    {
+                        CreateBossTelegraphEffect(
+                            position,
+                            GetBossPulseRadius(enemy),
+                            enemy.PhaseTwoTriggered);
+                        Debug.Log("KAI_CHE_BOSS_PULSE_TELEGRAPH");
+                    }
                 }
 
                 if (distance > 0.001f)
@@ -1014,32 +1074,70 @@ namespace KaiChe.Gameplay.Survivor
                     && enemy.SpecialArmed
                     && enemy.BurstTimer <= 0f)
                 {
-                    float bossPulseRadius = GetBossPulseRadius(enemy);
-                    if (distance < bossPulseRadius)
+                    if (enemy.BossUsesLineSpecial)
                     {
-                        float phaseMultiplier = enemy.PhaseTwoTriggered
-                            ? 1.25f
-                            : 1f;
-                        float pulseDamage =
-                            definition.ContactDamagePerSecond
-                            * enemy.DamageMultiplier
-                            * BossPulseDamageWindow
-                            * phaseMultiplier;
-                        ApplyPlayerHit(pulseDamage, playerPosition);
-                        TriggerImpactFeedback(0.18f, true);
+                        Vector2 toPlayer = playerPosition - position;
+                        float forward = Vector2.Dot(
+                            toPlayer,
+                            enemy.SpecialDirection);
+                        float lateral = Mathf.Abs(
+                            enemy.SpecialDirection.x * toPlayer.y
+                            - enemy.SpecialDirection.y * toPlayer.x);
+
+                        if (forward >= 0f
+                            && forward <= BossLineLength
+                            && lateral <= BossLineHalfWidth)
+                        {
+                            float lineDamage =
+                                definition.ContactDamagePerSecond
+                                * enemy.DamageMultiplier
+                                * BossPulseDamageWindow
+                                * BossLineDamageMultiplier;
+                            ApplyPlayerHit(lineDamage, playerPosition);
+                            TriggerImpactFeedback(0.22f, true);
+                        }
+
+                        CreateBossLineBlast(
+                            position,
+                            enemy.SpecialDirection);
+
+                        if (!_bossLineLogged)
+                        {
+                            _bossLineLogged = true;
+                            Debug.Log("KAI_CHE_BOSS_LINE_FIRST");
+                        }
+                    }
+                    else
+                    {
+                        float bossPulseRadius = GetBossPulseRadius(enemy);
+                        if (distance < bossPulseRadius)
+                        {
+                            float phaseMultiplier = enemy.PhaseTwoTriggered
+                                ? 1.25f
+                                : 1f;
+                            float pulseDamage =
+                                definition.ContactDamagePerSecond
+                                * enemy.DamageMultiplier
+                                * BossPulseDamageWindow
+                                * phaseMultiplier;
+                            ApplyPlayerHit(pulseDamage, playerPosition);
+                            TriggerImpactFeedback(0.18f, true);
+                        }
+
+                        CreateBossPulseEffect(
+                            position,
+                            bossPulseRadius,
+                            enemy.PhaseTwoTriggered);
+
+                        if (!_bossPulseLogged)
+                        {
+                            _bossPulseLogged = true;
+                            Debug.Log("KAI_CHE_BOSS_PULSE_FIRST");
+                        }
                     }
 
-                    CreateBossPulseEffect(
-                        position,
-                        bossPulseRadius,
-                        enemy.PhaseTwoTriggered);
                     enemy.SpecialArmed = false;
-
-                    if (!_bossPulseLogged)
-                    {
-                        _bossPulseLogged = true;
-                        Debug.Log("KAI_CHE_BOSS_PULSE_FIRST");
-                    }
+                    enemy.BossUsesLineSpecial = false;
                 }
                 else if (isBrute
                     && distance < BruteSlamRadius
@@ -1114,10 +1212,43 @@ namespace KaiChe.Gameplay.Survivor
                     Vector3.zero,
                     1f);
                 ray.transform.SetParent(root.transform, false);
+                float length = enemy.EliteKind == 0
+                    ? 1.02f
+                    : enemy.EliteKind == 1
+                        ? 0.88f
+                        : 1.18f;
+                float thickness = enemy.EliteKind == 1
+                    ? 0.095f
+                    : 0.055f;
                 ray.transform.localScale =
-                    new Vector3(0.82f, 0.055f, 1f);
+                    new Vector3(length, thickness, 1f);
                 ray.transform.localRotation =
                     Quaternion.Euler(0f, 0f, i * 22.5f);
+            }
+
+            if (enemy.EliteKind == 1)
+            {
+                GameObject shield = CreateQuad(
+                    "EliteBulwarkMark",
+                    new Color(1f, 0.88f, 0.34f, 0.90f),
+                    new Vector3(0f, 0.10f, -0.08f),
+                    1f);
+                shield.transform.SetParent(enemy.View.transform, false);
+                shield.transform.localScale =
+                    new Vector3(0.86f, 0.22f, 1f);
+            }
+            else if (enemy.EliteKind == 2)
+            {
+                GameObject rage = CreateQuad(
+                    "EliteRageMark",
+                    new Color(1f, 0.08f, 0.08f, 0.94f),
+                    new Vector3(0f, 0.58f, -0.08f),
+                    1f);
+                rage.transform.SetParent(enemy.View.transform, false);
+                rage.transform.localScale =
+                    new Vector3(0.26f, 0.58f, 1f);
+                rage.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, 45f);
             }
         }
 
@@ -1540,6 +1671,9 @@ namespace KaiChe.Gameplay.Survivor
                             hitDamage * ThermalShockSplashMultiplier);
                     }
 
+                    TriggerHitStop(
+                        projectile.Target,
+                        hitDamage);
                     DamageEnemy(projectile.Target, hitDamage);
 
                     if (arcaneChain)
@@ -1741,6 +1875,8 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     0f,
                     effect.SpinSpeed * deltaTime);
+                effect.View.transform.position +=
+                    effect.Velocity * deltaTime;
 
                 if (effect.Life > 0f) continue;
 
@@ -1895,6 +2031,118 @@ namespace KaiChe.Gameplay.Survivor
                 View = root,
                 Life = 0.18f,
                 MaxLife = 0.18f,
+                StartScale = Vector3.one,
+                SpinSpeed = 0f
+            });
+        }
+
+        private void CreateDamageNumber(
+            Vector2 position,
+            float damage,
+            bool emphasized)
+        {
+            var root = new GameObject("DamageNumber");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y + 0.72f, -0.32f);
+
+            TextMesh text = root.AddComponent<TextMesh>();
+            text.text = Mathf.Max(1, Mathf.RoundToInt(damage)).ToString();
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = emphasized ? 64 : 50;
+            text.characterSize = emphasized ? 0.075f : 0.060f;
+            text.fontStyle = FontStyle.Bold;
+            text.color = emphasized
+                ? new Color(1f, 0.82f, 0.22f, 1f)
+                : new Color(1f, 0.96f, 0.86f, 0.96f);
+
+            MeshRenderer renderer = root.GetComponent<MeshRenderer>();
+            if (renderer != null)
+                renderer.sortingOrder = 100;
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.48f,
+                MaxLife = 0.48f,
+                StartScale = Vector3.one,
+                SpinSpeed = 0f,
+                Velocity = new Vector3(0f, 1.15f, 0f)
+            });
+        }
+
+        private void CreateBossLineTelegraph(
+            Vector2 position,
+            Vector2 direction)
+        {
+            var root = new GameObject("BossLineTelegraph");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.205f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            for (int i = 0; i < 7; i++)
+            {
+                GameObject segment = CreateQuad(
+                    "BossLineTelegraph_" + i,
+                    new Color(1f, 0.16f, 0.66f, 0.64f),
+                    new Vector3(0.65f + i * 0.95f, 0f, 0f),
+                    1f);
+                segment.transform.SetParent(root.transform, false);
+                segment.transform.localScale =
+                    new Vector3(0.72f, 0.16f, 1f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = BossPhaseTwoTelegraphDuration,
+                MaxLife = BossPhaseTwoTelegraphDuration,
+                StartScale = Vector3.one,
+                SpinSpeed = 0f
+            });
+        }
+
+        private void CreateBossLineBlast(
+            Vector2 position,
+            Vector2 direction)
+        {
+            var root = new GameObject("BossLineBlast");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.225f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            GameObject outer = CreateQuad(
+                "BossLineBlastOuter",
+                new Color(0.92f, 0.12f, 1f, 0.72f),
+                new Vector3(BossLineLength * 0.5f, 0f, 0f),
+                1f);
+            outer.transform.SetParent(root.transform, false);
+            outer.transform.localScale =
+                new Vector3(BossLineLength, BossLineHalfWidth * 1.8f, 1f);
+
+            GameObject core = CreateQuad(
+                "BossLineBlastCore",
+                new Color(1f, 0.68f, 1f, 0.96f),
+                new Vector3(BossLineLength * 0.5f, 0f, -0.01f),
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale =
+                new Vector3(BossLineLength, BossLineHalfWidth * 0.45f, 1f);
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.26f,
+                MaxLife = 0.26f,
                 StartScale = Vector3.one,
                 SpinSpeed = 0f
             });
