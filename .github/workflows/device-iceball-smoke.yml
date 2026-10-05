@@ -1,0 +1,156 @@
+name: KAISE Device Iceball Smoke
+
+on:
+  push:
+    branches:
+      - ops/device-iceball-smoke
+    paths:
+      - ".github/workflows/device-iceball-smoke.yml"
+
+jobs:
+  device-smoke:
+    name: Install and verify Ice Ball on Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
+      PACKAGE_ID: com.kaiche.rpg
+      ADB_SERIAL: 192.168.0.8:36473
+
+    steps:
+      - name: Verify wireless ADB device
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" start-server
+          "%ADB_EXE%" connect %ADB_SERIAL%
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" -s %ADB_SERIAL% get-state | findstr /C:"device" >nul
+          if errorlevel 1 (
+            echo [ERROR] Wireless ADB connect failed for %ADB_SERIAL%.
+            exit /b 20
+          )
+          echo [PASS] Wireless ADB device connected: %ADB_SERIAL%
+
+      - name: Verify persisted APK
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%APK_PATH%" (
+            echo [ERROR] APK not found: %APK_PATH%
+            exit /b 21
+          )
+          for %%A in ("%APK_PATH%") do echo [PASS] APK found: %%~fA ^(%%~zA bytes^)
+
+      - name: Install APK
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" -s %ADB_SERIAL% install -r "%APK_PATH%" > install-output.txt 2>&1
+          type install-output.txt
+          findstr /C:"Success" install-output.txt >nul
+          if not errorlevel 1 (
+            echo [PASS] APK installed.
+            exit /b 0
+          )
+
+          findstr /C:"INSTALL_FAILED_UPDATE_INCOMPATIBLE" install-output.txt >nul
+          if errorlevel 1 exit /b 22
+
+          echo [INFO] Existing KAISE signature differs. Reinstalling clean development build.
+          "%ADB_EXE%" -s %ADB_SERIAL% uninstall %PACKAGE_ID%
+          if errorlevel 1 exit /b 23
+          "%ADB_EXE%" -s %ADB_SERIAL% install "%APK_PATH%"
+          if errorlevel 1 exit /b 24
+          echo [PASS] APK clean-installed after signature mismatch.
+
+      - name: Launch game and enter combat
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -c
+          "%ADB_EXE%" -s %ADB_SERIAL% shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" -s %ADB_SERIAL% shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 25
+          ping -n 8 127.0.0.1 >nul
+
+          set "SIZE="
+          for /f "tokens=3" %%S in ('"%ADB_EXE%" -s %ADB_SERIAL% shell wm size ^| findstr /C:"Physical size:"') do set "SIZE=%%S"
+          if defined SIZE (
+            for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
+              set /a TAPX=%%W/2
+              set /a TAPY=%%X*63/100
+            )
+            setlocal EnableDelayedExpansion
+            echo [INFO] Screen=!SIZE! tap=!TAPX!,!TAPY!
+            "%ADB_EXE%" -s %ADB_SERIAL% shell input tap !TAPX! !TAPY!
+            endlocal
+          ) else (
+            echo [WARN] Could not read physical screen size; skipping automated Game Start tap.
+          )
+
+          ping -n 14 127.0.0.1 >nul
+          "%ADB_EXE%" -s %ADB_SERIAL% shell pidof %PACKAGE_ID% > device-pid.txt
+          set /p PID=<device-pid.txt
+          if not defined PID (
+            echo [ERROR] KAISE process is not running.
+            "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 300
+            exit /b 26
+          )
+          echo [PASS] KAISE running. PID=%PID%
+
+      - name: Verify Ice Ball runtime marker
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 1600 > iceball-log.txt
+          findstr /C:"KAI_CHE_ICEBALL_FIRST_SHOT" iceball-log.txt
+          if errorlevel 1 (
+            echo [ERROR] Ice Ball runtime marker was not observed.
+            exit /b 27
+          )
+          echo [PASS] Ice Ball first-shot marker observed on device.
+
+      - name: Verify Fireball regression marker
+        shell: cmd
+        run: |
+          @echo off
+          findstr /C:"KAI_CHE_FIREBALL_FIRST_SHOT" iceball-log.txt
+          if errorlevel 1 (
+            echo [ERROR] Fireball regression marker was not observed.
+            exit /b 28
+          )
+          echo [PASS] Fireball first-shot marker remains present.
+
+      - name: Capture device screenshot
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          del /q device-iceball-smoke.png 2>nul
+          "%ADB_EXE%" -s %ADB_SERIAL% exec-out screencap -p > device-iceball-smoke.png
+          if errorlevel 1 (
+            del /q device-iceball-smoke.png 2>nul
+            echo [WARN] Device screenshot not captured.
+            exit /b 0
+          )
+          for %%A in (device-iceball-smoke.png) do if %%~zA GTR 1000 (
+            echo [PASS] Device screenshot captured: %%~zA bytes
+            exit /b 0
+          )
+          del /q device-iceball-smoke.png 2>nul
+          echo [WARN] Device screenshot was empty.
+
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Device-Iceball-Smoke
+          path: |
+            iceball-log.txt
+            device-iceball-smoke.png
+            device-pid.txt
+            install-output.txt
+          if-no-files-found: warn
+          retention-days: 7
