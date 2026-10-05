@@ -48,6 +48,7 @@ namespace KaiChe.Gameplay.Survivor
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private bool _initialized;
+        private bool _fireballFirstShotLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float AttackAnimationDuration = 0.18f;
         private const float EnemyAggroRadius = 3.0f;
@@ -349,6 +350,11 @@ namespace KaiChe.Gameplay.Survivor
             };
 
             _projectiles.Add(projectile);
+            if (!_fireballFirstShotLogged)
+            {
+                _fireballFirstShotLogged = true;
+                Debug.Log("KAI_CHE_FIREBALL_FIRST_SHOT");
+            }
             _attackAnimationTime = AttackAnimationDuration;
             CreateFireballCastEffect(origin, direction);
             _shotTimer = skill.Cooldown;
