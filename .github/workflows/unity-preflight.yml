@@ -9,6 +9,15 @@ on:
       - 'Assets/**'
       - 'Packages/**'
       - 'ProjectSettings/**'
+      - '.github/workflows/unity-preflight.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-preflight.yml'
 
 jobs:
   validate-unity-project:
