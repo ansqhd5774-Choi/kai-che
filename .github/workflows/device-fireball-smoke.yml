@@ -47,9 +47,23 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          "%ADB_EXE%" -s %ADB_SERIAL% install -r "%APK_PATH%"
+          "%ADB_EXE%" -s %ADB_SERIAL% install -r "%APK_PATH%" > install-output.txt 2>&1
+          type install-output.txt
+          findstr /C:"Success" install-output.txt >nul
+          if not errorlevel 1 (
+            echo [PASS] APK installed.
+            exit /b 0
+          )
+
+          findstr /C:"INSTALL_FAILED_UPDATE_INCOMPATIBLE" install-output.txt >nul
           if errorlevel 1 exit /b 22
-          echo [PASS] APK installed.
+
+          echo [INFO] Existing KAISE signature differs. Reinstalling clean development build.
+          "%ADB_EXE%" -s %ADB_SERIAL% uninstall %PACKAGE_ID%
+          if errorlevel 1 exit /b 23
+          "%ADB_EXE%" -s %ADB_SERIAL% install "%APK_PATH%"
+          if errorlevel 1 exit /b 24
+          echo [PASS] APK clean-installed after signature mismatch.
 
       - name: Launch game and enter combat
         shell: cmd
