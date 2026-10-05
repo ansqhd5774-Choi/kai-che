@@ -61,7 +61,7 @@ namespace KaiChe.Core.Content
         public static readonly SkillDefinition StarterSkill =
             new SkillDefinition(
                 ContentIds.StarterSkill,
-                "기본 마력탄",
+                "파이어볼",
                 20f,
                 0.55f,
                 6.2f,
