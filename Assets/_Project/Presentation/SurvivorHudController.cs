@@ -210,7 +210,8 @@ namespace KaiChe.Presentation
                 + $"   ·   {_arena.IceSkillName} {_arena.IceSkillMastery}"
                 + $"   ·   빌드 F{_arena.FireUpgradeRank}"
                 + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}"
-                + (_arena.IsThermalShockUnlocked ? "   ·   열충격" : string.Empty),
+                + (_arena.IsThermalShockUnlocked ? "   ·   열충격" : string.Empty)
+                + (_arena.IsArcaneChainUnlocked ? "   ·   비전연쇄" : string.Empty),
                 _smallStyle);
 
             bool modalOpen = _arena.IsDead
