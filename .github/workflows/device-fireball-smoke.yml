@@ -22,33 +22,13 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          setlocal EnableExtensions EnableDelayedExpansion
           "%ADB_EXE%" start-server
-          "%ADB_EXE%" devices
-          "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
-          if not errorlevel 1 (
-            echo [PASS] ADB device already connected.
-            exit /b 0
-          )
-
-          echo [INFO] No active device. Discovering wireless-debug service...
-          "%ADB_EXE%" mdns services
-          set "ENDPOINT="
-          for /f "tokens=3" %%E in ('"%ADB_EXE%" mdns services ^| findstr /C:"_adb-tls-connect._tcp"') do (
-            if not defined ENDPOINT set "ENDPOINT=%%E"
-          )
-          if not defined ENDPOINT (
-            echo [ERROR] No wireless ADB connect endpoint discovered.
-            exit /b 20
-          )
-
-          echo [INFO] Connecting to !ENDPOINT!
-          "%ADB_EXE%" connect !ENDPOINT!
+          "%ADB_EXE%" connect 192.168.0.8:36473
           ping -n 3 127.0.0.1 >nul
           "%ADB_EXE%" devices
           "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
           if errorlevel 1 (
-            echo [ERROR] Wireless ADB endpoint found but device did not authorize.
+            echo [ERROR] Wireless ADB connect failed. Pair this Windows user once, then retry.
             exit /b 20
           )
           echo [PASS] Wireless ADB device connected.
