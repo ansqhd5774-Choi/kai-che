@@ -58,6 +58,8 @@ namespace KaiChe.Gameplay.Survivor
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private float _playerHitFlashTimer;
+        private float _survivalTime;
+        private int _lastWaveLog = 1;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
         private bool _iceballFirstShotLogged;
@@ -80,6 +82,8 @@ namespace KaiChe.Gameplay.Survivor
         private const float BruteSlamRadius = 0.82f;
         private const float BruteSlamInterval = 1.65f;
         private const float BruteSlamKnockback = 0.38f;
+        private const float WaveDuration = 30f;
+        private const float PressureWaveDuration = 8f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -104,6 +108,13 @@ namespace KaiChe.Gameplay.Survivor
         public int IceSkillMastery =>
             _skillMastery.GetMastery(RuntimeContentCatalog.IceBall.Id);
         public bool IsPlayerHitFlashActive => _playerHitFlashTimer > 0f;
+        public float SurvivalTime => _survivalTime;
+        public int Wave => 1 + Mathf.FloorToInt(_survivalTime / WaveDuration);
+        public float WaveProgress =>
+            (_survivalTime % WaveDuration) / WaveDuration;
+        public bool IsPressureWave =>
+            (_survivalTime % WaveDuration)
+            >= WaveDuration - PressureWaveDuration;
         public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;
         public string LastUnlockedSkillId => _skillMastery.LastUnlockedSkillId;
         public int Level => _progression.Level;
@@ -163,6 +174,8 @@ namespace KaiChe.Gameplay.Survivor
 
             if (IsDead || IsAttributeAllocationPending)
                 return;
+
+            UpdateSurvivalWave(deltaTime);
             UpdateWorldMovement(deltaTime);
             UpdateTownEntrance();
             UpdateSpawning(deltaTime);
@@ -183,6 +196,18 @@ namespace KaiChe.Gameplay.Survivor
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.transform.rotation = Quaternion.identity;
             camera.backgroundColor = new Color(0.018f, 0.022f, 0.018f);
+        }
+
+        private void UpdateSurvivalWave(float deltaTime)
+        {
+            _survivalTime += deltaTime;
+
+            int currentWave = Wave;
+            if (currentWave > _lastWaveLog)
+            {
+                _lastWaveLog = currentWave;
+                Debug.Log("KAI_CHE_WAVE_START_" + currentWave);
+            }
         }
 
         private void UpdateWorldMovement(float deltaTime)
@@ -274,13 +299,42 @@ namespace KaiChe.Gameplay.Survivor
 
             SpawnEnemy();
 
-            float pressure = Mathf.Clamp01(Time.timeSinceLevelLoad / 90f);
-            _spawnTimer = Mathf.Lerp(0.95f, 0.28f, pressure);
+            float longTermPressure =
+                Mathf.Clamp01(_survivalTime / 180f);
+            float interval =
+                Mathf.Lerp(0.95f, 0.34f, longTermPressure);
+
+            if (IsPressureWave)
+                interval *= 0.60f;
+
+            _spawnTimer = Mathf.Max(0.20f, interval);
         }
 
         private MonsterDefinition SelectMonsterDefinition()
         {
             _spawnSequence += 1;
+
+            if (IsPressureWave && _spawnSequence % 6 == 0)
+            {
+                if (!_bruteSpawnLogged)
+                {
+                    _bruteSpawnLogged = true;
+                    Debug.Log("KAI_CHE_BRUTE_MONSTER_SPAWN");
+                }
+
+                return RuntimeContentCatalog.BruteMonster;
+            }
+
+            if (IsPressureWave && _spawnSequence % 2 == 0)
+            {
+                if (!_runnerSpawnLogged)
+                {
+                    _runnerSpawnLogged = true;
+                    Debug.Log("KAI_CHE_RUNNER_MONSTER_SPAWN");
+                }
+
+                return RuntimeContentCatalog.RunnerMonster;
+            }
 
             if (_spawnSequence % 11 == 0)
             {
