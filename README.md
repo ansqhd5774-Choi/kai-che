@@ -3,7 +3,7 @@
 카이셰(Kai-Ché) 모바일 게임 프로젝트.
 
 ## 기술 스택
-- Engine: Unity 6.3 LTS — 6000.3.25f1
+- Engine: Unity 6.3 LTS — 6000.3.12f1
 - Language: C#
 - Rendering: Universal Render Pipeline (URP 17.3)
 - Target: Mobile (Android / iOS)
