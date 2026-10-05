@@ -9,18 +9,9 @@ on:
       - "Assets/**"
       - "Packages/**"
       - "ProjectSettings/**"
-      - ".github/workflows/unity-android-build.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "Assets/**"
-      - "Packages/**"
-      - "ProjectSettings/**"
-      - ".github/workflows/unity-android-build.yml"
 
 concurrency:
-  group: kaise-unity-android-${{ github.ref }}
+  group: kaise-unity-android-selfhosted
   cancel-in-progress: true
 
 permissions:
