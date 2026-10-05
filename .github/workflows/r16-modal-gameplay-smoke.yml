@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 jobs:
-  verify-r16-modal-input:
-    name: Verify R16 modal touch input with restored save
+  verify-r16-skill-modal:
+    name: Verify R16 attribute and skill modal inputs
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 12
     env:
@@ -25,7 +25,7 @@ jobs:
       PREFS_FILE: shared_prefs/com.kaiche.rpg.v2.playerprefs.xml
 
     steps:
-      - name: Verify Android device
+      - name: Verify Android device and backup save
         shell: cmd
         run: |
           @echo off
@@ -35,68 +35,104 @@ jobs:
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" get-state
           if errorlevel 1 exit /b 30
-          "%ADB_EXE%" devices -l > Logs\r16-forced-devices.txt 2>&1
-          "%ADB_EXE%" shell wm size > Logs\r16-forced-wm-size.txt 2>&1
-          echo [PASS] Android device online.
 
-      - name: Backup save and inject three unspent points
-        shell: cmd
-        run: |
-          @echo off
-          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
           ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-skill-prefs-original.xml 2>&1
+          if errorlevel 1 exit /b 31
 
-          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-original.xml 2>&1
-          if errorlevel 1 exit /b 40
+          >Logs\r16-skill-backup.sh echo cp %PREFS_FILE% files/r16-skill-prefs-backup.xml
+          type Logs\r16-skill-backup.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          if errorlevel 1 exit /b 32
 
-          >Logs\r16-inject.sh echo cp %PREFS_FILE% files/r16-playerprefs-backup.xml
-          >>Logs\r16-inject.sh echo sed -i '/UnspentAttributePoints/s/value="0"/value="3"/' %PREFS_FILE%
-          type Logs\r16-inject.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
-          if errorlevel 1 exit /b 41
+          "%ADB_EXE%" devices -l > Logs\r16-skill-devices.txt 2>&1
+          "%ADB_EXE%" shell wm size > Logs\r16-skill-wm-size.txt 2>&1
+          echo [PASS] Device ready and PlayerPrefs backed up.
 
-          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-injected.xml 2>&1
-          if errorlevel 1 exit /b 42
-          findstr /C:"UnspentAttributePoints" Logs\r16-prefs-injected.xml
-          findstr /C:"value=\"3\"" Logs\r16-prefs-injected.xml >nul
-          if errorlevel 1 (
-            echo [ERROR] Failed to inject three unspent attribute points.
-            exit /b 43
-          )
-          echo [PASS] Temporary pending attribute state injected.
-
-      - name: Launch, show modal, and tap three choices
+      - name: Resolve current attribute modal
         shell: cmd
         run: |
           @echo off
           "%ADB_EXE%" logcat -c
           "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
-          if errorlevel 1 exit /b 50
+          if errorlevel 1 exit /b 40
           ping -n 6 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-main.png 2>nul
-
           "%ADB_EXE%" shell input tap 720 1840
           ping -n 6 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-modal-before.png 2>nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-skill-initial-attribute-modal.png 2>nul
 
           "%ADB_EXE%" shell input tap 300 1430
           ping -n 2 127.0.0.1 >nul
           "%ADB_EXE%" shell input tap 300 1430
           ping -n 2 127.0.0.1 >nul
           "%ADB_EXE%" shell input tap 300 1430
+          ping -n 4 127.0.0.1 >nul
 
-          ping -n 9 127.0.0.1 >nul
-          "%ADB_EXE%" exec-out screencap -p > Logs\r16-forced-after-input.png 2>nul
-          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-after-input.xml 2>&1
-          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-forced-pid.txt 2>&1
-          "%ADB_EXE%" logcat -d -t 1200 > Logs\r16-forced-logcat.txt 2>&1
-
-          findstr /C:"UnspentAttributePoints" Logs\r16-prefs-after-input.xml
-          findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r16-prefs-after-input.xml >nul
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-skill-after-initial-attributes.xml 2>&1
+          findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r16-skill-after-initial-attributes.xml >nul
           if errorlevel 1 (
-            echo [ERROR] Three modal taps did not consume all pending points.
+            echo [ERROR] Initial attribute modal did not consume all points.
+            exit /b 41
+          )
+          echo [PASS] Current attribute modal resolved and combat resumed.
+
+      - name: Wait for next level-up
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set /a POLL=0
+
+          :wait_for_level
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-skill-pid.txt 2>&1
+          for %%A in (Logs\r16-skill-pid.txt) do if %%~zA EQU 0 (
+            echo [ERROR] App process stopped before next level-up.
+            exit /b 50
+          )
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-skill-poll.xml 2>&1
+          findstr /C:"UnspentAttributePoints\" value=\"3\"" Logs\r16-skill-poll.xml >nul
+          if not errorlevel 1 goto level_ready
+
+          set /a POLL+=1
+          echo [WAIT] next level-up poll !POLL!/55
+          if !POLL! GEQ 55 (
+            echo [ERROR] Timed out waiting for next level-up.
             exit /b 51
           )
-          echo [PASS] R16 modal touch input consumed all three pending points.
+          ping -n 11 127.0.0.1 >nul
+          goto wait_for_level
+
+          :level_ready
+          copy /Y Logs\r16-skill-poll.xml Logs\r16-skill-levelup-prefs.xml >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-skill-levelup-attribute-modal.png 2>nul
+          echo [PASS] Next level-up attribute modal detected.
+
+      - name: Resolve level-up attributes and skill choice
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 3 127.0.0.1 >nul
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-skill-choice-modal.png 2>nul
+
+          rem First skill-choice button overlaps this tested touch point.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 11 127.0.0.1 >nul
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-skill-after-choice.png 2>nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\r16-skill-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_SKILL_PICK_FIRE_" Logs\r16-skill-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Skill choice button did not fire.
+            exit /b 60
+          )
+          echo [PASS] Skill choice fired and combat continued.
 
       - name: Restore original PlayerPrefs
         if: always()
@@ -105,37 +141,38 @@ jobs:
           @echo off
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
 
-          >Logs\r16-restore.sh echo if [ -f files/r16-playerprefs-backup.xml ]; then
-          >>Logs\r16-restore.sh echo cp files/r16-playerprefs-backup.xml %PREFS_FILE%
-          >>Logs\r16-restore.sh echo rm -f files/r16-playerprefs-backup.xml
-          >>Logs\r16-restore.sh echo fi
-          type Logs\r16-restore.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          >Logs\r16-skill-restore.sh echo if [ -f files/r16-skill-prefs-backup.xml ]; then
+          >>Logs\r16-skill-restore.sh echo cp files/r16-skill-prefs-backup.xml %PREFS_FILE%
+          >>Logs\r16-skill-restore.sh echo rm -f files/r16-skill-prefs-backup.xml
+          >>Logs\r16-skill-restore.sh echo fi
+          type Logs\r16-skill-restore.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
 
-          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-prefs-restored.xml 2>&1
-          fc /b Logs\r16-prefs-original.xml Logs\r16-prefs-restored.xml > Logs\r16-prefs-restore-compare.txt 2>&1
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r16-skill-prefs-restored.xml 2>&1
+          fc /b Logs\r16-skill-prefs-original.xml Logs\r16-skill-prefs-restored.xml > Logs\r16-skill-restore-compare.txt 2>&1
           if errorlevel 1 (
             echo [ERROR] PlayerPrefs restore verification failed.
-            exit /b 60
+            exit /b 70
           )
           echo [PASS] Original PlayerPrefs restored byte-for-byte.
 
-      - name: Upload R16 forced-state evidence
+      - name: Upload R16 skill-modal evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: R16-Modal-Forced-State-Smoke
+          name: R16-Skill-Modal-Smoke
           path: |
-            Logs/r16-forced-devices.txt
-            Logs/r16-forced-wm-size.txt
-            Logs/r16-prefs-original.xml
-            Logs/r16-prefs-injected.xml
-            Logs/r16-prefs-after-input.xml
-            Logs/r16-prefs-restored.xml
-            Logs/r16-prefs-restore-compare.txt
-            Logs/r16-forced-main.png
-            Logs/r16-forced-modal-before.png
-            Logs/r16-forced-after-input.png
-            Logs/r16-forced-pid.txt
-            Logs/r16-forced-logcat.txt
+            Logs/r16-skill-devices.txt
+            Logs/r16-skill-wm-size.txt
+            Logs/r16-skill-prefs-original.xml
+            Logs/r16-skill-after-initial-attributes.xml
+            Logs/r16-skill-levelup-prefs.xml
+            Logs/r16-skill-prefs-restored.xml
+            Logs/r16-skill-restore-compare.txt
+            Logs/r16-skill-initial-attribute-modal.png
+            Logs/r16-skill-levelup-attribute-modal.png
+            Logs/r16-skill-choice-modal.png
+            Logs/r16-skill-after-choice.png
+            Logs/r16-skill-pid.txt
+            Logs/r16-skill-logcat.txt
           if-no-files-found: warn
           retention-days: 3
