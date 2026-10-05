@@ -170,7 +170,11 @@ namespace KaiChe.Presentation
                 _hudStyle);
             GUI.Label(
                 new Rect(hudPanel.xMax - 330f, hudPanel.y + 12f, 302f, 40f),
-                $"처치 {_arena.Kills}   적 {_arena.EnemyCount}",
+                $"WAVE {_arena.Wave}"
+                + $"   {Mathf.FloorToInt(_arena.SurvivalTime / 60f):00}"
+                + $":{Mathf.FloorToInt(_arena.SurvivalTime % 60f):00}"
+                + (_arena.IsPressureWave ? "   공세" : string.Empty)
+                + $"   ·   처치 {_arena.Kills}   적 {_arena.EnemyCount}",
                 _smallStyle);
 
             Rect hpRect = new Rect(
