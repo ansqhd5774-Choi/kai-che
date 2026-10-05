@@ -2,16 +2,6 @@ name: KAISE Self-hosted Runner Smoke
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - ".github/workflows/self-hosted-runner-smoke.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/self-hosted-runner-smoke.yml"
 
 jobs:
   smoke:
@@ -21,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       - name: Verify runner and project checkout
         shell: cmd
@@ -36,9 +28,9 @@ jobs:
             exit /b 20
           )
           type ProjectSettings\ProjectVersion.txt
-          findstr /C:"m_EditorVersion: 6000.3.12f1" ProjectSettings\ProjectVersion.txt >nul
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
           if errorlevel 1 (
-            echo [ERROR] ProjectVersion.txt does not match 6000.3.12f1.
+            echo [ERROR] ProjectVersion.txt does not match 6000.6.4f1.
             exit /b 21
           )
           echo PROJECT_CHECKOUT_OK

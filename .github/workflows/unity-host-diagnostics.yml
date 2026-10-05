@@ -2,16 +2,6 @@ name: KAISE Unity Host Diagnostics
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - ".github/workflows/unity-host-diagnostics.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/unity-host-diagnostics.yml"
 
 jobs:
   diagnose:
@@ -21,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       - name: Verify Unity and Android modules
         shell: cmd

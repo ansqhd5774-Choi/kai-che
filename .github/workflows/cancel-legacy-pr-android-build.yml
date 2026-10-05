@@ -1,0 +1,19 @@
+name: Cancel Legacy PR Android Build
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/cancel-legacy-pr-android-build.yml"
+
+concurrency:
+  group: kaise-unity-android-refs/pull/1/merge
+  cancel-in-progress: true
+
+jobs:
+  release-slot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Legacy PR Android build slot released."
