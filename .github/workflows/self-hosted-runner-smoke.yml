@@ -1,0 +1,37 @@
+name: KAISE Self-hosted Runner Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/self-hosted-runner-smoke.yml"
+
+jobs:
+  smoke:
+    name: Verify KAISE Windows Runner
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify runner and Unity
+        shell: cmd
+        run: |
+          @echo off
+          echo KAISE_RUNNER_OK
+          echo COMPUTERNAME=%COMPUTERNAME%
+          echo PROCESSOR_ARCHITECTURE=%PROCESSOR_ARCHITECTURE%
+          if not exist "C:\Program Files\Unity\Hub\Editor\6000.3.12f1\Editor\Unity.exe" (
+            echo [ERROR] Unity 6000.3.12f1 not found.
+            exit /b 20
+          )
+          findstr /C:"m_EditorVersion: 6000.3.12f1" ProjectSettings\ProjectVersion.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] ProjectVersion.txt does not match 6000.3.12f1.
+            exit /b 21
+          )
+          echo UNITY_6000_3_12F1_OK
+          echo PROJECT_VERSION_OK
