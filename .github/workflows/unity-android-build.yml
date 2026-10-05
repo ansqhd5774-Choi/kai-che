@@ -68,7 +68,13 @@ jobs:
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
 
-          start "" /b cmd /v:on /c ""%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log" & echo !errorlevel!>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt""
+          set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-unity-build.cmd"
+          >"%UNITY_RUNNER%" echo @echo off
+          >>"%UNITY_RUNNER%" echo "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          >>"%UNITY_RUNNER%" echo set "UNITY_RC=%%ERRORLEVEL%%"
+          >>"%UNITY_RUNNER%" echo ^>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt" echo %%UNITY_RC%%
+          >>"%UNITY_RUNNER%" echo exit /b %%UNITY_RC%%
+          start "" /b cmd /d /c call "%UNITY_RUNNER%"
 
           :monitor
           if exist "Logs\unity-exit.txt" goto finished
@@ -82,8 +88,13 @@ jobs:
           goto monitor
 
           :finished
+          set "RC="
           set /p RC=<"Logs\unity-exit.txt"
           if exist "Logs\android-build.log" type "Logs\android-build.log"
+          if not defined RC (
+            echo [ERROR] Unity exit code was not captured.
+            exit /b 43
+          )
           if not "!RC!"=="0" (
             echo [ERROR] Unity exited with code !RC!.
             exit /b !RC!

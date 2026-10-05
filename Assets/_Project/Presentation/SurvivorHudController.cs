@@ -163,12 +163,12 @@ namespace KaiChe.Presentation
 
             if (!_visualsEnabled)
             {
-                bool modalOpen = _arena.IsDead
+                bool fallbackModalOpen = _arena.IsDead
                     || _arena.IsAttributeAllocationPending
                     || _arena.IsSkillChoicePending
                     || _arena.IsBossRewardPending;
 
-                if (modalOpen && _modalFallbackEnabled)
+                if (fallbackModalOpen && _modalFallbackEnabled)
                 {
                     EnsureStyles();
                     if (_hudStyle == null)
@@ -186,7 +186,7 @@ namespace KaiChe.Presentation
                     return;
                 }
 
-                if (!modalOpen)
+                if (!fallbackModalOpen)
                     DrawJoystick();
                 return;
             }
