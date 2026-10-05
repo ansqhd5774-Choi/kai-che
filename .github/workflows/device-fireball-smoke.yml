@@ -16,6 +16,7 @@ jobs:
       ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
       APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
       PACKAGE_ID: com.kaiche.rpg
+      ADB_SERIAL: 192.168.0.8:36473
 
     steps:
       - name: Verify wireless ADB device
@@ -23,15 +24,14 @@ jobs:
         run: |
           @echo off
           "%ADB_EXE%" start-server
-          "%ADB_EXE%" connect 192.168.0.8:36473
+          "%ADB_EXE%" connect %ADB_SERIAL%
           ping -n 3 127.0.0.1 >nul
-          "%ADB_EXE%" devices
-          "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
+          "%ADB_EXE%" -s %ADB_SERIAL% get-state | findstr /C:"device" >nul
           if errorlevel 1 (
-            echo [ERROR] Wireless ADB connect failed. Pair this Windows user once, then retry.
+            echo [ERROR] Wireless ADB connect failed for %ADB_SERIAL%.
             exit /b 20
           )
-          echo [PASS] Wireless ADB device connected.
+          echo [PASS] Wireless ADB device connected: %ADB_SERIAL%
 
       - name: Verify persisted APK
         shell: cmd
@@ -47,7 +47,7 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          "%ADB_EXE%" install -r "%APK_PATH%"
+          "%ADB_EXE%" -s %ADB_SERIAL% install -r "%APK_PATH%"
           if errorlevel 1 exit /b 22
           echo [PASS] APK installed.
 
@@ -55,14 +55,14 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          "%ADB_EXE%" logcat -c
-          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
-          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -c
+          "%ADB_EXE%" -s %ADB_SERIAL% shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" -s %ADB_SERIAL% shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
           if errorlevel 1 exit /b 23
           ping -n 8 127.0.0.1 >nul
 
           set "SIZE="
-          for /f "tokens=3" %%S in ('"%ADB_EXE%" shell wm size ^| findstr /C:"Physical size:"') do set "SIZE=%%S"
+          for /f "tokens=3" %%S in ('"%ADB_EXE%" -s %ADB_SERIAL% shell wm size ^| findstr /C:"Physical size:"') do set "SIZE=%%S"
           if defined SIZE (
             for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
               set /a TAPX=%%W/2
@@ -70,18 +70,18 @@ jobs:
             )
             setlocal EnableDelayedExpansion
             echo [INFO] Screen=!SIZE! tap=!TAPX!,!TAPY!
-            "%ADB_EXE%" shell input tap !TAPX! !TAPY!
+            "%ADB_EXE%" -s %ADB_SERIAL% shell input tap !TAPX! !TAPY!
             endlocal
           ) else (
             echo [WARN] Could not read physical screen size; skipping automated Game Start tap.
           )
 
           ping -n 12 127.0.0.1 >nul
-          "%ADB_EXE%" shell pidof %PACKAGE_ID% > device-pid.txt
+          "%ADB_EXE%" -s %ADB_SERIAL% shell pidof %PACKAGE_ID% > device-pid.txt
           set /p PID=<device-pid.txt
           if not defined PID (
             echo [ERROR] KAISE process is not running.
-            "%ADB_EXE%" logcat -d -t 200
+            "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 200
             exit /b 24
           )
           echo [PASS] KAISE running. PID=%PID%
@@ -90,7 +90,7 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          "%ADB_EXE%" logcat -d -t 1200 > fireball-log.txt
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 1200 > fireball-log.txt
           findstr /C:"KAI_CHE_FIREBALL_FIRST_SHOT" fireball-log.txt
           if errorlevel 1 (
             echo [WARN] Fireball runtime marker not observed in this APK/run.
@@ -104,7 +104,7 @@ jobs:
         run: |
           @echo off
           del /q device-fireball-smoke.png 2>nul
-          "%ADB_EXE%" exec-out screencap -p > device-fireball-smoke.png
+          "%ADB_EXE%" -s %ADB_SERIAL% exec-out screencap -p > device-fireball-smoke.png
           if errorlevel 1 (
             del /q device-fireball-smoke.png 2>nul
             echo [WARN] Device screenshot not captured.
