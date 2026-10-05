@@ -157,11 +157,11 @@ namespace KaiChe.Presentation
 
             if (!_visualsEnabled)
             {
-                bool modalOpen = _arena.IsDead
+                bool inputBlocked = _arena.IsDead
                     || _arena.IsAttributeAllocationPending
                     || _arena.IsSkillChoicePending
                     || _arena.IsBossRewardPending;
-                if (!modalOpen)
+                if (!inputBlocked)
                     DrawJoystick();
                 return;
             }
