@@ -22,14 +22,36 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
           "%ADB_EXE%" start-server
           "%ADB_EXE%" devices
           "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
-          if errorlevel 1 (
-            echo [ERROR] No authorized ADB device is connected.
+          if not errorlevel 1 (
+            echo [PASS] ADB device already connected.
+            exit /b 0
+          )
+
+          echo [INFO] No active device. Discovering wireless-debug service...
+          "%ADB_EXE%" mdns services
+          set "ENDPOINT="
+          for /f "tokens=3" %%E in ('"%ADB_EXE%" mdns services ^| findstr /C:"_adb-tls-connect._tcp"') do (
+            if not defined ENDPOINT set "ENDPOINT=%%E"
+          )
+          if not defined ENDPOINT (
+            echo [ERROR] No wireless ADB connect endpoint discovered.
             exit /b 20
           )
-          echo [PASS] ADB device connected.
+
+          echo [INFO] Connecting to !ENDPOINT!
+          "%ADB_EXE%" connect !ENDPOINT!
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" devices
+          "%ADB_EXE%" devices | findstr /R /C:"device$" >nul
+          if errorlevel 1 (
+            echo [ERROR] Wireless ADB endpoint found but device did not authorize.
+            exit /b 20
+          )
+          echo [PASS] Wireless ADB device connected.
 
       - name: Verify persisted APK
         shell: cmd
@@ -101,8 +123,19 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          del /q device-fireball-smoke.png 2>nul
           "%ADB_EXE%" exec-out screencap -p > device-fireball-smoke.png
-          if exist device-fireball-smoke.png echo [PASS] Device screenshot captured.
+          if errorlevel 1 (
+            del /q device-fireball-smoke.png 2>nul
+            echo [WARN] Device screenshot not captured.
+            exit /b 0
+          )
+          for %%A in (device-fireball-smoke.png) do if %%~zA GTR 1000 (
+            echo [PASS] Device screenshot captured: %%~zA bytes
+            exit /b 0
+          )
+          del /q device-fireball-smoke.png 2>nul
+          echo [WARN] Device screenshot was empty.
 
       - name: Upload device evidence
         if: always()
