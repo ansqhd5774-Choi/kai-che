@@ -64,11 +64,21 @@ jobs:
             goto device_ready
           )
 
-          echo [INFO] No online device yet; attempting adb reconnect. > Logs\adb-reconnect.txt
+          echo [INFO] No online device yet; attempting direct mDNS connect. > Logs\adb-reconnect.txt
+          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\adb-mdns.txt') do (
+            echo [INFO] Trying %%E >> Logs\adb-reconnect.txt
+            "%ADB_EXE%" connect %%E >> Logs\adb-reconnect.txt 2>&1
+            ping -n 3 127.0.0.1 >nul
+            "%ADB_EXE%" get-state >nul 2>&1
+            if not errorlevel 1 goto device_ready_after_connect
+          )
+
+          echo [INFO] Direct mDNS connect did not recover device; attempting adb reconnect fallback. >> Logs\adb-reconnect.txt
           "%ADB_EXE%" reconnect >> Logs\adb-reconnect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
-          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
 
+          :device_ready_after_connect
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
           if errorlevel 1 (
             echo [ERROR] No single online Android device is available through ADB.
