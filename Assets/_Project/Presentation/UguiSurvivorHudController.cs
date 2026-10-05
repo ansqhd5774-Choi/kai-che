@@ -37,6 +37,7 @@ namespace KaiChe.Presentation
 
         private GameObject _modalDim;
         private GameObject _modalPanel;
+        private SurvivorHudController _legacyHud;
         private Text _modalTitle;
         private Text _modalSubtitle;
         private readonly List<Button> _choiceButtons = new List<Button>();
@@ -54,7 +55,9 @@ namespace KaiChe.Presentation
 
         private void Awake()
         {
+            _legacyHud = GetComponent<SurvivorHudController>();
             BuildUi();
+            UpdateLegacyModalFallback();
         }
 
         private void Update()
@@ -62,9 +65,11 @@ namespace KaiChe.Presentation
             if (_arena == null || _canvas == null)
                 return;
 
+            EnsureEventSystem();
             UpdateSafeArea();
             UpdateHud();
             UpdateModal();
+            UpdateLegacyModalFallback();
         }
 
         private void BuildUi()
@@ -222,7 +227,7 @@ namespace KaiChe.Presentation
                 _safeRoot,
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f),
-                new Vector2(-620f, -410f),
+                Vector2.zero,
                 new Vector2(1240f, 820f),
                 new Color(0.055f, 0.045f, 0.034f, 0.985f));
             _modalPanel = modal.gameObject;
@@ -256,7 +261,7 @@ namespace KaiChe.Presentation
                     modal,
                     new Vector2(0.5f, 1f),
                     new Vector2(0.5f, 1f),
-                    new Vector2(-540f, -214f - i * 176f),
+                    new Vector2(0f, -214f - i * 176f),
                     new Vector2(1080f, 142f));
                 Button button = CreateButton(buttonRoot, string.Empty, 30);
                 _choiceButtons.Add(button);
@@ -284,7 +289,7 @@ namespace KaiChe.Presentation
                     modal,
                     new Vector2(0.5f, 1f),
                     new Vector2(0.5f, 1f),
-                    new Vector2(-550f + col * 566f, -230f - row * 130f),
+                    new Vector2(-283f + col * 566f, -230f - row * 130f),
                     new Vector2(534f, 102f));
                 Button button = CreateButton(buttonRoot, string.Empty, 27);
                 CharacterAttribute captured = attributes[i];
@@ -508,13 +513,64 @@ namespace KaiChe.Presentation
 
         private void EnsureEventSystem()
         {
-            if (EventSystem.current != null)
+            EventSystem current = EventSystem.current;
+            if (current == null)
+            {
+                GameObject eventObject = new GameObject("R16_EventSystem");
+                eventObject.transform.SetParent(transform, false);
+                current = eventObject.AddComponent<EventSystem>();
+            }
+
+            BaseInputModule[] modules =
+                current.GetComponents<BaseInputModule>();
+            bool hasEnabledModule = false;
+            for (int i = 0; i < modules.Length; i++)
+            {
+                if (modules[i] != null && modules[i].enabled)
+                {
+                    hasEnabledModule = true;
+                    break;
+                }
+            }
+
+            if (!hasEnabledModule)
+                current.gameObject.AddComponent<StandaloneInputModule>();
+        }
+
+        private void UpdateLegacyModalFallback()
+        {
+            if (_legacyHud == null)
                 return;
 
-            GameObject eventObject = new GameObject("R14_EventSystem");
-            eventObject.transform.SetParent(transform, false);
-            eventObject.AddComponent<EventSystem>();
-            eventObject.AddComponent<StandaloneInputModule>();
+            _legacyHud.SetModalFallbackEnabled(!IsPrimaryUiReady());
+        }
+
+        private bool IsPrimaryUiReady()
+        {
+            if (_canvas == null
+                || !_canvas.isActiveAndEnabled
+                || _safeRoot == null
+                || _modalDim == null
+                || _modalPanel == null
+                || _modalTitle == null
+                || _modalSubtitle == null
+                || _choiceButtons.Count != 3
+                || _attributeButtons.Count != 8)
+                return false;
+
+            EventSystem current = EventSystem.current;
+            if (current == null)
+                return false;
+
+            BaseInputModule[] modules =
+                current.GetComponents<BaseInputModule>();
+            for (int i = 0; i < modules.Length; i++)
+            {
+                if (modules[i] != null && modules[i].enabled)
+                    return true;
+            }
+
+            return false;
         }
 
         private RectTransform CreatePanel(
