@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R14";
+        private const string BuildLabel = "R17";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
