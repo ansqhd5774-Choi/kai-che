@@ -144,6 +144,63 @@ jobs:
           )
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
+      - name: Verify R18 field-to-town route
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+
+          rem Main screen can appear in portrait or landscape.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-main-failure.png 2>nul
+          echo [ERROR] R18 smoke could not enter Game.
+          exit /b 60
+
+          :game_ready
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-game-screen.png 2>nul
+          echo [PASS] Game scene loaded.
+
+          rem Portrait route: downward screen drag means negative Unity Y toward the town entrance.
+          "%ADB_EXE%" shell input swipe 720 1500 720 2850 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          rem Landscape fallback.
+          "%ADB_EXE%" shell input swipe 1600 560 1600 1320 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-town-failure.png 2>nul
+          echo [ERROR] R18 3D town activation marker not found.
+          exit /b 61
+
+          :town_ready
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\device-app-pid.txt
+          set /p APP_PID=<Logs\device-app-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] KaiChe process stopped during R18 town smoke.
+            exit /b 62
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-town-screen.png 2>nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          echo [PASS] R18 field-to-town route and 3D town activation verified.
+
       - name: Capture runtime evidence
         if: success()
         shell: cmd
@@ -172,5 +229,10 @@ jobs:
             Logs/device-activity.txt
             Logs/device-logcat.txt
             Logs/device-screen.png
+            Logs/device-town-logcat.txt
+            Logs/device-game-screen.png
+            Logs/device-town-screen.png
+            Logs/device-main-failure.png
+            Logs/device-town-failure.png
           if-no-files-found: warn
           retention-days: 7
