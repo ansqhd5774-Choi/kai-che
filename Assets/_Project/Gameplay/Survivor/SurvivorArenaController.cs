@@ -456,7 +456,10 @@ namespace KaiChe.Gameplay.Survivor
                 PrototypeAdventureState.Health);
             ConfigureCamera();
 
-            RuntimeBattlefieldEnvironment.Build(\n                transform,\n                _materialTemplate,\n                TownEntrancePosition);
+            RuntimeBattlefieldEnvironment.Build(
+                transform,
+                _materialTemplate,
+                TownEntrancePosition);
             _player = CreateWarriorView();
 
             _spawnTimer = 0.2f;
