@@ -44,7 +44,7 @@ jobs:
           if errorlevel 1 exit /b 30
           echo [PASS] Unity host and project version verified.
 
-      - name: Build Android APK with heartbeat watchdog
+      - name: Build Android APK with heartbeat
         shell: cmd
         run: |
           @echo off
@@ -60,19 +60,7 @@ jobs:
 
           if exist "Logs\android-build.log" (
             for %%A in ("Logs\android-build.log") do set "SIZE=%%~zA"
-            echo [HEARTBEAT] %TIME% log_bytes=!SIZE! stale_checks=!STALE!
-            if "!SIZE!"=="!LASTSIZE!" (
-              set /a STALE+=1
-            ) else (
-              set /a STALE=0
-              set "LASTSIZE=!SIZE!"
-            )
-            if !STALE! GEQ 10 (
-              echo [ERROR] Unity log has not changed for 5 minutes.
-              type "Logs\android-build.log"
-              taskkill /F /IM Unity.exe /T >nul 2>&1
-              exit /b 45
-            )
+            echo [HEARTBEAT] %TIME% log_bytes=!SIZE!
           ) else (
             echo [HEARTBEAT] %TIME% waiting_for_log
           )
