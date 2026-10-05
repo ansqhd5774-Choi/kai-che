@@ -28,6 +28,18 @@ jobs:
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
 
     steps:
+      - name: Ensure Git is on PATH
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\Program Files\Git\cmd\git.exe" (
+            echo [ERROR] Git executable not found.
+            exit /b 22
+          )
+          echo C:\Program Files\Git\cmd>>"%GITHUB_PATH%"
+          echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
+          "C:\Program Files\Git\cmd\git.exe" --version
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
