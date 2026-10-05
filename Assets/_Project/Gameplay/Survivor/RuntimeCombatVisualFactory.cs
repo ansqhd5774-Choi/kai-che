@@ -169,6 +169,11 @@ namespace KaiChe.Gameplay.Survivor
                 weaponRoot,
                 true);
 
+            GameObject playerPrefab =
+                RuntimeCombatVisualPrefabResolver.LoadPlayerPrefab();
+            if (playerPrefab != null)
+                slot.ReplaceModel(playerPrefab);
+
             return root;
         }
 
@@ -372,6 +377,11 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 null,
                 true);
+
+            GameObject monsterPrefab =
+                RuntimeCombatVisualPrefabResolver.LoadMonsterPrefab(id);
+            if (monsterPrefab != null)
+                slot.ReplaceModel(monsterPrefab);
 
             return root;
         }
