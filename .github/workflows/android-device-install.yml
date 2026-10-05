@@ -56,10 +56,26 @@ jobs:
           "%ADB_EXE%" server-status > Logs\adb-server-after.txt 2>&1
           "%ADB_EXE%" mdns services > Logs\adb-mdns.txt 2>&1
           "%ADB_EXE%" devices -l > Logs\adb-devices-before.txt 2>&1
-          "%ADB_EXE%" reconnect > Logs\adb-reconnect.txt 2>&1
+
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 (
+            echo [INFO] Android device already online; preserving current wireless ADB session. > Logs\adb-reconnect.txt
+            "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
+            goto device_ready
+          )
+
+          echo [INFO] No online device yet; attempting adb reconnect. > Logs\adb-reconnect.txt
+          "%ADB_EXE%" reconnect >> Logs\adb-reconnect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
 
+          "%ADB_EXE%" get-state >nul 2>&1
+          if errorlevel 1 (
+            echo [ERROR] No single online Android device is available through ADB.
+            exit /b 30
+          )
+
+          :device_ready
           echo ===== ADB VERSION =====
           type Logs\adb-version.txt
           echo ===== ADB SERVER BEFORE =====
@@ -74,12 +90,6 @@ jobs:
           type Logs\adb-reconnect.txt
           echo ===== ADB DEVICES AFTER =====
           type Logs\adb-devices-after.txt
-
-          "%ADB_EXE%" get-state
-          if errorlevel 1 (
-            echo [ERROR] No single online Android device is available through ADB.
-            exit /b 30
-          )
           echo [PASS] Android device online.
 
       - name: Install latest KaiChe APK
