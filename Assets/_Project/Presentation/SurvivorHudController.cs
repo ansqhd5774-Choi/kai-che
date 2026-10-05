@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R8";
+        private const string BuildLabel = "R9";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -28,6 +28,7 @@ namespace KaiChe.Presentation
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _deathStyle;
+        private GUIStyle _buildStyle;
 
         public void Bind(SurvivorArenaController arena)
         {
@@ -167,7 +168,7 @@ namespace KaiChe.Presentation
 
             GUI.Label(
                 new Rect(hudPanel.x + 24f, hudPanel.y + 10f, 360f, 44f),
-                $"전사  LV {_arena.Level}   ·   BUILD {BuildLabel}",
+                $"전사  LV {_arena.Level}",
                 _hudStyle);
             GUI.Label(
                 new Rect(hudPanel.xMax - 330f, hudPanel.y + 12f, 302f, 40f),
@@ -235,6 +236,17 @@ namespace KaiChe.Presentation
                     "BOSS · " + _arena.BossName
                     + (_arena.IsBossPhaseTwo ? " · PHASE II" : string.Empty));
             }
+
+            Rect buildRect = new Rect(
+                safe.xMax - margin - 300f,
+                safe.y + margin + 82f,
+                300f,
+                88f);
+            DrawFantasyPanel(buildRect);
+            GUI.Label(
+                buildRect,
+                "BUILD " + BuildLabel,
+                _buildStyle);
 
             Rect exitRect = new Rect(
                 safe.xMax - margin - 168f,
@@ -463,10 +475,18 @@ namespace KaiChe.Presentation
                 alignment = TextAnchor.MiddleCenter
             };
 
+            _buildStyle = new GUIStyle(skin.label)
+            {
+                fontSize = Mathf.Max(42, baseSize + 12),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
             Color parchment = new Color(0.92f, 0.84f, 0.65f);
             _hudStyle.normal.textColor = parchment;
             _smallStyle.normal.textColor = new Color(0.78f, 0.72f, 0.58f);
             _deathStyle.normal.textColor = new Color(0.96f, 0.80f, 0.36f);
+            _buildStyle.normal.textColor = new Color(1f, 0.88f, 0.34f);
             _buttonStyle.normal.textColor = parchment;
             _buttonStyle.hover.textColor = parchment;
             _buttonStyle.active.textColor = Color.white;
