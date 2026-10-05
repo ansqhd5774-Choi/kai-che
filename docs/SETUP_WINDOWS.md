@@ -1,7 +1,7 @@
 # Windows Local Setup
 
 ## Required editor
-- Unity 6000.3.25f1 (Unity 6.3 LTS)
+- Unity 6000.3.12f1 (Unity 6.3 LTS)
 - Template/render pipeline: 3D URP
 
 ## Unity Hub modules
@@ -22,7 +22,7 @@ Install these with the editor:
 
 ## First editor validation
 After the project opens:
-- Confirm editor version is 6000.3.25f1.
+- Confirm editor version is 6000.3.12f1.
 - Confirm Universal Render Pipeline resolves successfully.
 - Confirm there are no compile errors.
 - Create the first bootstrap scene under `Assets/_Project/Scenes`.
