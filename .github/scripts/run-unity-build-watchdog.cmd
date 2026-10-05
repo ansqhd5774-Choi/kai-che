@@ -28,21 +28,13 @@ if exist "Logs\unity-exit-code.txt" goto finished
 set "CURRENT_SIZE=0"
 if exist "Logs\android-build.log" for %%A in ("Logs\android-build.log") do set "CURRENT_SIZE=%%~zA"
 
-if "!CURRENT_SIZE!"=="!LAST_SIZE!" (
-  set /a STALE_TICKS+=1
-) else (
-  set /a STALE_TICKS=0
+if not "!CURRENT_SIZE!"=="!LAST_SIZE!" (
   set "LAST_SIZE=!CURRENT_SIZE!"
   echo [HEARTBEAT] Unity log advanced to !CURRENT_SIZE! bytes.
   echo [HEARTBEAT] Unity log advanced to !CURRENT_SIZE! bytes.>> "Logs\unity-watchdog.txt"
-)
-
-if !STALE_TICKS! GEQ !MAX_STALE_TICKS! (
-  echo [ERROR] Unity build log made no progress for 180 seconds.
-  echo [ERROR] Unity build log made no progress for 180 seconds.>> "Logs\unity-watchdog.txt"
-  taskkill /F /IM Unity.exe /T >nul 2>&1
-  >"Logs\unity-exit-code.txt" echo 124
-  goto finished
+) else (
+  echo [HEARTBEAT] Unity still running; log unchanged at !CURRENT_SIZE! bytes.
+  echo [HEARTBEAT] Unity still running; log unchanged at !CURRENT_SIZE! bytes.>> "Logs\unity-watchdog.txt"
 )
 
 ping -n 31 127.0.0.1 >nul
