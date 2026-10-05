@@ -23,6 +23,10 @@ namespace KaiChe.Gameplay.Survivor
             root.transform.localPosition = Vector3.zero;
             root.transform.localScale = Vector3.one * baseScale;
 
+            var modelObject = new GameObject("PlayerModelRoot");
+            modelObject.transform.SetParent(modelRoot, false);
+            Transform modelRoot = modelObject.transform;
+
             CreatePart(
                 PrimitiveType.Cylinder,
                 root.transform,
@@ -124,7 +128,7 @@ namespace KaiChe.Gameplay.Survivor
                 materialTemplate);
 
             var weapon = new GameObject("PlayerWeapon");
-            weapon.transform.SetParent(root.transform, false);
+            weapon.transform.SetParent(modelRoot, false);
             weaponRoot = weapon.transform;
 
             CreatePart(
@@ -156,6 +160,14 @@ namespace KaiChe.Gameplay.Survivor
                 new Vector3(0.09f, 0.24f, 0.09f),
                 Quaternion.Euler(0f, 0f, -24f),
                 materialTemplate);
+
+            RuntimeCombatVisualSlot slot =
+                root.AddComponent<RuntimeCombatVisualSlot>();
+            slot.Configure(
+                "player.warrior",
+                modelRoot,
+                weaponRoot,
+                true);
 
             return root;
         }
@@ -201,6 +213,10 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("Enemy_" + id);
             root.transform.SetParent(parent, false);
             root.transform.position = position;
+
+            var modelObject = new GameObject("EnemyModelRoot");
+            modelObject.transform.SetParent(modelRoot, false);
+            Transform modelRoot = modelObject.transform;
 
             CreatePart(
                 PrimitiveType.Cylinder,
@@ -348,6 +364,14 @@ namespace KaiChe.Gameplay.Survivor
                     Quaternion.identity,
                     materialTemplate);
             }
+
+            RuntimeCombatVisualSlot slot =
+                root.AddComponent<RuntimeCombatVisualSlot>();
+            slot.Configure(
+                id,
+                modelRoot,
+                null,
+                true);
 
             return root;
         }
