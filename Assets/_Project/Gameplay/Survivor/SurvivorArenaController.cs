@@ -60,6 +60,11 @@ namespace KaiChe.Gameplay.Survivor
         private float _playerHitFlashTimer;
         private float _survivalTime;
         private int _lastWaveLog = 1;
+        private int _pendingSkillChoices;
+        private int _fireUpgradeRank;
+        private int _iceUpgradeRank;
+        private int _arcaneUpgradeRank;
+        private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
         private bool _iceballFirstShotLogged;
@@ -84,6 +89,17 @@ namespace KaiChe.Gameplay.Survivor
         private const float BruteSlamKnockback = 0.38f;
         private const float WaveDuration = 30f;
         private const float PressureWaveDuration = 8f;
+        private const float FireDamagePerRank = 0.28f;
+        private const float FireCooldownPerRank = 0.06f;
+        private const float IceDamagePerRank = 0.18f;
+        private const float IceSlowDurationPerRank = 0.35f;
+        private const float ArcaneCooldownPerRank = 0.08f;
+        private const float ArcaneProjectileSpeedPerRank = 0.10f;
+        private const int FireEvolutionRank = 3;
+        private const int IceEvolutionRank = 3;
+        private const float FireSplashRadius = 1.35f;
+        private const float FireSplashDamageMultiplier = 0.45f;
+        private const float IcePulseRadius = 1.60f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -124,6 +140,81 @@ namespace KaiChe.Gameplay.Survivor
         public int UnspentAttributePoints => _progression.UnspentAttributePoints;
         public bool IsAttributeAllocationPending =>
             _progression.UnspentAttributePoints > 0;
+        public bool IsSkillChoicePending => _pendingSkillChoices > 0;
+        public int PendingSkillChoices => _pendingSkillChoices;
+        public int FireUpgradeRank => _fireUpgradeRank;
+        public int IceUpgradeRank => _iceUpgradeRank;
+        public int ArcaneUpgradeRank => _arcaneUpgradeRank;
+
+        public string GetSkillUpgradeTitle(int choiceIndex)
+        {
+            switch (choiceIndex)
+            {
+                case 0:
+                    return _fireUpgradeRank + 1 >= FireEvolutionRank
+                        ? "화염 진화 · 태양 폭발"
+                        : "화염 각인 · 파이어볼 강화";
+                case 1:
+                    return _iceUpgradeRank + 1 >= IceEvolutionRank
+                        ? "냉기 진화 · 절대영도 파동"
+                        : "빙결 각인 · 아이스볼 강화";
+                case 2:
+                    return "비전 가속 · 쌍마법 공명";
+                default:
+                    return "알 수 없는 강화";
+            }
+        }
+
+        public string GetSkillUpgradeDescription(int choiceIndex)
+        {
+            switch (choiceIndex)
+            {
+                case 0:
+                    return $"+{Mathf.RoundToInt(FireDamagePerRank * 100f)}% 피해"
+                        + $" · 재사용 -{Mathf.RoundToInt(FireCooldownPerRank * 100f)}%"
+                        + (_fireUpgradeRank + 1 == FireEvolutionRank
+                            ? " · 3랭크부터 명중 시 광역 폭발"
+                            : string.Empty);
+                case 1:
+                    return $"+{Mathf.RoundToInt(IceDamagePerRank * 100f)}% 피해"
+                        + $" · 둔화 +{IceSlowDurationPerRank:0.00}초"
+                        + (_iceUpgradeRank + 1 == IceEvolutionRank
+                            ? " · 3랭크부터 주변 적 냉기 파동"
+                            : string.Empty);
+                case 2:
+                    return $"두 스킬 재사용 -{Mathf.RoundToInt(ArcaneCooldownPerRank * 100f)}%"
+                        + $" · 탄속 +{Mathf.RoundToInt(ArcaneProjectileSpeedPerRank * 100f)}%";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public bool TryChooseSkillUpgrade(int choiceIndex)
+        {
+            if (_pendingSkillChoices <= 0)
+                return false;
+
+            switch (choiceIndex)
+            {
+                case 0:
+                    _fireUpgradeRank += 1;
+                    Debug.Log("KAI_CHE_SKILL_PICK_FIRE_" + _fireUpgradeRank);
+                    break;
+                case 1:
+                    _iceUpgradeRank += 1;
+                    Debug.Log("KAI_CHE_SKILL_PICK_ICE_" + _iceUpgradeRank);
+                    break;
+                case 2:
+                    _arcaneUpgradeRank += 1;
+                    Debug.Log("KAI_CHE_SKILL_PICK_ARCANE_" + _arcaneUpgradeRank);
+                    break;
+                default:
+                    return false;
+            }
+
+            _pendingSkillChoices -= 1;
+            return true;
+        }
 
         public void Initialize(Material materialTemplate)
         {
@@ -144,7 +235,7 @@ namespace KaiChe.Gameplay.Survivor
 
         public void SetMoveInput(Vector2 input)
         {
-            _moveInput = IsAttributeAllocationPending
+            _moveInput = IsAttributeAllocationPending || IsSkillChoicePending
                 ? Vector2.zero
                 : Vector2.ClampMagnitude(input, 1f);
         }
@@ -172,7 +263,7 @@ namespace KaiChe.Gameplay.Survivor
                 0f,
                 _playerHitFlashTimer - deltaTime);
 
-            if (IsDead || IsAttributeAllocationPending)
+            if (IsDead || IsAttributeAllocationPending || IsSkillChoicePending)
                 return;
 
             UpdateSurvivalWave(deltaTime);
@@ -610,7 +701,7 @@ namespace KaiChe.Gameplay.Survivor
 
             _attackAnimationTime = AttackAnimationDuration;
             CreateFireballCastEffect(origin, direction);
-            _shotTimer = skill.Cooldown;
+            _shotTimer = GetSkillCooldown(skill, false);
         }
 
         private void UpdateIceballShooting()
@@ -651,7 +742,30 @@ namespace KaiChe.Gameplay.Survivor
 
             _attackAnimationTime = AttackAnimationDuration;
             CreateIceballCastEffect(origin, direction);
-            _iceShotTimer = skill.Cooldown;
+            _iceShotTimer = GetSkillCooldown(skill, true);
+        }
+
+        private float GetSkillCooldown(SkillDefinition skill, bool isIceBall)
+        {
+            float reduction = _arcaneUpgradeRank * ArcaneCooldownPerRank;
+            if (!isIceBall)
+                reduction += _fireUpgradeRank * FireCooldownPerRank;
+
+            return Mathf.Max(0.18f, skill.Cooldown * Mathf.Max(0.42f, 1f - reduction));
+        }
+
+        private float GetProjectileSpeed(SkillDefinition skill)
+        {
+            return skill.ProjectileSpeed
+                * (1f + _arcaneUpgradeRank * ArcaneProjectileSpeedPerRank);
+        }
+
+        private float GetProjectileDamage(SkillDefinition skill, bool isIceBall)
+        {
+            float multiplier = isIceBall
+                ? 1f + _iceUpgradeRank * IceDamagePerRank
+                : 1f + _fireUpgradeRank * FireDamagePerRank;
+            return skill.Damage * multiplier;
         }
 
         private GameObject CreateFireballProjectile(
@@ -827,7 +941,7 @@ namespace KaiChe.Gameplay.Survivor
 
                 Vector3 position = projectile.View.transform.position;
                 position += (Vector3)(
-                    projectile.Direction * skill.ProjectileSpeed * deltaTime);
+                    projectile.Direction * GetProjectileSpeed(skill) * deltaTime);
                 projectile.View.transform.position = position;
                 projectile.View.transform.rotation = Quaternion.Euler(
                     0f,
@@ -850,16 +964,32 @@ namespace KaiChe.Gameplay.Survivor
                     {
                         projectile.Target.SlowTimer = Mathf.Max(
                             projectile.Target.SlowTimer,
-                            IceSlowDuration);
+                            IceSlowDuration
+                            + _iceUpgradeRank * IceSlowDurationPerRank);
                         EnsureIceSlowAura(projectile.Target);
                         CreateIceImpactEffect(position);
+
+                        if (_iceUpgradeRank >= IceEvolutionRank)
+                            ApplyIceEvolutionPulse(projectile.Target, position);
                     }
                     else
                     {
                         CreateImpactEffect(position);
                     }
 
-                    DamageEnemy(projectile.Target, skill.Damage);
+                    float hitDamage = GetProjectileDamage(
+                        skill,
+                        projectile.IsIceBall);
+                    DamageEnemy(projectile.Target, hitDamage);
+
+                    if (!projectile.IsIceBall
+                        && _fireUpgradeRank >= FireEvolutionRank)
+                    {
+                        ApplyFireEvolutionSplash(
+                            projectile.Target,
+                            position,
+                            hitDamage * FireSplashDamageMultiplier);
+                    }
                     Destroy(projectile.View);
                     _projectiles.RemoveAt(i);
                 }
@@ -869,6 +999,69 @@ namespace KaiChe.Gameplay.Survivor
                     _projectiles.RemoveAt(i);
                 }
             }
+        }
+
+        private void ApplyFireEvolutionSplash(
+            EnemyState primaryTarget,
+            Vector2 center,
+            float splashDamage)
+        {
+            float radiusSq = FireSplashRadius * FireSplashRadius;
+            int hits = 0;
+
+            for (int i = _enemies.Count - 1; i >= 0; i--)
+            {
+                EnemyState enemy = _enemies[i];
+                if (enemy == null
+                    || enemy == primaryTarget
+                    || enemy.View == null)
+                    continue;
+
+                Vector2 enemyPosition = enemy.View.transform.position;
+                if ((enemyPosition - center).sqrMagnitude > radiusSq)
+                    continue;
+
+                DamageEnemy(enemy, splashDamage);
+                hits += 1;
+            }
+
+            if (hits > 0)
+                Debug.Log("KAI_CHE_FIRE_EVOLUTION_SPLASH_" + hits);
+
+            CreateImpactEffect(center);
+        }
+
+        private void ApplyIceEvolutionPulse(
+            EnemyState primaryTarget,
+            Vector2 center)
+        {
+            float radiusSq = IcePulseRadius * IcePulseRadius;
+            int affected = 0;
+            float pulseSlow = IceSlowDuration
+                + _iceUpgradeRank * IceSlowDurationPerRank
+                + 0.8f;
+
+            for (int i = _enemies.Count - 1; i >= 0; i--)
+            {
+                EnemyState enemy = _enemies[i];
+                if (enemy == null
+                    || enemy == primaryTarget
+                    || enemy.View == null)
+                    continue;
+
+                Vector2 enemyPosition = enemy.View.transform.position;
+                if ((enemyPosition - center).sqrMagnitude > radiusSq)
+                    continue;
+
+                enemy.SlowTimer = Mathf.Max(enemy.SlowTimer, pulseSlow);
+                EnsureIceSlowAura(enemy);
+                affected += 1;
+            }
+
+            if (affected > 0)
+                Debug.Log("KAI_CHE_ICE_EVOLUTION_PULSE_" + affected);
+
+            CreateIceImpactEffect(center);
         }
 
         private void UpdateEffects(float deltaTime)
@@ -1199,7 +1392,16 @@ namespace KaiChe.Gameplay.Survivor
             Kills += 1;
 
             if (levelsGained > 0)
+            {
+                _pendingSkillChoices += levelsGained;
                 _moveInput = Vector2.zero;
+
+                if (!_skillChoiceFirstLogged)
+                {
+                    _skillChoiceFirstLogged = true;
+                    Debug.Log("KAI_CHE_SKILL_CHOICE_READY");
+                }
+            }
 
             Destroy(enemy.View);
             enemy.View = null;
