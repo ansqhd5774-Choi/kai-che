@@ -276,7 +276,7 @@ namespace KaiChe.Gameplay.Survivor
                 Health = definition.MaxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
                 BaseScale = variantScale,
-                IsAggro = false
+                IsAggro = true
             };
 
             if (enemy.View != null)
@@ -305,10 +305,7 @@ namespace KaiChe.Gameplay.Survivor
                 Vector2 offset = playerPosition - position;
                 float distance = offset.magnitude;
 
-                if (!enemy.IsAggro && distance <= EnemyAggroRadius)
-                    enemy.IsAggro = true;
-
-                if (enemy.IsAggro && distance > 0.001f)
+                if (distance > 0.001f)
                 {
                     float moveSpeed = enemy.SlowTimer > 0f
                         ? definition.MoveSpeed * IceSlowMultiplier
