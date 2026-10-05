@@ -1,0 +1,104 @@
+name: Install KaiChe APK to Android Device
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/android-device-install.yml"
+
+concurrency:
+  group: kaise-android-device-install
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install-device:
+    name: Install and launch KaiChe on paired Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 20
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
+      PACKAGE_ID: com.kaiche.rpg
+
+    steps:
+      - name: Verify local APK and ADB
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%ADB_EXE%" (
+            echo [ERROR] adb.exe not found: %ADB_EXE%
+            exit /b 20
+          )
+          if not exist "%APK_PATH%" (
+            echo [ERROR] APK not found: %APK_PATH%
+            exit /b 21
+          )
+          for %%A in ("%APK_PATH%") do echo [PASS] APK: %%~fA (%%~zA bytes)
+
+      - name: Verify paired Android device
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" start-server
+          "%ADB_EXE%" devices
+          "%ADB_EXE%" get-state
+          if errorlevel 1 (
+            echo [ERROR] No single online Android device is available through ADB.
+            exit /b 30
+          )
+          echo [PASS] Android device online.
+
+      - name: Install latest KaiChe APK
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" install -r "%APK_PATH%"
+          if errorlevel 1 exit /b 40
+          "%ADB_EXE%" shell pm path %PACKAGE_ID%
+          if errorlevel 1 exit /b 41
+          echo [PASS] KaiChe installed.
+
+      - name: Launch KaiChe
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 50
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\device-app-pid.txt
+          set /p APP_PID=<Logs\device-app-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] KaiChe process is not running after launch.
+            exit /b 51
+          )
+          echo [PASS] KaiChe launched. PID=%APP_PID%
+
+      - name: Capture runtime evidence
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%ADB_EXE%" shell dumpsys activity activities > Logs\device-activity.txt 2>&1
+          "%ADB_EXE%" logcat -d -t 300 > Logs\device-logcat.txt 2>&1
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-screen.png 2>nul
+          echo [INFO] Runtime evidence captured.
+
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Android-Device-Evidence
+          path: |
+            Logs/device-app-pid.txt
+            Logs/device-activity.txt
+            Logs/device-logcat.txt
+            Logs/device-screen.png
+          if-no-files-found: warn
+          retention-days: 7
