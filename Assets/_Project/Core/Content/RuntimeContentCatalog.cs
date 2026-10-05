@@ -5,6 +5,8 @@ namespace KaiChe.Core.Content
         public const string StarterSkill = "SKILL_0001";
         public const string IceBall = "SKILL_0004";
         public const string StarterMonster = "MONSTER_0001";
+        public const string RunnerMonster = "MONSTER_0002";
+        public const string BruteMonster = "MONSTER_0003";
     }
 
     public sealed class SkillDefinition
@@ -85,5 +87,30 @@ namespace KaiChe.Core.Content
                 1.35f,
                 18f,
                 1);
+
+        public static readonly MonsterDefinition RunnerMonster =
+            new MonsterDefinition(
+                ContentIds.RunnerMonster,
+                "질주 마수",
+                26f,
+                2.15f,
+                12f,
+                1);
+
+        public static readonly MonsterDefinition BruteMonster =
+            new MonsterDefinition(
+                ContentIds.BruteMonster,
+                "철갑 마수",
+                95f,
+                0.82f,
+                28f,
+                3);
+
+        public static readonly MonsterDefinition[] Monsters =
+        {
+            StarterMonster,
+            RunnerMonster,
+            BruteMonster
+        };
     }
 }

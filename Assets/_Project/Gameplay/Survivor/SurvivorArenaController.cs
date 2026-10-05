@@ -12,6 +12,7 @@ namespace KaiChe.Gameplay.Survivor
         private sealed class EnemyState
         {
             public GameObject View;
+            public MonsterDefinition Definition;
             public float Health;
             public float AnimationPhase;
             public float BaseScale;
@@ -49,6 +50,7 @@ namespace KaiChe.Gameplay.Survivor
         private Vector2 _moveInput;
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
+        private int _spawnSequence;
         private float _shotTimer;
         private float _iceShotTimer;
         private float _moveAnimationTime;
@@ -58,6 +60,8 @@ namespace KaiChe.Gameplay.Survivor
         private bool _fireballFirstShotLogged;
         private bool _iceballFirstShotLogged;
         private bool _playerHitFirstLogged;
+        private bool _runnerSpawnLogged;
+        private bool _bruteSpawnLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -264,6 +268,46 @@ namespace KaiChe.Gameplay.Survivor
             _spawnTimer = Mathf.Lerp(0.95f, 0.28f, pressure);
         }
 
+        private MonsterDefinition SelectMonsterDefinition()
+        {
+            _spawnSequence += 1;
+
+            if (_spawnSequence % 11 == 0)
+            {
+                if (!_bruteSpawnLogged)
+                {
+                    _bruteSpawnLogged = true;
+                    Debug.Log("KAI_CHE_BRUTE_MONSTER_SPAWN");
+                }
+
+                return RuntimeContentCatalog.BruteMonster;
+            }
+
+            if (_spawnSequence % 4 == 0)
+            {
+                if (!_runnerSpawnLogged)
+                {
+                    _runnerSpawnLogged = true;
+                    Debug.Log("KAI_CHE_RUNNER_MONSTER_SPAWN");
+                }
+
+                return RuntimeContentCatalog.RunnerMonster;
+            }
+
+            return RuntimeContentCatalog.StarterMonster;
+        }
+
+        private static float GetMonsterScale(string monsterId)
+        {
+            if (monsterId == ContentIds.RunnerMonster)
+                return Random.Range(0.38f, 0.46f);
+
+            if (monsterId == ContentIds.BruteMonster)
+                return Random.Range(0.64f, 0.74f);
+
+            return Random.Range(0.46f, 0.58f);
+        }
+
         private void SpawnEnemy()
         {
             Camera camera = Camera.main;
@@ -282,13 +326,14 @@ namespace KaiChe.Gameplay.Survivor
             else
                 spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
 
-            MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
-            float variantScale = Random.Range(0.46f, 0.58f);
+            MonsterDefinition definition = SelectMonsterDefinition();
+            float variantScale = GetMonsterScale(definition.Id);
             var enemy = new EnemyState
             {
                 View = CreateEnemyView(
-                    definition.Id,
+                    definition,
                     new Vector3(spawn.x, spawn.y, 0f)),
+                Definition = definition,
                 Health = definition.MaxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
                 BaseScale = variantScale,
@@ -305,7 +350,8 @@ namespace KaiChe.Gameplay.Survivor
         private void UpdateEnemies(float deltaTime)
         {
             Vector2 playerPosition = PlayerPosition;
-            MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;            for (int i = _enemies.Count - 1; i >= 0; i--)
+
+            for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 EnemyState enemy = _enemies[i];
                 if (enemy.View == null)
@@ -313,6 +359,9 @@ namespace KaiChe.Gameplay.Survivor
                     _enemies.RemoveAt(i);
                     continue;
                 }
+
+                MonsterDefinition definition =
+                    enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
 
                 enemy.SlowTimer = Mathf.Max(
                     0f,
@@ -937,7 +986,8 @@ namespace KaiChe.Gameplay.Survivor
             enemy.Health -= damage;
             if (enemy.Health > 0f) return;
 
-            MonsterDefinition definition = RuntimeContentCatalog.StarterMonster;
+            MonsterDefinition definition =
+                enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
             Experience += definition.ExperienceReward;
             int levelsGained =
                 _progression.AddExperienceAndApplyPrototypeLevelUp(
@@ -1033,8 +1083,45 @@ namespace KaiChe.Gameplay.Survivor
             edge.transform.localScale = new Vector3(0.18f, 70f, 1f);
         }
 
-        private GameObject CreateEnemyView(string id, Vector3 position)
+        private GameObject CreateEnemyView(
+            MonsterDefinition definition,
+            Vector3 position)
         {
+            string id = definition.Id;
+            bool isRunner = id == ContentIds.RunnerMonster;
+            bool isBrute = id == ContentIds.BruteMonster;
+
+            Color limbColor = isRunner
+                ? new Color(0.08f, 0.18f, 0.20f)
+                : isBrute
+                    ? new Color(0.20f, 0.16f, 0.12f)
+                    : new Color(0.19f, 0.045f, 0.038f);
+            Color bodyColor = isRunner
+                ? new Color(0.10f, 0.34f, 0.38f)
+                : isBrute
+                    ? new Color(0.31f, 0.25f, 0.17f)
+                    : new Color(0.30f, 0.075f, 0.060f);
+            Color chestColor = isRunner
+                ? new Color(0.18f, 0.58f, 0.60f)
+                : isBrute
+                    ? new Color(0.49f, 0.39f, 0.22f)
+                    : new Color(0.50f, 0.12f, 0.075f);
+            Color headColor = isRunner
+                ? new Color(0.08f, 0.14f, 0.15f)
+                : isBrute
+                    ? new Color(0.18f, 0.17f, 0.14f)
+                    : new Color(0.12f, 0.12f, 0.11f);
+            Color hornColor = isRunner
+                ? new Color(0.36f, 0.78f, 0.78f)
+                : isBrute
+                    ? new Color(0.72f, 0.62f, 0.36f)
+                    : new Color(0.60f, 0.46f, 0.25f);
+            Color eyeColor = isRunner
+                ? new Color(0.30f, 1f, 0.86f)
+                : isBrute
+                    ? new Color(1f, 0.76f, 0.10f)
+                    : new Color(1f, 0.34f, 0.06f);
+
             var root = new GameObject("Enemy_" + id);
             root.transform.SetParent(transform, false);
             root.transform.position = position;
@@ -1049,7 +1136,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject leftLeg = CreateQuad(
                 "EnemyLegLeft",
-                new Color(0.19f, 0.045f, 0.038f),
+                limbColor,
                 new Vector3(-0.18f, -0.48f, 0.01f),
                 0.30f);
             leftLeg.transform.SetParent(root.transform, false);
@@ -1057,7 +1144,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject rightLeg = CreateQuad(
                 "EnemyLegRight",
-                new Color(0.19f, 0.045f, 0.038f),
+                limbColor,
                 new Vector3(0.18f, -0.48f, 0.01f),
                 0.30f);
             rightLeg.transform.SetParent(root.transform, false);
@@ -1065,7 +1152,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject body = CreateQuad(
                 "EnemyBody",
-                new Color(0.30f, 0.075f, 0.060f),
+                bodyColor,
                 Vector3.zero,
                 0.72f);
             body.transform.SetParent(root.transform, false);
@@ -1073,15 +1160,38 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject chest = CreateQuad(
                 "EnemyChest",
-                new Color(0.50f, 0.12f, 0.075f),
+                chestColor,
                 new Vector3(0f, -0.03f, -0.02f),
                 0.42f);
             chest.transform.SetParent(root.transform, false);
             chest.transform.localScale = new Vector3(0.48f, 0.48f, 1f);
 
+            if (isRunner)
+            {
+                GameObject runnerMark = CreateQuad(
+                    "EnemyRunnerMark",
+                    new Color(0.54f, 1f, 0.88f, 0.88f),
+                    new Vector3(0f, 0.10f, -0.045f),
+                    0.24f);
+                runnerMark.transform.SetParent(root.transform, false);
+                runnerMark.transform.localScale =
+                    new Vector3(0.10f, 0.62f, 1f);
+            }
+            else if (isBrute)
+            {
+                GameObject armorPlate = CreateQuad(
+                    "EnemyBruteArmor",
+                    new Color(0.58f, 0.48f, 0.28f),
+                    new Vector3(0f, 0.02f, -0.05f),
+                    0.56f);
+                armorPlate.transform.SetParent(root.transform, false);
+                armorPlate.transform.localScale =
+                    new Vector3(0.78f, 0.34f, 1f);
+            }
+
             GameObject leftArm = CreateQuad(
                 "EnemyArmLeft",
-                new Color(0.25f, 0.055f, 0.045f),
+                limbColor,
                 new Vector3(-0.43f, 0.02f, -0.01f),
                 0.28f);
             leftArm.transform.SetParent(root.transform, false);
@@ -1090,7 +1200,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject rightArm = CreateQuad(
                 "EnemyArmRight",
-                new Color(0.25f, 0.055f, 0.045f),
+                limbColor,
                 new Vector3(0.43f, 0.02f, -0.01f),
                 0.28f);
             rightArm.transform.SetParent(root.transform, false);
@@ -1099,7 +1209,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject head = CreateQuad(
                 "EnemyHead",
-                new Color(0.12f, 0.12f, 0.11f),
+                headColor,
                 new Vector3(0f, 0.43f, -0.035f),
                 0.36f);
             head.transform.SetParent(root.transform, false);
@@ -1107,7 +1217,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject hornLeft = CreateQuad(
                 "EnemyHornLeft",
-                new Color(0.60f, 0.46f, 0.25f),
+                hornColor,
                 new Vector3(-0.20f, 0.68f, -0.04f),
                 0.22f);
             hornLeft.transform.SetParent(root.transform, false);
@@ -1116,7 +1226,7 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject hornRight = CreateQuad(
                 "EnemyHornRight",
-                new Color(0.60f, 0.46f, 0.25f),
+                hornColor,
                 new Vector3(0.20f, 0.68f, -0.04f),
                 0.22f);
             hornRight.transform.SetParent(root.transform, false);
@@ -1125,14 +1235,14 @@ namespace KaiChe.Gameplay.Survivor
 
             GameObject leftEye = CreateQuad(
                 "EnemyEyeLeft",
-                new Color(1f, 0.34f, 0.06f),
+                eyeColor,
                 new Vector3(-0.10f, 0.44f, -0.06f),
                 0.075f);
             leftEye.transform.SetParent(root.transform, false);
 
             GameObject rightEye = CreateQuad(
                 "EnemyEyeRight",
-                new Color(1f, 0.34f, 0.06f),
+                eyeColor,
                 new Vector3(0.10f, 0.44f, -0.06f),
                 0.075f);
             rightEye.transform.SetParent(root.transform, false);
