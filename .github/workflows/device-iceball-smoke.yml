@@ -146,6 +146,24 @@ jobs:
           )
           echo [PASS] Fireball first-shot marker remains present.
 
+      - name: Verify monster variety runtime markers
+        shell: cmd
+        run: |
+          @echo off
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 2600 > variety-log.txt
+          findstr /C:"KAI_CHE_RUNNER_MONSTER_SPAWN" variety-log.txt
+          if errorlevel 1 (
+            echo [ERROR] Runner monster spawn marker was not observed.
+            exit /b 31
+          )
+          findstr /C:"KAI_CHE_BRUTE_MONSTER_SPAWN" variety-log.txt
+          if errorlevel 1 (
+            echo [ERROR] Brute monster spawn marker was not observed.
+            exit /b 32
+          )
+          echo [PASS] Runner and brute monster spawn markers observed on device.
+
       - name: Verify player contact attack marker
         shell: cmd
         run: |
@@ -188,6 +206,7 @@ jobs:
           path: |
             iceball-log.txt
             contact-log.txt
+            variety-log.txt
             device-iceball-smoke.png
             device-pid.txt
             install-output.txt
