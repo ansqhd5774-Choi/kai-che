@@ -22,7 +22,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 12
+    timeout-minutes: 60
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
@@ -53,18 +53,12 @@ jobs:
           @echo off
           setlocal EnableExtensions
           if not exist Logs mkdir Logs
-          if not exist "%LOCAL_LOG_DIR%" mkdir "%LOCAL_LOG_DIR%"
           del /q "Logs\android-build.log" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
-          set "PERSISTENT_LOG=%LOCAL_LOG_DIR%\android-build-%GITHUB_RUN_ID%.log"
-          del /q "%PERSISTENT_LOG%" 2>nul
-
-          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%PERSISTENT_LOG%"
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile -
           set "RC=%ERRORLEVEL%"
 
-          if exist "%PERSISTENT_LOG%" copy /Y "%PERSISTENT_LOG%" "Logs\android-build.log" >nul
-          if exist "Logs\android-build.log" type "Logs\android-build.log"
           if not "%RC%"=="0" (
             echo [ERROR] Unity exited with code %RC%.
             exit /b %RC%
