@@ -61,6 +61,7 @@ namespace KaiChe.Gameplay.Survivor
         private Material _materialTemplate;
         private GameObject _player;
         private Transform _weaponRoot;
+        private RuntimeCombatVisualAnimator _playerVisualAnimator;
         private Vector2 _moveInput;
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
@@ -672,6 +673,9 @@ namespace KaiChe.Gameplay.Survivor
             if (_player == null) return;
 
             bool moving = _moveInput.sqrMagnitude > 0.01f;
+            if (_playerVisualAnimator != null)
+                _playerVisualAnimator.SetMove(
+                    moving ? Mathf.Clamp01(_moveInput.magnitude) : 0f);
             if (moving)
                 _moveAnimationTime += deltaTime * 9f;
             else
@@ -1267,6 +1271,12 @@ namespace KaiChe.Gameplay.Survivor
                 0f,
                 PlayerHealth - finalDamage);
             _playerHitFlashTimer = PlayerHitFlashDuration;
+            if (_playerVisualAnimator != null)
+            {
+                _playerVisualAnimator.TriggerHit();
+                if (PlayerHealth <= 0f)
+                    _playerVisualAnimator.SetDead(true);
+            }
             CreatePlayerHitEffect(playerPosition);
 
             if (!_playerHitFirstLogged)
@@ -1322,6 +1332,8 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _attackAnimationTime = AttackAnimationDuration;
+            if (_playerVisualAnimator != null)
+                _playerVisualAnimator.TriggerAttack();
             CreateFireballCastEffect(origin, direction);
             _shotTimer = GetSkillCooldown(skill, false);
         }
@@ -1363,6 +1375,8 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _attackAnimationTime = AttackAnimationDuration;
+            if (_playerVisualAnimator != null)
+                _playerVisualAnimator.TriggerAttack();
             CreateIceballCastEffect(origin, direction);
             _iceShotTimer = GetSkillCooldown(skill, true);
         }
@@ -2944,6 +2958,12 @@ namespace KaiChe.Gameplay.Survivor
             if (runtime3D != null)
             {
                 _weaponRoot = runtimeWeaponRoot;
+                RuntimeCombatVisualSlot visualSlot =
+                    runtime3D.GetComponent<RuntimeCombatVisualSlot>();
+                _playerVisualAnimator =
+                    visualSlot != null
+                        ? visualSlot.AnimatorBridge
+                        : null;
                 return runtime3D;
             }
 
