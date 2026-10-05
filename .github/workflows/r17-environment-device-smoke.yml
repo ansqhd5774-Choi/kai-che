@@ -33,24 +33,39 @@ jobs:
           @echo off
           if not exist Logs mkdir Logs
           if not exist "%ADB_EXE%" exit /b 20
-          "%ADB_EXE%" start-server >nul 2>&1
-          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" kill-server >nul 2>&1
+          "%ADB_EXE%" start-server
+          ping -n 8 127.0.0.1 >nul
+          "%ADB_EXE%" devices -l > Logs\r17-devices-before.txt 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 goto device_ready
 
           "%ADB_EXE%" mdns services > Logs\r17-mdns.txt 2>&1
           for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns.txt') do (
+            echo [INFO] Trying %%E >> Logs\r17-connect.txt
             "%ADB_EXE%" connect %%E >> Logs\r17-connect.txt 2>&1
             ping -n 3 127.0.0.1 >nul
             "%ADB_EXE%" get-state >nul 2>&1
             if not errorlevel 1 goto device_ready
           )
 
-          echo [ERROR] Android device unavailable.
+          "%ADB_EXE%" reconnect >> Logs\r17-connect.txt 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" mdns services >> Logs\r17-mdns.txt 2>&1
+          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns.txt') do (
+            echo [INFO] Retry %%E >> Logs\r17-connect.txt
+            "%ADB_EXE%" connect %%E >> Logs\r17-connect.txt 2>&1
+            ping -n 3 127.0.0.1 >nul
+            "%ADB_EXE%" get-state >nul 2>&1
+            if not errorlevel 1 goto device_ready
+          )
+
+          "%ADB_EXE%" devices -l > Logs\r17-devices-after.txt 2>&1
+          echo [ERROR] Android device unavailable after reconnect attempts.
           exit /b 30
 
           :device_ready
-          "%ADB_EXE%" devices -l > Logs\r17-devices.txt 2>&1
+          "%ADB_EXE%" devices -l > Logs\r17-devices-after.txt 2>&1
           echo [PASS] Android device ready.
 
       - name: Launch R17 and enter game
@@ -90,7 +105,8 @@ jobs:
         with:
           name: R17-Environment-Device-Smoke
           path: |
-            Logs/r17-devices.txt
+            Logs/r17-devices-before.txt
+            Logs/r17-devices-after.txt
             Logs/r17-mdns.txt
             Logs/r17-connect.txt
             Logs/r17-pid.txt
