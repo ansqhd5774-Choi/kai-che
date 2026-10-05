@@ -42,18 +42,6 @@ jobs:
           )
           for %%A in ("%APK_PATH%") do echo [PASS] APK: %%~fA (%%~zA bytes)
 
-      - name: Pair Android device for this install
-        shell: cmd
-        run: |
-          @echo off
-          if not exist Logs mkdir Logs
-          "%ADB_EXE%" start-server >nul 2>&1
-          echo 325687| "%ADB_EXE%" pair 192.168.0.8:40585 > Logs\\adb-pair.txt 2>&1
-          type Logs\\adb-pair.txt
-          findstr /I /C:"Successfully paired" Logs\\adb-pair.txt >nul
-          if errorlevel 1 exit /b 31
-          ping -n 3 127.0.0.1 >nul
-
       - name: Verify paired Android device
         shell: cmd
         run: |
