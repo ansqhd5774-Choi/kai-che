@@ -23,6 +23,7 @@ namespace KaiChe.Gameplay.Survivor
             public float SpecialTimer;
             public float BurstTimer;
             public bool SpecialArmed;
+            public bool PhaseTwoTriggered;
             public GameObject SlowAura;
         }
 
@@ -60,6 +61,8 @@ namespace KaiChe.Gameplay.Survivor
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private float _playerHitFlashTimer;
+        private float _cameraShakeTimer;
+        private float _cameraShakeMagnitude;
         private float _survivalTime;
         private int _lastWaveLog = 1;
         private int _lastBossWaveSpawned;
@@ -78,6 +81,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _bruteSlamLogged;
         private bool _bossSpawnLogged;
         private bool _bossPulseLogged;
+        private bool _thermalShockFirstLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -111,6 +115,15 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossTelegraphDuration = 0.65f;
         private const float BossPulseDamageWindow = 0.90f;
         private const float BossHealthScalePerWave = 0.16f;
+        private const float BossPhaseTwoHealthThreshold = 0.50f;
+        private const float BossPhaseTwoPulseRadius = 3.35f;
+        private const float BossPhaseTwoPulseInterval = 2.45f;
+        private const float BossPhaseTwoTelegraphDuration = 0.50f;
+        private const int ThermalShockRequiredFireRank = 2;
+        private const int ThermalShockRequiredIceRank = 2;
+        private const float ThermalShockBonusMultiplier = 0.90f;
+        private const float ThermalShockRadius = 1.75f;
+        private const float ThermalShockSplashMultiplier = 0.32f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -196,6 +209,27 @@ namespace KaiChe.Gameplay.Survivor
         public int FireUpgradeRank => _fireUpgradeRank;
         public int IceUpgradeRank => _iceUpgradeRank;
         public int ArcaneUpgradeRank => _arcaneUpgradeRank;
+        public bool IsThermalShockUnlocked =>
+            _fireUpgradeRank >= ThermalShockRequiredFireRank
+            && _iceUpgradeRank >= ThermalShockRequiredIceRank;
+        public bool IsBossPhaseTwo
+        {
+            get
+            {
+                for (int i = 0; i < _enemies.Count; i++)
+                {
+                    EnemyState enemy = _enemies[i];
+                    if (enemy != null
+                        && enemy.View != null
+                        && enemy.Definition != null
+                        && enemy.Definition.Id == ContentIds.BossMonster
+                        && enemy.PhaseTwoTriggered)
+                        return true;
+                }
+
+                return false;
+            }
+        }
 
         public string GetSkillUpgradeTitle(int choiceIndex)
         {
@@ -368,9 +402,26 @@ namespace KaiChe.Gameplay.Survivor
             Camera camera = Camera.main;
             if (camera != null)
             {
+                _cameraShakeTimer = Mathf.Max(
+                    0f,
+                    _cameraShakeTimer - deltaTime);
+
+                if (_cameraShakeTimer <= 0f)
+                    _cameraShakeMagnitude = 0f;
+
+                Vector2 shakeOffset = Vector2.zero;
+                if (_cameraShakeTimer > 0f)
+                {
+                    float fade = Mathf.Clamp01(
+                        _cameraShakeTimer / 0.30f);
+                    shakeOffset = Random.insideUnitCircle
+                        * _cameraShakeMagnitude
+                        * fade;
+                }
+
                 camera.transform.position = new Vector3(
-                    _playerWorldPosition.x,
-                    _playerWorldPosition.y,
+                    _playerWorldPosition.x + shakeOffset.x,
+                    _playerWorldPosition.y + shakeOffset.y,
                     -10f);
             }
         }
@@ -599,6 +650,25 @@ namespace KaiChe.Gameplay.Survivor
                 bool isRunner = definition.Id == ContentIds.RunnerMonster;
                 bool isBrute = definition.Id == ContentIds.BruteMonster;
                 bool isBoss = definition.Id == ContentIds.BossMonster;
+                float bossHealthNormalized = isBoss
+                    ? enemy.Health / Mathf.Max(1f, enemy.MaxHealth)
+                    : 1f;
+
+                if (isBoss
+                    && !enemy.PhaseTwoTriggered
+                    && bossHealthNormalized <= BossPhaseTwoHealthThreshold)
+                {
+                    enemy.PhaseTwoTriggered = true;
+                    enemy.SpecialArmed = false;
+                    enemy.SpecialTimer = 0.35f;
+                    SpawnEnemy(RuntimeContentCatalog.RunnerMonster);
+                    SpawnEnemy(RuntimeContentCatalog.RunnerMonster);
+                    SpawnEnemy(RuntimeContentCatalog.BruteMonster);
+                    CreateBossPhaseTwoEffect(
+                        (Vector2)enemy.View.transform.position);
+                    TriggerImpactFeedback(0.24f, true);
+                    Debug.Log("KAI_CHE_BOSS_PHASE_TWO");
+                }
 
                 enemy.SlowTimer = Mathf.Max(
                     0f,
@@ -644,12 +714,19 @@ namespace KaiChe.Gameplay.Survivor
                 if (isBoss
                     && !enemy.SpecialArmed
                     && enemy.SpecialTimer <= 0f
-                    && distance < BossPulseRadius + 1.8f)
+                    && distance < GetBossPulseRadius(enemy) + 1.8f)
                 {
                     enemy.SpecialArmed = true;
-                    enemy.BurstTimer = BossTelegraphDuration;
-                    enemy.SpecialTimer = BossPulseInterval;
-                    CreateBossTelegraphEffect(position);
+                    enemy.BurstTimer = enemy.PhaseTwoTriggered
+                        ? BossPhaseTwoTelegraphDuration
+                        : BossTelegraphDuration;
+                    enemy.SpecialTimer = enemy.PhaseTwoTriggered
+                        ? BossPhaseTwoPulseInterval
+                        : BossPulseInterval;
+                    CreateBossTelegraphEffect(
+                        position,
+                        GetBossPulseRadius(enemy),
+                        enemy.PhaseTwoTriggered);
 
                     Debug.Log("KAI_CHE_BOSS_PULSE_TELEGRAPH");
                 }
@@ -691,15 +768,24 @@ namespace KaiChe.Gameplay.Survivor
                     && enemy.SpecialArmed
                     && enemy.BurstTimer <= 0f)
                 {
-                    if (distance < BossPulseRadius)
+                    float bossPulseRadius = GetBossPulseRadius(enemy);
+                    if (distance < bossPulseRadius)
                     {
+                        float phaseMultiplier = enemy.PhaseTwoTriggered
+                            ? 1.25f
+                            : 1f;
                         float pulseDamage =
                             definition.ContactDamagePerSecond
-                            * BossPulseDamageWindow;
+                            * BossPulseDamageWindow
+                            * phaseMultiplier;
                         ApplyPlayerHit(pulseDamage, playerPosition);
+                        TriggerImpactFeedback(0.18f, true);
                     }
 
-                    CreateBossPulseEffect(position);
+                    CreateBossPulseEffect(
+                        position,
+                        bossPulseRadius,
+                        enemy.PhaseTwoTriggered);
                     enemy.SpecialArmed = false;
 
                     if (!_bossPulseLogged)
@@ -1099,6 +1185,21 @@ namespace KaiChe.Gameplay.Survivor
                     float hitDamage = GetProjectileDamage(
                         skill,
                         projectile.IsIceBall);
+
+                    bool thermalShock =
+                        !projectile.IsIceBall
+                        && IsThermalShockUnlocked
+                        && projectile.Target.SlowTimer > 0f;
+
+                    if (thermalShock)
+                    {
+                        hitDamage *= 1f + ThermalShockBonusMultiplier;
+                        ApplyThermalShock(
+                            projectile.Target,
+                            position,
+                            hitDamage * ThermalShockSplashMultiplier);
+                    }
+
                     DamageEnemy(projectile.Target, hitDamage);
 
                     if (!projectile.IsIceBall
@@ -1118,6 +1219,43 @@ namespace KaiChe.Gameplay.Survivor
                     _projectiles.RemoveAt(i);
                 }
             }
+        }
+
+        private void ApplyThermalShock(
+            EnemyState primaryTarget,
+            Vector2 center,
+            float splashDamage)
+        {
+            float radiusSq = ThermalShockRadius * ThermalShockRadius;
+            int hits = 0;
+
+            for (int i = _enemies.Count - 1; i >= 0; i--)
+            {
+                EnemyState enemy = _enemies[i];
+                if (enemy == null
+                    || enemy == primaryTarget
+                    || enemy.View == null)
+                    continue;
+
+                Vector2 enemyPosition = enemy.View.transform.position;
+                if ((enemyPosition - center).sqrMagnitude > radiusSq)
+                    continue;
+
+                DamageEnemy(enemy, splashDamage);
+                hits += 1;
+            }
+
+            CreateThermalShockEffect(center);
+            TriggerImpactFeedback(0.12f, false);
+
+            if (!_thermalShockFirstLogged)
+            {
+                _thermalShockFirstLogged = true;
+                Debug.Log("KAI_CHE_THERMAL_SHOCK_FIRST");
+            }
+
+            if (hits > 0)
+                Debug.Log("KAI_CHE_THERMAL_SHOCK_SPLASH_" + hits);
         }
 
         private void ApplyFireEvolutionSplash(
@@ -1362,7 +1500,98 @@ namespace KaiChe.Gameplay.Survivor
             });
         }
 
-        private void CreateBossTelegraphEffect(Vector2 position)
+        private float GetBossPulseRadius(EnemyState enemy)
+        {
+            return enemy != null && enemy.PhaseTwoTriggered
+                ? BossPhaseTwoPulseRadius
+                : BossPulseRadius;
+        }
+
+        private void TriggerImpactFeedback(
+            float magnitude,
+            bool vibrate)
+        {
+            _cameraShakeTimer = Mathf.Max(_cameraShakeTimer, 0.30f);
+            _cameraShakeMagnitude = Mathf.Max(
+                _cameraShakeMagnitude,
+                magnitude);
+
+#if UNITY_ANDROID || UNITY_IOS
+            if (vibrate)
+                Handheld.Vibrate();
+#endif
+        }
+
+        private void CreateThermalShockEffect(Vector2 position)
+        {
+            var root = new GameObject("ThermalShockEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.22f);
+
+            for (int i = 0; i < 12; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "ThermalShockRay_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.24f, 0.04f, 0.92f)
+                        : new Color(0.16f, 0.76f, 1f, 0.88f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(1.15f, 0.08f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 15f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.28f,
+                MaxLife = 0.28f,
+                StartScale = Vector3.one * 1.12f,
+                SpinSpeed = 180f
+            });
+        }
+
+        private void CreateBossPhaseTwoEffect(Vector2 position)
+        {
+            var root = new GameObject("BossPhaseTwoEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.23f);
+
+            for (int i = 0; i < 20; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "BossPhaseTwoRay_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.14f, 0.88f, 0.94f)
+                        : new Color(0.48f, 0.10f, 1f, 0.82f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(1.80f, 0.10f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 9f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.48f,
+                MaxLife = 0.48f,
+                StartScale = Vector3.one * 1.35f,
+                SpinSpeed = 145f
+            });
+        }
+
+        private void CreateBossTelegraphEffect(
+            Vector2 position,
+            float radius,
+            bool phaseTwo)
         {
             var root = new GameObject("BossPulseTelegraph");
             root.transform.SetParent(transform, false);
@@ -1374,13 +1603,15 @@ namespace KaiChe.Gameplay.Survivor
                 float angle = i * 30f;
                 float radians = angle * Mathf.Deg2Rad;
                 Vector3 localPosition = new Vector3(
-                    Mathf.Cos(radians) * BossPulseRadius * 0.62f,
-                    Mathf.Sin(radians) * BossPulseRadius * 0.62f,
+                    Mathf.Cos(radians) * radius * 0.62f,
+                    Mathf.Sin(radians) * radius * 0.62f,
                     0f);
 
                 GameObject segment = CreateQuad(
                     "BossTelegraph_" + i,
-                    new Color(0.72f, 0.20f, 1f, 0.58f),
+                    phaseTwo
+                        ? new Color(1f, 0.16f, 0.74f, 0.68f)
+                        : new Color(0.72f, 0.20f, 1f, 0.58f),
                     localPosition,
                     1f);
                 segment.transform.SetParent(root.transform, false);
@@ -1393,14 +1624,21 @@ namespace KaiChe.Gameplay.Survivor
             _effects.Add(new EffectState
             {
                 View = root,
-                Life = BossTelegraphDuration,
-                MaxLife = BossTelegraphDuration,
+                Life = phaseTwo
+                    ? BossPhaseTwoTelegraphDuration
+                    : BossTelegraphDuration,
+                MaxLife = phaseTwo
+                    ? BossPhaseTwoTelegraphDuration
+                    : BossTelegraphDuration,
                 StartScale = Vector3.one,
                 SpinSpeed = -32f
             });
         }
 
-        private void CreateBossPulseEffect(Vector2 position)
+        private void CreateBossPulseEffect(
+            Vector2 position,
+            float radius,
+            bool phaseTwo)
         {
             var root = new GameObject("BossPulseImpact");
             root.transform.SetParent(transform, false);
@@ -1412,13 +1650,17 @@ namespace KaiChe.Gameplay.Survivor
                 GameObject ray = CreateQuad(
                     "BossPulseRay_" + i,
                     i % 2 == 0
-                        ? new Color(0.94f, 0.34f, 1f, 0.92f)
-                        : new Color(0.38f, 0.12f, 0.72f, 0.76f),
+                        ? (phaseTwo
+                            ? new Color(1f, 0.14f, 0.80f, 0.96f)
+                            : new Color(0.94f, 0.34f, 1f, 0.92f))
+                        : (phaseTwo
+                            ? new Color(0.54f, 0.08f, 0.92f, 0.82f)
+                            : new Color(0.38f, 0.12f, 0.72f, 0.76f)),
                     Vector3.zero,
                     1f);
                 ray.transform.SetParent(root.transform, false);
                 ray.transform.localScale =
-                    new Vector3(BossPulseRadius * 0.70f, 0.09f, 1f);
+                    new Vector3(radius * 0.70f, 0.09f, 1f);
                 ray.transform.localRotation =
                     Quaternion.Euler(0f, 0f, i * 11.25f);
             }

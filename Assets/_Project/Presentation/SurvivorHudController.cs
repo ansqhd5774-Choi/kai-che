@@ -209,7 +209,8 @@ namespace KaiChe.Presentation
                 $"{_arena.ActiveSkillName} {_arena.ActiveSkillMastery}"
                 + $"   ·   {_arena.IceSkillName} {_arena.IceSkillMastery}"
                 + $"   ·   빌드 F{_arena.FireUpgradeRank}"
-                + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}",
+                + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}"
+                + (_arena.IsThermalShockUnlocked ? "   ·   열충격" : string.Empty),
                 _smallStyle);
 
             bool modalOpen = _arena.IsDead
@@ -229,7 +230,8 @@ namespace KaiChe.Presentation
                     bossRect,
                     _arena.BossHealthNormalized,
                     _experienceFill,
-                    "BOSS · " + _arena.BossName);
+                    "BOSS · " + _arena.BossName
+                    + (_arena.IsBossPhaseTwo ? " · PHASE II" : string.Empty));
             }
 
             Rect exitRect = new Rect(
