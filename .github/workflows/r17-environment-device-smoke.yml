@@ -114,29 +114,31 @@ jobs:
           if errorlevel 1 exit /b 40
           ping -n 9 127.0.0.1 >nul
 
-          rem ADB input coordinates follow the current logical display orientation.
-          rem Evidence screenshot is 3200x1440; game-start button center is about (1600,970).
+          rem Startup orientation can be portrait (1440x3200) or landscape (3200x1440).
+          rem Try the actual game-start button center in both coordinate spaces.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
+          if not errorlevel 1 goto environment_active
+
           "%ADB_EXE%" shell input tap 1600 970
-          ping -n 7 127.0.0.1 >nul
+          ping -n 6 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
           findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
           if not errorlevel 1 goto environment_active
 
-          rem Keep two nearby fallback taps in case of small UI scaling differences.
+          rem Small scale/letterbox fallbacks for both orientations.
+          "%ADB_EXE%" shell input tap 720 1770
+          ping -n 3 127.0.0.1 >nul
           "%ADB_EXE%" shell input tap 1600 900
-          ping -n 4 127.0.0.1 >nul
-          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
-          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
-          if not errorlevel 1 goto environment_active
-
-          "%ADB_EXE%" shell input tap 1600 1040
-          ping -n 4 127.0.0.1 >nul
+          ping -n 3 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
           findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
           if not errorlevel 1 goto environment_active
 
           "%ADB_EXE%" exec-out screencap -p > Logs\r17-game-screen.png 2>nul
-          echo [ERROR] R17 3D environment activation marker not found after landscape start taps.
+          echo [ERROR] R17 3D environment activation marker not found after dual-orientation start taps.
           exit /b 42
 
           :environment_active
