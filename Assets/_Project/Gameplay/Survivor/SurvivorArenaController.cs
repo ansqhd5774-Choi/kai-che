@@ -337,17 +337,8 @@ namespace KaiChe.Gameplay.Survivor
             Vector2 targetPosition = target.View.transform.position;
             Vector2 direction = (targetPosition - origin).normalized;
 
-            GameObject projectileView = CreateQuad(
-                "Projectile_" + skill.Id,
-                new Color(0.96f, 0.78f, 0.30f),
-                new Vector3(origin.x, origin.y, -0.1f),
-                1f);
-            projectileView.transform.localScale =
-                new Vector3(0.46f, 0.10f, 1f);
-            projectileView.transform.rotation = Quaternion.Euler(
-                0f,
-                0f,
-                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+            GameObject projectileView =
+                CreateFireballProjectile(origin, direction, skill.Id);
 
             var projectile = new ProjectileState
             {
@@ -359,8 +350,72 @@ namespace KaiChe.Gameplay.Survivor
 
             _projectiles.Add(projectile);
             _attackAnimationTime = AttackAnimationDuration;
-            CreateSlashEffect(origin, direction);
+            CreateFireballCastEffect(origin, direction);
             _shotTimer = skill.Cooldown;
+        }
+
+        private GameObject CreateFireballProjectile(
+            Vector2 origin,
+            Vector2 direction,
+            string skillId)
+        {
+            var root = new GameObject("Fireball_" + skillId);
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(origin.x, origin.y, -0.14f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            GameObject outerGlow = CreateQuad(
+                "FireballGlow",
+                new Color(1f, 0.20f, 0.02f, 0.38f),
+                Vector3.zero,
+                1f);
+            outerGlow.transform.SetParent(root.transform, false);
+            outerGlow.transform.localScale =
+                new Vector3(0.82f, 0.82f, 1f);
+
+            GameObject flame = CreateQuad(
+                "FireballFlame",
+                new Color(1f, 0.38f, 0.035f, 0.96f),
+                Vector3.zero,
+                1f);
+            flame.transform.SetParent(root.transform, false);
+            flame.transform.localScale =
+                new Vector3(0.58f, 0.58f, 1f);
+            flame.transform.localRotation =
+                Quaternion.Euler(0f, 0f, 45f);
+
+            GameObject core = CreateQuad(
+                "FireballCore",
+                new Color(1f, 0.88f, 0.28f, 1f),
+                new Vector3(0.05f, 0f, -0.02f),
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale =
+                new Vector3(0.34f, 0.34f, 1f);
+
+            GameObject tailOuter = CreateQuad(
+                "FireballTailOuter",
+                new Color(0.96f, 0.16f, 0.015f, 0.72f),
+                new Vector3(-0.45f, 0f, 0.03f),
+                1f);
+            tailOuter.transform.SetParent(root.transform, false);
+            tailOuter.transform.localScale =
+                new Vector3(0.68f, 0.22f, 1f);
+
+            GameObject tailInner = CreateQuad(
+                "FireballTailInner",
+                new Color(1f, 0.64f, 0.08f, 0.86f),
+                new Vector3(-0.32f, 0f, 0.01f),
+                1f);
+            tailInner.transform.SetParent(root.transform, false);
+            tailInner.transform.localScale =
+                new Vector3(0.48f, 0.10f, 1f);
+
+            return root;
         }
 
         private EnemyState FindNearestEnemy(float range)
@@ -465,42 +520,44 @@ namespace KaiChe.Gameplay.Survivor
             }
         }
 
-        private void CreateSlashEffect(Vector2 origin, Vector2 direction)
+        private void CreateFireballCastEffect(
+            Vector2 origin,
+            Vector2 direction)
         {
-            var root = new GameObject("SlashEffect");
+            var root = new GameObject("FireballCastEffect");
             root.transform.SetParent(transform, false);
             root.transform.position = new Vector3(
-                origin.x + direction.x * 0.72f,
-                origin.y + direction.y * 0.72f,
-                -0.16f);
-            root.transform.rotation = Quaternion.Euler(
-                0f,
-                0f,
-                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+                origin.x + direction.x * 0.42f,
+                origin.y + direction.y * 0.42f,
+                -0.17f);
 
-            GameObject core = CreateQuad(
-                "SlashCore",
-                new Color(1f, 0.82f, 0.34f, 0.96f),
+            GameObject ring = CreateQuad(
+                "FireballCastRing",
+                new Color(1f, 0.34f, 0.04f, 0.62f),
                 Vector3.zero,
                 1f);
-            core.transform.SetParent(root.transform, false);
-            core.transform.localScale = new Vector3(0.95f, 0.10f, 1f);
+            ring.transform.SetParent(root.transform, false);
+            ring.transform.localScale =
+                new Vector3(0.72f, 0.72f, 1f);
+            ring.transform.localRotation =
+                Quaternion.Euler(0f, 0f, 45f);
 
-            GameObject glow = CreateQuad(
-                "SlashGlow",
-                new Color(0.95f, 0.42f, 0.12f, 0.72f),
+            GameObject flash = CreateQuad(
+                "FireballCastFlash",
+                new Color(1f, 0.88f, 0.32f, 0.92f),
                 Vector3.zero,
                 1f);
-            glow.transform.SetParent(root.transform, false);
-            glow.transform.localScale = new Vector3(0.58f, 0.22f, 1f);
+            flash.transform.SetParent(root.transform, false);
+            flash.transform.localScale =
+                new Vector3(0.28f, 0.28f, 1f);
 
             _effects.Add(new EffectState
             {
                 View = root,
-                Life = 0.16f,
-                MaxLife = 0.16f,
+                Life = 0.18f,
+                MaxLife = 0.18f,
                 StartScale = Vector3.one,
-                SpinSpeed = -180f
+                SpinSpeed = 210f
             });
         }
 
