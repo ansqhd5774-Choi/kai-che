@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R13";
+        private const string BuildLabel = "R14";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -29,10 +29,16 @@ namespace KaiChe.Presentation
         private GUIStyle _buttonStyle;
         private GUIStyle _deathStyle;
         private GUIStyle _buildStyle;
+        private bool _visualsEnabled = true;
 
         public void Bind(SurvivorArenaController arena)
         {
             _arena = arena;
+        }
+
+        public void SetVisualsEnabled(bool enabled)
+        {
+            _visualsEnabled = enabled;
         }
 
         private void Awake()
@@ -148,6 +154,18 @@ namespace KaiChe.Presentation
         private void OnGUI()
         {
             if (_arena == null) return;
+
+            if (!_visualsEnabled)
+            {
+                bool modalOpen = _arena.IsDead
+                    || _arena.IsAttributeAllocationPending
+                    || _arena.IsSkillChoicePending
+                    || _arena.IsBossRewardPending;
+                if (!modalOpen)
+                    DrawJoystick();
+                return;
+            }
+
             EnsureStyles();
             if (_hudStyle == null) return;
 
