@@ -49,29 +49,24 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          setlocal EnableExtensions EnableDelayedExpansion
+          setlocal EnableExtensions
           if not exist Logs mkdir Logs
-          del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
+          del /q "Logs\android-build.log" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
 
-          start "" /b cmd /v:on /c ""%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log" & echo !errorlevel!>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt""
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          set "RC=%ERRORLEVEL%"
 
-          :monitor
-          if exist "Logs\unity-exit.txt" goto finished
-          if exist "Logs\android-build.log" (
-            for %%A in ("Logs\android-build.log") do set "SIZE=%%~zA"
-            echo [HEARTBEAT] %TIME% log_bytes=!SIZE!
-          ) else (
-            echo [HEARTBEAT] %TIME% waiting_for_log
+          if exist "Logs\android-build.log" type "Logs\android-build.log"
+          if not "%RC%"=="0" (
+            echo [ERROR] Unity exited with code %RC%.
+            exit /b %RC%
           )
-          ping -n 31 127.0.0.1 >nul
-          goto monitor
-
-          :finished
-          set /p RC=<"Logs\unity-exit.txt"
-          type "Logs\android-build.log"
-          if not "!RC!"=="0" exit /b !RC!
-          if not exist "Builds\Android\KaiChe-dev.apk" exit /b 40
+          if not exist "Builds\Android\KaiChe-dev.apk" (
+            echo [ERROR] Unity exited successfully but APK is missing.
+            exit /b 40
+          )
           echo [PASS] Android APK created.
 
       - name: Persist APK on runner
@@ -81,7 +76,8 @@ jobs:
           @echo off
           if not exist "%LOCAL_APK_DIR%" mkdir "%LOCAL_APK_DIR%"
           copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK_DIR%\KaiChe-dev.apk"
-          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" exit /b 41
+          if errorlevel 1 exit /b 41
+          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" exit /b 42
           for %%A in ("%LOCAL_APK_DIR%\KaiChe-dev.apk") do echo [PASS] Local APK persisted: %%~fA (%%~zA bytes)
 
       - name: Upload Android APK
