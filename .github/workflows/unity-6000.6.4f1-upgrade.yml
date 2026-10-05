@@ -12,17 +12,16 @@ on:
 
 concurrency:
   group: kaise-unity-upgrade-6000-6-4f1
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  upgrade-and-build:
-    if: ${{ !contains(github.event.head_commit.message, '[skip-upgrade]') }}
-    name: Upgrade project and build Android
+  validate-build:
+    name: Validate upgraded project and build Android
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 60
+    timeout-minutes: 25
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
 
@@ -33,7 +32,7 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Verify Unity host
+      - name: Verify Unity host and project version
         shell: cmd
         run: |
           @echo off
@@ -44,53 +43,25 @@ jobs:
           )
           "%UNITY_EXE%" -version
           if errorlevel 1 exit /b 21
-
-      - name: Upgrade project with Unity 6000.6.4f1
-        shell: cmd
-        run: |
-          @echo off
-          if not exist Logs mkdir Logs
-          "%UNITY_EXE%" -batchmode -nographics -quit -accept-apiupdate -projectPath "%GITHUB_WORKSPACE%" -logFile "%GITHUB_WORKSPACE%\Logs\unity-upgrade.log"
-          set "RC=%ERRORLEVEL%"
-          type "%GITHUB_WORKSPACE%\Logs\unity-upgrade.log"
-          exit /b %RC%
-
-      - name: Verify upgraded project version
-        shell: cmd
-        run: |
-          @echo off
           type ProjectSettings\ProjectVersion.txt
           findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
           if errorlevel 1 (
-            echo [ERROR] ProjectVersion.txt was not upgraded to 6000.6.4f1
+            echo [ERROR] ProjectVersion.txt is not 6000.6.4f1
             exit /b 30
           )
-          echo [PASS] ProjectVersion.txt = 6000.6.4f1
+          echo [PASS] Unity host and project version verified.
 
-      - name: Commit Unity upgrade changes
+      - name: Build Android development APK with live log
         shell: cmd
         run: |
           @echo off
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- Assets Packages ProjectSettings
-          git diff --cached --quiet
-          if errorlevel 1 (
-            git commit -m "chore: apply Unity 6000.6.4f1 upgrade [skip-upgrade]"
-            git push origin HEAD:upgrade/unity-6000.6.4f1
-          ) else (
-            echo No Unity-generated source changes to commit.
-          )
-
-      - name: Build Android development APK
-        shell: cmd
-        run: |
-          @echo off
-          if not exist Logs mkdir Logs
-          "%UNITY_EXE%" -batchmode -nographics -quit -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile -
           set "RC=%ERRORLEVEL%"
-          type "%GITHUB_WORKSPACE%\Logs\android-build.log"
-          if not "%RC%"=="0" exit /b %RC%
+          if not "%RC%"=="0" (
+            echo [ERROR] Unity Android build exited with code %RC%.
+            exit /b %RC%
+          )
           if not exist "Builds\Android\KaiChe-dev.apk" (
             echo [ERROR] APK was not produced.
             exit /b 40
@@ -103,13 +74,4 @@ jobs:
           name: KaiChe-Unity-6000.6.4f1-Android
           path: Builds/Android/KaiChe-dev.apk
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload Unity logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: KaiChe-Unity-6000.6.4f1-Logs
-          path: Logs
-          if-no-files-found: warn
           retention-days: 14
