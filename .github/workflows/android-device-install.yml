@@ -44,8 +44,23 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          if not exist Logs mkdir Logs
           "%ADB_EXE%" start-server
-          "%ADB_EXE%" devices
+          "%ADB_EXE%" mdns services > Logs\adb-mdns.txt 2>&1
+          "%ADB_EXE%" devices -l > Logs\adb-devices-before.txt 2>&1
+          "%ADB_EXE%" reconnect > Logs\adb-reconnect.txt 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
+
+          echo ===== ADB MDNS SERVICES =====
+          type Logs\adb-mdns.txt
+          echo ===== ADB DEVICES BEFORE =====
+          type Logs\adb-devices-before.txt
+          echo ===== ADB RECONNECT =====
+          type Logs\adb-reconnect.txt
+          echo ===== ADB DEVICES AFTER =====
+          type Logs\adb-devices-after.txt
+
           "%ADB_EXE%" get-state
           if errorlevel 1 (
             echo [ERROR] No single online Android device is available through ADB.
@@ -80,7 +95,7 @@ jobs:
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
       - name: Capture runtime evidence
-        if: always()
+        if: success()
         shell: cmd
         run: |
           @echo off
@@ -96,6 +111,10 @@ jobs:
         with:
           name: KaiChe-Android-Device-Evidence
           path: |
+            Logs/adb-mdns.txt
+            Logs/adb-devices-before.txt
+            Logs/adb-reconnect.txt
+            Logs/adb-devices-after.txt
             Logs/device-app-pid.txt
             Logs/device-activity.txt
             Logs/device-logcat.txt
