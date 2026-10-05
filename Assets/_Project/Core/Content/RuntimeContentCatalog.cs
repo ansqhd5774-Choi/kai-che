@@ -7,6 +7,7 @@ namespace KaiChe.Core.Content
         public const string StarterMonster = "MONSTER_0001";
         public const string RunnerMonster = "MONSTER_0002";
         public const string BruteMonster = "MONSTER_0003";
+        public const string BossMonster = "MONSTER_0004";
     }
 
     public sealed class SkillDefinition
@@ -106,11 +107,21 @@ namespace KaiChe.Core.Content
                 28f,
                 3);
 
+        public static readonly MonsterDefinition BossMonster =
+            new MonsterDefinition(
+                ContentIds.BossMonster,
+                "균열 군주",
+                420f,
+                0.72f,
+                34f,
+                12);
+
         public static readonly MonsterDefinition[] Monsters =
         {
             StarterMonster,
             RunnerMonster,
-            BruteMonster
+            BruteMonster,
+            BossMonster
         };
     }
 }
