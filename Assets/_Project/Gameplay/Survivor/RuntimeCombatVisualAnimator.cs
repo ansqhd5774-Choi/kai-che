@@ -15,6 +15,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _hasDead;
 
         public bool IsBound => _animator != null;
+        public bool SupportsAttack => _animator != null && _hasAttack;
 
         public void Bind(GameObject model)
         {
