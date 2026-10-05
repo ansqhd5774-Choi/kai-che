@@ -125,6 +125,27 @@ jobs:
           )
           echo [PASS] Fireball first-shot marker remains present.
 
+      - name: Clear level-up modal for combat smoke
+        shell: cmd
+        run: |
+          @echo off
+          set "SIZE="
+          "%ADB_EXE%" -s %ADB_SERIAL% shell wm size > screen-size-contact.txt
+          for /f "tokens=3" %%S in ('findstr /C:"Physical size:" screen-size-contact.txt') do set "SIZE=%%S"
+          if not defined SIZE exit /b 29
+          for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
+            set /a STATX=%%W*30/100
+            set /a STATY=%%X*44/100
+          )
+          setlocal EnableDelayedExpansion
+          echo [INFO] Clearing pending level-up points at !STATX!,!STATY!
+          for /l %%N in (1,1,8) do (
+            "%ADB_EXE%" -s %ADB_SERIAL% shell input tap !STATX! !STATY!
+            ping -n 2 127.0.0.1 >nul
+          )
+          endlocal
+          ping -n 3 127.0.0.1 >nul
+
       - name: Verify player contact attack marker
         shell: cmd
         run: |
@@ -132,11 +153,11 @@ jobs:
           echo [INFO] Driving player into the incoming monster wave.
           "%ADB_EXE%" -s %ADB_SERIAL% shell input swipe 720 2350 1240 2350 3500
           ping -n 12 127.0.0.1 >nul
-          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 2200 > contact-log.txt
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 2600 > contact-log.txt
           findstr /C:"KAI_CHE_PLAYER_HIT_FIRST" contact-log.txt
           if errorlevel 1 (
             echo [ERROR] Player contact-attack marker was not observed.
-            exit /b 29
+            exit /b 30
           )
           echo [PASS] Monster contact attack reached the player on device.
 
