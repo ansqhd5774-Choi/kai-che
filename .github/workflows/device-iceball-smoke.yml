@@ -82,7 +82,7 @@ jobs:
           if defined SIZE (
             for /f "tokens=1,2 delims=x" %%W in ("%SIZE%") do (
               set /a TAPX=%%W/2
-              set /a TAPY=%%X*63/100
+              set /a TAPY=%%X*58/100
             )
             setlocal EnableDelayedExpansion
             echo [INFO] Screen=!SIZE! tap=!TAPX!,!TAPY!
