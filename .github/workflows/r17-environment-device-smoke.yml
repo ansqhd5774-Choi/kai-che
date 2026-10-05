@@ -1,0 +1,100 @@
+name: R17 Environment Device Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/r17-environment-device-smoke.yml"
+
+concurrency:
+  group: kaise-r17-environment-device-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-r17-environment:
+    name: Verify R17 3D environment on Android device
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 8
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+      ADB_MDNS: 1
+      ADB_MDNS_OPENSCREEN: 0
+
+    steps:
+      - name: Verify Android device
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" exit /b 20
+          "%ADB_EXE%" start-server >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" mdns services > Logs\r17-mdns.txt 2>&1
+          for /f "tokens=3" %%E in ('findstr /C:"_adb-tls-connect._tcp" Logs\r17-mdns.txt') do (
+            "%ADB_EXE%" connect %%E >> Logs\r17-connect.txt 2>&1
+            ping -n 3 127.0.0.1 >nul
+            "%ADB_EXE%" get-state >nul 2>&1
+            if not errorlevel 1 goto device_ready
+          )
+
+          echo [ERROR] Android device unavailable.
+          exit /b 30
+
+          :device_ready
+          "%ADB_EXE%" devices -l > Logs\r17-devices.txt 2>&1
+          echo [PASS] Android device ready.
+
+      - name: Launch R17 and enter game
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 40
+          ping -n 9 127.0.0.1 >nul
+
+          rem Main screen game-start button center for the connected 1440px-wide device.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 9 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r17-pid.txt 2>&1
+          for %%A in (Logs\r17-pid.txt) do if %%~zA EQU 0 (
+            echo [ERROR] KaiChe process stopped during R17 smoke.
+            exit /b 41
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\r17-game-screen.png 2>nul
+          "%ADB_EXE%" logcat -d -t 5000 > Logs\r17-logcat.txt 2>&1
+
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\r17-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R17 3D environment activation marker not found.
+            exit /b 42
+          )
+
+          echo [PASS] R17 Game scene loaded and 3D environment activated.
+
+      - name: Upload R17 device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: R17-Environment-Device-Smoke
+          path: |
+            Logs/r17-devices.txt
+            Logs/r17-mdns.txt
+            Logs/r17-connect.txt
+            Logs/r17-pid.txt
+            Logs/r17-logcat.txt
+            Logs/r17-game-screen.png
+          if-no-files-found: warn
+          retention-days: 7
