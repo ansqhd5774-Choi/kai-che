@@ -1,0 +1,65 @@
+name: KAISE Unity Host Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/unity-host-diagnostics.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/unity-host-diagnostics.yml"
+
+jobs:
+  diagnose:
+    name: Verify Unity 6000.6.4f1 Host
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Unity and Android modules
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          set "UNITY_ROOT=C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor"
+          set "UNITY_EXE=%UNITY_ROOT%\Unity.exe"
+          set "ANDROID_ROOT=%UNITY_ROOT%\Data\PlaybackEngines\AndroidPlayer"
+          echo COMPUTERNAME=%COMPUTERNAME%
+          echo.
+          if not exist "%UNITY_EXE%" (
+            echo [ERROR] Unity 6000.6.4f1 not found at:
+            echo %UNITY_EXE%
+            exit /b 20
+          )
+          echo [PASS] Unity Editor found
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+          if not exist "%ANDROID_ROOT%" (
+            echo [ERROR] Android Build Support not found:
+            echo %ANDROID_ROOT%
+            exit /b 22
+          )
+          echo [PASS] Android Build Support found
+          if not exist "%ANDROID_ROOT%\SDK" (
+            echo [ERROR] Android SDK not found
+            exit /b 23
+          )
+          echo [PASS] Android SDK found
+          if not exist "%ANDROID_ROOT%\NDK" (
+            echo [ERROR] Android NDK not found
+            exit /b 24
+          )
+          echo [PASS] Android NDK found
+          if not exist "%ANDROID_ROOT%\OpenJDK" (
+            echo [ERROR] OpenJDK not found
+            exit /b 25
+          )
+          echo [PASS] OpenJDK found
+          echo.
+          echo KAISE_UNITY_HOST_READY
