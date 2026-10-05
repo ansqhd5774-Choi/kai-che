@@ -14,6 +14,7 @@ namespace KaiChe.Gameplay.Survivor
             public GameObject View;
             public MonsterDefinition Definition;
             public float Health;
+            public float MaxHealth;
             public float AnimationPhase;
             public float BaseScale;
             public bool IsAggro;
@@ -21,6 +22,7 @@ namespace KaiChe.Gameplay.Survivor
             public float AttackTimer;
             public float SpecialTimer;
             public float BurstTimer;
+            public bool SpecialArmed;
             public GameObject SlowAura;
         }
 
@@ -60,6 +62,7 @@ namespace KaiChe.Gameplay.Survivor
         private float _playerHitFlashTimer;
         private float _survivalTime;
         private int _lastWaveLog = 1;
+        private int _lastBossWaveSpawned;
         private int _pendingSkillChoices;
         private int _fireUpgradeRank;
         private int _iceUpgradeRank;
@@ -73,6 +76,8 @@ namespace KaiChe.Gameplay.Survivor
         private bool _bruteSpawnLogged;
         private bool _runnerDashLogged;
         private bool _bruteSlamLogged;
+        private bool _bossSpawnLogged;
+        private bool _bossPulseLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -100,6 +105,12 @@ namespace KaiChe.Gameplay.Survivor
         private const float FireSplashRadius = 1.35f;
         private const float FireSplashDamageMultiplier = 0.45f;
         private const float IcePulseRadius = 1.60f;
+        private const int BossWaveInterval = 3;
+        private const float BossPulseRadius = 2.75f;
+        private const float BossPulseInterval = 3.4f;
+        private const float BossTelegraphDuration = 0.65f;
+        private const float BossPulseDamageWindow = 0.90f;
+        private const float BossHealthScalePerWave = 0.16f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -131,6 +142,46 @@ namespace KaiChe.Gameplay.Survivor
         public bool IsPressureWave =>
             (_survivalTime % WaveDuration)
             >= WaveDuration - PressureWaveDuration;
+        public bool IsBossWave =>
+            Wave >= BossWaveInterval && Wave % BossWaveInterval == 0;
+        public string BossName => RuntimeContentCatalog.BossMonster.DisplayName;
+        public bool HasBossAlive
+        {
+            get
+            {
+                for (int i = 0; i < _enemies.Count; i++)
+                {
+                    EnemyState enemy = _enemies[i];
+                    if (enemy != null
+                        && enemy.View != null
+                        && enemy.Definition != null
+                        && enemy.Definition.Id == ContentIds.BossMonster)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+        public float BossHealthNormalized
+        {
+            get
+            {
+                for (int i = 0; i < _enemies.Count; i++)
+                {
+                    EnemyState enemy = _enemies[i];
+                    if (enemy != null
+                        && enemy.View != null
+                        && enemy.Definition != null
+                        && enemy.Definition.Id == ContentIds.BossMonster)
+                    {
+                        return Mathf.Clamp01(
+                            enemy.Health / Mathf.Max(1f, enemy.MaxHealth));
+                    }
+                }
+
+                return 0f;
+            }
+        }
         public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;
         public string LastUnlockedSkillId => _skillMastery.LastUnlockedSkillId;
         public int Level => _progression.Level;
@@ -388,6 +439,22 @@ namespace KaiChe.Gameplay.Survivor
             _spawnTimer -= deltaTime;
             if (_spawnTimer > 0f || _enemies.Count >= MaxVisibleEnemies) return;
 
+            if (IsBossWave && _lastBossWaveSpawned != Wave)
+            {
+                _lastBossWaveSpawned = Wave;
+                SpawnEnemy(RuntimeContentCatalog.BossMonster);
+                _spawnTimer = 1.20f;
+
+                if (!_bossSpawnLogged)
+                {
+                    _bossSpawnLogged = true;
+                    Debug.Log("KAI_CHE_BOSS_SPAWN_FIRST");
+                }
+
+                Debug.Log("KAI_CHE_BOSS_SPAWN_WAVE_" + Wave);
+                return;
+            }
+
             SpawnEnemy();
 
             float longTermPressure =
@@ -460,10 +527,13 @@ namespace KaiChe.Gameplay.Survivor
             if (monsterId == ContentIds.BruteMonster)
                 return Random.Range(0.64f, 0.74f);
 
+            if (monsterId == ContentIds.BossMonster)
+                return Random.Range(1.04f, 1.14f);
+
             return Random.Range(0.46f, 0.58f);
         }
 
-        private void SpawnEnemy()
+        private void SpawnEnemy(MonsterDefinition forcedDefinition = null)
         {
             Camera camera = Camera.main;
             if (camera == null) return;
@@ -481,15 +551,23 @@ namespace KaiChe.Gameplay.Survivor
             else
                 spawn = center + new Vector2(Random.Range(-halfWidth, halfWidth), halfHeight);
 
-            MonsterDefinition definition = SelectMonsterDefinition();
+            MonsterDefinition definition =
+                forcedDefinition ?? SelectMonsterDefinition();
             float variantScale = GetMonsterScale(definition.Id);
+            bool isBoss = definition.Id == ContentIds.BossMonster;
+            float healthScale = isBoss
+                ? 1f + Mathf.Max(0, Wave - BossWaveInterval)
+                    * BossHealthScalePerWave
+                : 1f;
+            float maxHealth = definition.MaxHealth * healthScale;
             var enemy = new EnemyState
             {
                 View = CreateEnemyView(
                     definition,
                     new Vector3(spawn.x, spawn.y, 0f)),
                 Definition = definition,
-                Health = definition.MaxHealth,
+                Health = maxHealth,
+                MaxHealth = maxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
                 BaseScale = variantScale,
                 IsAggro = true,
@@ -520,6 +598,7 @@ namespace KaiChe.Gameplay.Survivor
                     enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
                 bool isRunner = definition.Id == ContentIds.RunnerMonster;
                 bool isBrute = definition.Id == ContentIds.BruteMonster;
+                bool isBoss = definition.Id == ContentIds.BossMonster;
 
                 enemy.SlowTimer = Mathf.Max(
                     0f,
@@ -562,6 +641,19 @@ namespace KaiChe.Gameplay.Survivor
                     }
                 }
 
+                if (isBoss
+                    && !enemy.SpecialArmed
+                    && enemy.SpecialTimer <= 0f
+                    && distance < BossPulseRadius + 1.8f)
+                {
+                    enemy.SpecialArmed = true;
+                    enemy.BurstTimer = BossTelegraphDuration;
+                    enemy.SpecialTimer = BossPulseInterval;
+                    CreateBossTelegraphEffect(position);
+
+                    Debug.Log("KAI_CHE_BOSS_PULSE_TELEGRAPH");
+                }
+
                 if (distance > 0.001f)
                 {
                     float slowMultiplier = enemy.SlowTimer > 0f
@@ -571,10 +663,15 @@ namespace KaiChe.Gameplay.Survivor
                         isRunner && enemy.BurstTimer > 0f
                             ? RunnerDashSpeedMultiplier
                             : 1f;
+                    float bossChargeMultiplier =
+                        isBoss && enemy.SpecialArmed
+                            ? 0.22f
+                            : 1f;
                     float moveSpeed =
                         definition.MoveSpeed
                         * slowMultiplier
-                        * burstMultiplier;
+                        * burstMultiplier
+                        * bossChargeMultiplier;
                     position += offset / distance * moveSpeed * deltaTime;
                     enemy.View.transform.position =
                         new Vector3(position.x, position.y, 0f);
@@ -590,7 +687,28 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     Mathf.Sin(enemy.AnimationPhase * 0.73f) * 2.5f);
 
-                if (isBrute
+                if (isBoss
+                    && enemy.SpecialArmed
+                    && enemy.BurstTimer <= 0f)
+                {
+                    if (distance < BossPulseRadius)
+                    {
+                        float pulseDamage =
+                            definition.ContactDamagePerSecond
+                            * BossPulseDamageWindow;
+                        ApplyPlayerHit(pulseDamage, playerPosition);
+                    }
+
+                    CreateBossPulseEffect(position);
+                    enemy.SpecialArmed = false;
+
+                    if (!_bossPulseLogged)
+                    {
+                        _bossPulseLogged = true;
+                        Debug.Log("KAI_CHE_BOSS_PULSE_FIRST");
+                    }
+                }
+                else if (isBrute
                     && distance < BruteSlamRadius
                     && enemy.SpecialTimer <= 0f)
                 {
@@ -616,6 +734,7 @@ namespace KaiChe.Gameplay.Survivor
                     }
                 }
                 else if (!isBrute
+                    && !isBoss
                     && enemy.IsAggro
                     && distance < EnemyContactRadius
                     && enemy.AttackTimer <= 0f)
@@ -1243,6 +1362,77 @@ namespace KaiChe.Gameplay.Survivor
             });
         }
 
+        private void CreateBossTelegraphEffect(Vector2 position)
+        {
+            var root = new GameObject("BossPulseTelegraph");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.20f);
+
+            for (int i = 0; i < 12; i++)
+            {
+                float angle = i * 30f;
+                float radians = angle * Mathf.Deg2Rad;
+                Vector3 localPosition = new Vector3(
+                    Mathf.Cos(radians) * BossPulseRadius * 0.62f,
+                    Mathf.Sin(radians) * BossPulseRadius * 0.62f,
+                    0f);
+
+                GameObject segment = CreateQuad(
+                    "BossTelegraph_" + i,
+                    new Color(0.72f, 0.20f, 1f, 0.58f),
+                    localPosition,
+                    1f);
+                segment.transform.SetParent(root.transform, false);
+                segment.transform.localScale =
+                    new Vector3(0.56f, 0.075f, 1f);
+                segment.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, angle);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = BossTelegraphDuration,
+                MaxLife = BossTelegraphDuration,
+                StartScale = Vector3.one,
+                SpinSpeed = -32f
+            });
+        }
+
+        private void CreateBossPulseEffect(Vector2 position)
+        {
+            var root = new GameObject("BossPulseImpact");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.21f);
+
+            for (int i = 0; i < 16; i++)
+            {
+                GameObject ray = CreateQuad(
+                    "BossPulseRay_" + i,
+                    i % 2 == 0
+                        ? new Color(0.94f, 0.34f, 1f, 0.92f)
+                        : new Color(0.38f, 0.12f, 0.72f, 0.76f),
+                    Vector3.zero,
+                    1f);
+                ray.transform.SetParent(root.transform, false);
+                ray.transform.localScale =
+                    new Vector3(BossPulseRadius * 0.70f, 0.09f, 1f);
+                ray.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * 11.25f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.34f,
+                MaxLife = 0.34f,
+                StartScale = Vector3.one * 1.18f,
+                SpinSpeed = 110f
+            });
+        }
+
         private void CreateBruteSlamEffect(Vector2 position)
         {
             var root = new GameObject("BruteSlamEffect");
@@ -1495,6 +1685,7 @@ namespace KaiChe.Gameplay.Survivor
             string id = definition.Id;
             bool isRunner = id == ContentIds.RunnerMonster;
             bool isBrute = id == ContentIds.BruteMonster;
+            bool isBoss = id == ContentIds.BossMonster;
 
             Color limbColor = isRunner
                 ? new Color(0.08f, 0.18f, 0.20f)
@@ -1526,6 +1717,16 @@ namespace KaiChe.Gameplay.Survivor
                 : isBrute
                     ? new Color(1f, 0.76f, 0.10f)
                     : new Color(1f, 0.34f, 0.06f);
+
+            if (isBoss)
+            {
+                limbColor = new Color(0.16f, 0.06f, 0.24f);
+                bodyColor = new Color(0.27f, 0.08f, 0.40f);
+                chestColor = new Color(0.55f, 0.16f, 0.72f);
+                headColor = new Color(0.12f, 0.035f, 0.20f);
+                hornColor = new Color(0.88f, 0.52f, 1f);
+                eyeColor = new Color(1f, 0.42f, 0.96f);
+            }
 
             var root = new GameObject("Enemy_" + id);
             root.transform.SetParent(transform, false);
@@ -1592,6 +1793,28 @@ namespace KaiChe.Gameplay.Survivor
                 armorPlate.transform.SetParent(root.transform, false);
                 armorPlate.transform.localScale =
                     new Vector3(0.78f, 0.34f, 1f);
+            }
+            else if (isBoss)
+            {
+                GameObject core = CreateQuad(
+                    "EnemyBossCore",
+                    new Color(0.92f, 0.26f, 1f, 0.96f),
+                    new Vector3(0f, 0.02f, -0.06f),
+                    0.58f);
+                core.transform.SetParent(root.transform, false);
+                core.transform.localScale =
+                    new Vector3(0.62f, 0.62f, 1f);
+                core.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, 45f);
+
+                GameObject crown = CreateQuad(
+                    "EnemyBossCrown",
+                    new Color(0.82f, 0.46f, 1f, 0.94f),
+                    new Vector3(0f, 0.70f, -0.08f),
+                    0.42f);
+                crown.transform.SetParent(root.transform, false);
+                crown.transform.localScale =
+                    new Vector3(0.86f, 0.18f, 1f);
             }
 
             GameObject leftArm = CreateQuad(
