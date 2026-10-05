@@ -406,6 +406,9 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     _cameraShakeTimer - deltaTime);
 
+                if (_cameraShakeTimer <= 0f)
+                    _cameraShakeMagnitude = 0f;
+
                 Vector2 shakeOffset = Vector2.zero;
                 if (_cameraShakeTimer > 0f)
                 {
