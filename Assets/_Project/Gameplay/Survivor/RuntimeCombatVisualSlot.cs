@@ -8,6 +8,7 @@ namespace KaiChe.Gameplay.Survivor
         public Transform ModelRoot { get; private set; }
         public Transform WeaponRoot { get; private set; }
         public bool IsPlaceholder3D { get; private set; }
+        public RuntimeCombatVisualAnimator AnimatorBridge { get; private set; }
 
         public void Configure(
             string contentId,
@@ -35,6 +36,15 @@ namespace KaiChe.Gameplay.Survivor
             instance.transform.localRotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
             IsPlaceholder3D = false;
+
+            AnimatorBridge = instance.GetComponent<RuntimeCombatVisualAnimator>();
+            if (AnimatorBridge == null)
+                AnimatorBridge = instance.AddComponent<RuntimeCombatVisualAnimator>();
+            AnimatorBridge.Bind(instance);
+
+            if (WeaponRoot != null)
+                WeaponRoot.gameObject.SetActive(
+                    AnimatorBridge == null || !AnimatorBridge.SupportsAttack);
 
             Debug.Log(
                 "KAI_CHE_VISUAL_PREFAB_REPLACED_"

@@ -128,7 +128,7 @@ namespace KaiChe.Gameplay.Survivor
                 materialTemplate);
 
             var weapon = new GameObject("PlayerWeapon");
-            weapon.transform.SetParent(modelRoot, false);
+            weapon.transform.SetParent(root.transform, false);
             weaponRoot = weapon.transform;
 
             CreatePart(
@@ -168,6 +168,11 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 weaponRoot,
                 true);
+
+            GameObject playerPrefab =
+                RuntimeCombatVisualPrefabResolver.LoadPlayerPrefab();
+            if (playerPrefab != null)
+                slot.ReplaceModel(playerPrefab);
 
             return root;
         }
@@ -372,6 +377,11 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 null,
                 true);
+
+            GameObject monsterPrefab =
+                RuntimeCombatVisualPrefabResolver.LoadMonsterPrefab(id);
+            if (monsterPrefab != null)
+                slot.ReplaceModel(monsterPrefab);
 
             return root;
         }
