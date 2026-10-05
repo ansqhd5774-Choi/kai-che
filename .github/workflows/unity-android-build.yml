@@ -10,6 +10,14 @@ on:
       - "Packages/**"
       - "ProjectSettings/**"
       - ".github/workflows/unity-android-build.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
+      - ".github/workflows/unity-android-build.yml"
 
 concurrency:
   group: unity-android-${{ github.ref }}
@@ -60,7 +68,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          unityVersion: 6000.3.12f1
+          unityVersion: auto
           targetPlatform: Android
           buildName: KaiChe
           buildsPath: build
