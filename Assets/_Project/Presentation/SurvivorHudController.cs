@@ -7,6 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
+        private const string BuildLabel = "R8";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -166,7 +167,7 @@ namespace KaiChe.Presentation
 
             GUI.Label(
                 new Rect(hudPanel.x + 24f, hudPanel.y + 10f, 360f, 44f),
-                $"전사  LV {_arena.Level}",
+                $"전사  LV {_arena.Level}   ·   BUILD {BuildLabel}",
                 _hudStyle);
             GUI.Label(
                 new Rect(hudPanel.xMax - 330f, hudPanel.y + 12f, 302f, 40f),
