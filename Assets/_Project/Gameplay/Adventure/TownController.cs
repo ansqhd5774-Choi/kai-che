@@ -1,3 +1,4 @@
+using KaiChe.Gameplay.Survivor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -7,6 +8,8 @@ namespace KaiChe.Gameplay.Adventure
     {
         private static readonly Vector2 InnPosition = new Vector2(3.2f, 1.8f);
         private static readonly Vector2 ApothecaryPosition = new Vector2(-3.2f, 1.8f);
+        private static readonly Vector2 WorkshopPosition = new Vector2(-3.2f, -2.2f);
+        private static readonly Vector2 HallPosition = new Vector2(3.2f, -2.2f);
         private static readonly Vector2 FieldGatePosition = new Vector2(0f, 6.3f);
 
         private Material _materialTemplate;
@@ -28,7 +31,14 @@ namespace KaiChe.Gameplay.Adventure
             _materialTemplate = materialTemplate;
             PrototypeAdventureState.EnsureLoaded();
             ConfigureCamera();
-            CreateTownLayout();
+            RuntimeTownEnvironment.Build(
+                transform,
+                _materialTemplate,
+                InnPosition,
+                ApothecaryPosition,
+                WorkshopPosition,
+                HallPosition,
+                FieldGatePosition);
             _player = CreatePlayerView();
             _player.transform.position =
                 new Vector3(_playerPosition.x, _playerPosition.y, 0f);
@@ -141,8 +151,8 @@ namespace KaiChe.Gameplay.Adventure
         {
             DrawWorldLabel(InnPosition + Vector2.up * 1.35f, "여관");
             DrawWorldLabel(ApothecaryPosition + Vector2.up * 1.35f, "약제상");
-            DrawWorldLabel(new Vector2(-3.2f, -0.85f), "작업장");
-            DrawWorldLabel(new Vector2(3.2f, -0.85f), "회관");
+            DrawWorldLabel(WorkshopPosition + Vector2.up * 1.35f, "작업장");
+            DrawWorldLabel(HallPosition + Vector2.up * 1.35f, "회관");
             DrawWorldLabel(FieldGatePosition + Vector2.down * 0.7f, "사냥터 출구");
         }
 
@@ -270,6 +280,17 @@ namespace KaiChe.Gameplay.Adventure
 
         private GameObject CreatePlayerView()
         {
+            GameObject runtime3D = RuntimeCombatVisualFactory.CreateWarrior(
+                transform,
+                _materialTemplate,
+                0.58f,
+                out _);
+            if (runtime3D != null)
+            {
+                runtime3D.name = "TownPlayer";
+                return runtime3D;
+            }
+
             var root = new GameObject("TownPlayer");
             root.transform.SetParent(transform, false);
             root.transform.localScale = Vector3.one * 0.58f;
