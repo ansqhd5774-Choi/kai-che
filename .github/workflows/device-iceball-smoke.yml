@@ -125,6 +125,21 @@ jobs:
           )
           echo [PASS] Fireball first-shot marker remains present.
 
+      - name: Verify player contact attack marker
+        shell: cmd
+        run: |
+          @echo off
+          echo [INFO] Driving player into the incoming monster wave.
+          "%ADB_EXE%" -s %ADB_SERIAL% shell input swipe 720 2350 1240 2350 3500
+          ping -n 12 127.0.0.1 >nul
+          "%ADB_EXE%" -s %ADB_SERIAL% logcat -d -t 2200 > contact-log.txt
+          findstr /C:"KAI_CHE_PLAYER_HIT_FIRST" contact-log.txt
+          if errorlevel 1 (
+            echo [ERROR] Player contact-attack marker was not observed.
+            exit /b 29
+          )
+          echo [PASS] Monster contact attack reached the player on device.
+
       - name: Capture device screenshot
         if: always()
         shell: cmd
@@ -151,6 +166,7 @@ jobs:
           name: KaiChe-Device-Iceball-Smoke
           path: |
             iceball-log.txt
+            contact-log.txt
             device-iceball-smoke.png
             device-pid.txt
             install-output.txt
