@@ -24,6 +24,8 @@ jobs:
       ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
       APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
       PACKAGE_ID: com.kaiche.rpg
+      ADB_MDNS: 1
+      ADB_MDNS_OPENSCREEN: 0
 
     steps:
       - name: Verify local APK and ADB
@@ -45,13 +47,25 @@ jobs:
         run: |
           @echo off
           if not exist Logs mkdir Logs
+
+          "%ADB_EXE%" version > Logs\adb-version.txt 2>&1
+          "%ADB_EXE%" server-status > Logs\adb-server-before.txt 2>&1
+          "%ADB_EXE%" kill-server >nul 2>&1
           "%ADB_EXE%" start-server
+          ping -n 8 127.0.0.1 >nul
+          "%ADB_EXE%" server-status > Logs\adb-server-after.txt 2>&1
           "%ADB_EXE%" mdns services > Logs\adb-mdns.txt 2>&1
           "%ADB_EXE%" devices -l > Logs\adb-devices-before.txt 2>&1
           "%ADB_EXE%" reconnect > Logs\adb-reconnect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
 
+          echo ===== ADB VERSION =====
+          type Logs\adb-version.txt
+          echo ===== ADB SERVER BEFORE =====
+          type Logs\adb-server-before.txt
+          echo ===== ADB SERVER AFTER =====
+          type Logs\adb-server-after.txt
           echo ===== ADB MDNS SERVICES =====
           type Logs\adb-mdns.txt
           echo ===== ADB DEVICES BEFORE =====
@@ -111,6 +125,9 @@ jobs:
         with:
           name: KaiChe-Android-Device-Evidence
           path: |
+            Logs/adb-version.txt
+            Logs/adb-server-before.txt
+            Logs/adb-server-after.txt
             Logs/adb-mdns.txt
             Logs/adb-devices-before.txt
             Logs/adb-reconnect.txt
