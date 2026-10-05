@@ -3,6 +3,7 @@ namespace KaiChe.Core.Content
     public static class ContentIds
     {
         public const string StarterSkill = "SKILL_0001";
+        public const string IceBall = "SKILL_0004";
         public const string StarterMonster = "MONSTER_0001";
     }
 
@@ -66,6 +67,15 @@ namespace KaiChe.Core.Content
                 0.55f,
                 6.2f,
                 11f);
+
+        public static readonly SkillDefinition IceBall =
+            new SkillDefinition(
+                ContentIds.IceBall,
+                "아이스볼",
+                14f,
+                1.15f,
+                6.5f,
+                9.5f);
 
         public static readonly MonsterDefinition StarterMonster =
             new MonsterDefinition(
