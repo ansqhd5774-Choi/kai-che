@@ -63,6 +63,7 @@ namespace KaiChe.Gameplay.Survivor
         private float _playerHitFlashTimer;
         private float _cameraShakeTimer;
         private float _cameraShakeMagnitude;
+        private float _slowMotionTimer;
         private float _survivalTime;
         private int _lastWaveLog = 1;
         private int _lastBossWaveSpawned;
@@ -70,6 +71,7 @@ namespace KaiChe.Gameplay.Survivor
         private int _fireUpgradeRank;
         private int _iceUpgradeRank;
         private int _arcaneUpgradeRank;
+        private int _projectileHitSequence;
         private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
@@ -82,6 +84,8 @@ namespace KaiChe.Gameplay.Survivor
         private bool _bossSpawnLogged;
         private bool _bossPulseLogged;
         private bool _thermalShockFirstLogged;
+        private bool _arcaneChainFirstLogged;
+        private bool _bossDefeatLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
@@ -124,6 +128,13 @@ namespace KaiChe.Gameplay.Survivor
         private const float ThermalShockBonusMultiplier = 0.90f;
         private const float ThermalShockRadius = 1.75f;
         private const float ThermalShockSplashMultiplier = 0.32f;
+        private const int ArcaneChainRequiredRank = 2;
+        private const int ArcaneChainRequiredElementRank = 2;
+        private const int ArcaneChainHitInterval = 5;
+        private const float ArcaneChainDamageMultiplier = 0.55f;
+        private const float ArcaneChainRadius = 3.4f;
+        private const float BossFinishSlowMotionScale = 0.22f;
+        private const float BossFinishSlowMotionDuration = 0.42f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -212,6 +223,10 @@ namespace KaiChe.Gameplay.Survivor
         public bool IsThermalShockUnlocked =>
             _fireUpgradeRank >= ThermalShockRequiredFireRank
             && _iceUpgradeRank >= ThermalShockRequiredIceRank;
+        public bool IsArcaneChainUnlocked =>
+            _arcaneUpgradeRank >= ArcaneChainRequiredRank
+            && (_fireUpgradeRank >= ArcaneChainRequiredElementRank
+                || _iceUpgradeRank >= ArcaneChainRequiredElementRank);
         public bool IsBossPhaseTwo
         {
             get
@@ -340,6 +355,8 @@ namespace KaiChe.Gameplay.Survivor
 
         private void Update()
         {
+            UpdateCinematicTime();
+
             if (!_initialized)
                 return;
 
@@ -360,6 +377,25 @@ namespace KaiChe.Gameplay.Survivor
             UpdateProjectiles(deltaTime);
             UpdatePlayerAnimation(deltaTime);
             UpdateEffects(deltaTime);
+        }
+
+        private void OnDisable()
+        {
+            if (Time.timeScale != 1f)
+                Time.timeScale = 1f;
+        }
+
+        private void UpdateCinematicTime()
+        {
+            if (_slowMotionTimer <= 0f)
+                return;
+
+            _slowMotionTimer = Mathf.Max(
+                0f,
+                _slowMotionTimer - Time.unscaledDeltaTime);
+
+            if (_slowMotionTimer <= 0f)
+                Time.timeScale = 1f;
         }
 
         private static void ConfigureCamera()
@@ -1186,6 +1222,11 @@ namespace KaiChe.Gameplay.Survivor
                         skill,
                         projectile.IsIceBall);
 
+                    _projectileHitSequence += 1;
+                    bool arcaneChain =
+                        IsArcaneChainUnlocked
+                        && _projectileHitSequence % ArcaneChainHitInterval == 0;
+
                     bool thermalShock =
                         !projectile.IsIceBall
                         && IsThermalShockUnlocked
@@ -1201,6 +1242,15 @@ namespace KaiChe.Gameplay.Survivor
                     }
 
                     DamageEnemy(projectile.Target, hitDamage);
+
+                    if (arcaneChain)
+                    {
+                        ApplyArcaneChain(
+                            projectile.Target,
+                            position,
+                            hitDamage * ArcaneChainDamageMultiplier,
+                            projectile.IsIceBall);
+                    }
 
                     if (!projectile.IsIceBall
                         && _fireUpgradeRank >= FireEvolutionRank)
@@ -1218,6 +1268,57 @@ namespace KaiChe.Gameplay.Survivor
                     Destroy(projectile.View);
                     _projectiles.RemoveAt(i);
                 }
+            }
+        }
+
+        private void ApplyArcaneChain(
+            EnemyState primaryTarget,
+            Vector2 center,
+            float chainDamage,
+            bool isIceBall)
+        {
+            float radiusSq = ArcaneChainRadius * ArcaneChainRadius;
+            EnemyState nearest = null;
+            float nearestDistanceSq = radiusSq;
+
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                EnemyState enemy = _enemies[i];
+                if (enemy == null
+                    || enemy == primaryTarget
+                    || enemy.View == null)
+                    continue;
+
+                Vector2 enemyPosition = enemy.View.transform.position;
+                float distanceSq = (enemyPosition - center).sqrMagnitude;
+                if (distanceSq >= nearestDistanceSq)
+                    continue;
+
+                nearest = enemy;
+                nearestDistanceSq = distanceSq;
+            }
+
+            if (nearest == null)
+                return;
+
+            Vector2 targetPosition = nearest.View.transform.position;
+            CreateArcaneChainEffect(center, targetPosition);
+
+            if (isIceBall)
+            {
+                nearest.SlowTimer = Mathf.Max(
+                    nearest.SlowTimer,
+                    IceSlowDuration + 0.6f);
+                EnsureIceSlowAura(nearest);
+            }
+
+            DamageEnemy(nearest, chainDamage);
+            TriggerImpactFeedback(0.08f, false);
+
+            if (!_arcaneChainFirstLogged)
+            {
+                _arcaneChainFirstLogged = true;
+                Debug.Log("KAI_CHE_ARCANE_CHAIN_FIRST");
             }
         }
 
@@ -1522,6 +1623,52 @@ namespace KaiChe.Gameplay.Survivor
 #endif
         }
 
+        private void CreateArcaneChainEffect(
+            Vector2 from,
+            Vector2 to)
+        {
+            Vector2 delta = to - from;
+            float distance = delta.magnitude;
+            if (distance <= 0.001f)
+                return;
+
+            var root = new GameObject("ArcaneChainEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(from.x, from.y, -0.225f);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+
+            GameObject beam = CreateQuad(
+                "ArcaneChainBeam",
+                new Color(0.62f, 0.28f, 1f, 0.88f),
+                new Vector3(distance * 0.5f, 0f, 0f),
+                1f);
+            beam.transform.SetParent(root.transform, false);
+            beam.transform.localScale =
+                new Vector3(distance, 0.07f, 1f);
+
+            GameObject core = CreateQuad(
+                "ArcaneChainCore",
+                new Color(0.92f, 0.78f, 1f, 0.96f),
+                new Vector3(distance * 0.5f, 0f, -0.01f),
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale =
+                new Vector3(distance * 0.92f, 0.025f, 1f);
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.16f,
+                MaxLife = 0.16f,
+                StartScale = Vector3.one,
+                SpinSpeed = 0f
+            });
+        }
+
         private void CreateThermalShockEffect(Vector2 position)
         {
             var root = new GameObject("ThermalShockEffect");
@@ -1816,6 +1963,8 @@ namespace KaiChe.Gameplay.Survivor
 
             MonsterDefinition definition =
                 enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
+            bool isBoss = definition.Id == ContentIds.BossMonster;
+            Vector2 defeatedPosition = enemy.View.transform.position;
             Experience += definition.ExperienceReward;
             int levelsGained =
                 _progression.AddExperienceAndApplyPrototypeLevelUp(
@@ -1835,8 +1984,63 @@ namespace KaiChe.Gameplay.Survivor
                 }
             }
 
+            if (isBoss)
+                TriggerBossDefeat(defeatedPosition);
+
             Destroy(enemy.View);
             enemy.View = null;
+        }
+
+        private void TriggerBossDefeat(Vector2 position)
+        {
+            CreateBossDefeatEffect(position);
+            TriggerImpactFeedback(0.32f, true);
+
+            _slowMotionTimer = BossFinishSlowMotionDuration;
+            Time.timeScale = BossFinishSlowMotionScale;
+
+            if (!_bossDefeatLogged)
+            {
+                _bossDefeatLogged = true;
+                Debug.Log("KAI_CHE_BOSS_DEFEATED_FIRST");
+            }
+
+            Debug.Log("KAI_CHE_BOSS_DEFEATED_WAVE_" + Wave);
+        }
+
+        private void CreateBossDefeatEffect(Vector2 position)
+        {
+            var root = new GameObject("BossDefeatEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.24f);
+
+            for (int i = 0; i < 28; i++)
+            {
+                GameObject shard = CreateQuad(
+                    "BossDefeatShard_" + i,
+                    i % 3 == 0
+                        ? new Color(1f, 0.78f, 0.30f, 0.96f)
+                        : i % 3 == 1
+                            ? new Color(0.94f, 0.20f, 1f, 0.92f)
+                            : new Color(0.34f, 0.14f, 0.82f, 0.86f),
+                    Vector3.zero,
+                    1f);
+                shard.transform.SetParent(root.transform, false);
+                shard.transform.localScale =
+                    new Vector3(2.2f, 0.09f, 1f);
+                shard.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, i * (180f / 28f));
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.52f,
+                MaxLife = 0.52f,
+                StartScale = Vector3.one * 1.45f,
+                SpinSpeed = 170f
+            });
         }
 
         private void CreateBattlefieldBackdrop()
