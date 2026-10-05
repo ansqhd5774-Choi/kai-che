@@ -65,9 +65,21 @@ jobs:
 
           ping -n 26 127.0.0.1 >nul
           "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-combat-30s.png 2>nul
+
+          rem The saved R16 state has 3 unspent attribute points. Tap the visible
+          rem first attribute button three times and verify the modal can close.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+
+          ping -n 11 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\r16-smoke-after-selection.png 2>nul
+          "%ADB_EXE%" shell "run-as %PACKAGE_ID% sh -c 'cat shared_prefs/*'" > Logs\r16-playerprefs-after.txt 2>&1
           "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\r16-smoke-pid.txt 2>&1
-          "%ADB_EXE%" logcat -d -t 1600 > Logs\r16-smoke-logcat.txt 2>&1
-          echo [PASS] R16 observation evidence captured.
+          "%ADB_EXE%" logcat -d -t 2000 > Logs\r16-smoke-logcat.txt 2>&1
+          echo [PASS] R16 modal input evidence captured.
 
       - name: Upload R16 gameplay evidence
         if: always()
@@ -82,6 +94,8 @@ jobs:
             Logs/r16-smoke-main.png
             Logs/r16-smoke-combat-5s.png
             Logs/r16-smoke-combat-30s.png
+            Logs/r16-smoke-after-selection.png
+            Logs/r16-playerprefs-after.txt
             Logs/r16-smoke-pid.txt
             Logs/r16-smoke-logcat.txt
           if-no-files-found: warn
