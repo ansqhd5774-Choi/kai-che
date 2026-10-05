@@ -21,13 +21,20 @@ namespace KaiChe.EditorTools
 
         public static void BuildDevelopmentApk()
         {
+            Debug.Log("KAI_CHE_BUILD_STAGE:START");
+            Debug.Log("KAI_CHE_BUILD_STAGE:CONFIGURE_PLAYER_SETTINGS_BEGIN");
             ConfigurePlayerSettings();
+            Debug.Log("KAI_CHE_BUILD_STAGE:CONFIGURE_PLAYER_SETTINGS_OK");
 
+            Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_BEGIN");
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(
                     BuildTargetGroup.Android, BuildTarget.Android))
                 throw new InvalidOperationException("Failed to switch build target to Android.");
+            Debug.Log("KAI_CHE_BUILD_STAGE:SWITCH_ANDROID_OK");
 
+            Debug.Log("KAI_CHE_BUILD_STAGE:ENSURE_RUNTIME_MATERIAL_BEGIN");
             EnsureRuntimeMaterial();
+            Debug.Log("KAI_CHE_BUILD_STAGE:ENSURE_RUNTIME_MATERIAL_OK");
             Directory.CreateDirectory("Builds/Android");
 
             string[] scenes = EditorBuildSettings.scenes
@@ -38,6 +45,7 @@ namespace KaiChe.EditorTools
             if (scenes.Length == 0)
                 throw new InvalidOperationException("No enabled scenes in Build Settings.");
 
+            Debug.Log($"KAI_CHE_BUILD_STAGE:SCENES_OK:{scenes.Length}");
             EditorUserBuildSettings.buildAppBundle = false;
 
             var options = new BuildPlayerOptions
@@ -48,7 +56,9 @@ namespace KaiChe.EditorTools
                 options = BuildOptions.Development | BuildOptions.AllowDebugging
             };
 
+            Debug.Log("KAI_CHE_BUILD_STAGE:BUILD_PLAYER_BEGIN");
             BuildReport report = BuildPipeline.BuildPlayer(options);
+            Debug.Log($"KAI_CHE_BUILD_STAGE:BUILD_PLAYER_END:{report.summary.result}");
             if (report.summary.result != BuildResult.Succeeded)
                 throw new Exception($"Android build failed: {report.summary.result}");
 
