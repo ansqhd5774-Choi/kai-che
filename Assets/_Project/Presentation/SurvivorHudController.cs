@@ -22,6 +22,7 @@ namespace KaiChe.Presentation
         private Texture2D _buttonBack;
         private Texture2D _buttonPressed;
         private Texture2D _modalDim;
+        private Texture2D _damageFlash;
         private GUIStyle _hudStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
@@ -52,6 +53,8 @@ namespace KaiChe.Presentation
                 new Color(0.30f, 0.22f, 0.10f, 0.98f));
             _modalDim = CreateSolidTexture(
                 new Color(0.015f, 0.012f, 0.008f, 0.58f));
+            _damageFlash = CreateSolidTexture(
+                new Color(0.70f, 0.03f, 0.02f, 0.16f));
         }
 
         private void Update()
@@ -145,6 +148,13 @@ namespace KaiChe.Presentation
             if (_hudStyle == null) return;
 
             Rect safe = SafeGuiRect;
+            if (_arena.IsPlayerHitFlashActive)
+                GUI.DrawTexture(
+                    safe,
+                    _damageFlash,
+                    ScaleMode.StretchToFill,
+                    true);
+
             float margin = Mathf.Max(18f, safe.width * 0.018f);
             float hudWidth = Mathf.Min(safe.width * 0.76f, 1080f);
             Rect hudPanel = new Rect(
@@ -192,7 +202,8 @@ namespace KaiChe.Presentation
                     hudPanel.y + 132f,
                     hudPanel.width - 48f,
                     32f),
-                $"{_arena.ActiveSkillName}  ·  숙련도 {_arena.ActiveSkillMastery}"
+                $"{_arena.ActiveSkillName} {_arena.ActiveSkillMastery}"
+                + $"   ·   {_arena.IceSkillName} {_arena.IceSkillMastery}"
                 + $"   ·   해금 {_arena.UnlockedSkillCount}",
                 _smallStyle);
 

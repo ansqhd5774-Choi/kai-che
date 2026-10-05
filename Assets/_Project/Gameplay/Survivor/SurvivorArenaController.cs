@@ -17,6 +17,8 @@ namespace KaiChe.Gameplay.Survivor
             public float BaseScale;
             public bool IsAggro;
             public float SlowTimer;
+            public float AttackTimer;
+            public GameObject SlowAura;
         }
 
         private sealed class ProjectileState
@@ -51,15 +53,19 @@ namespace KaiChe.Gameplay.Survivor
         private float _iceShotTimer;
         private float _moveAnimationTime;
         private float _attackAnimationTime;
+        private float _playerHitFlashTimer;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
         private bool _iceballFirstShotLogged;
+        private bool _playerHitFirstLogged;
         private const float PlayerBaseScale = 0.58f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
         private const float AttackAnimationDuration = 0.18f;
-        private const float EnemyAggroRadius = 14.0f;
         private const float EnemyContactRadius = 0.34f;
+        private const float EnemyAttackInterval = 0.55f;
+        private const float EnemyContactKnockback = 0.22f;
+        private const float PlayerHitFlashDuration = 0.18f;
         private const int MaxVisibleEnemies = 100;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -80,6 +86,10 @@ namespace KaiChe.Gameplay.Survivor
         public string ActiveSkillName => RuntimeContentCatalog.StarterSkill.DisplayName;
         public string ActiveMonsterId => RuntimeContentCatalog.StarterMonster.Id;
         public int ActiveSkillMastery => _skillMastery.GetMastery(ActiveSkillId);
+        public string IceSkillName => RuntimeContentCatalog.IceBall.DisplayName;
+        public int IceSkillMastery =>
+            _skillMastery.GetMastery(RuntimeContentCatalog.IceBall.Id);
+        public bool IsPlayerHitFlashActive => _playerHitFlashTimer > 0f;
         public int UnlockedSkillCount => _skillMastery.UnlockedSkillCount;
         public string LastUnlockedSkillId => _skillMastery.LastUnlockedSkillId;
         public int Level => _progression.Level;
@@ -129,10 +139,16 @@ namespace KaiChe.Gameplay.Survivor
 
         private void Update()
         {
-            if (!_initialized || IsDead || IsAttributeAllocationPending)
+            if (!_initialized)
                 return;
 
             float deltaTime = Time.deltaTime;
+            _playerHitFlashTimer = Mathf.Max(
+                0f,
+                _playerHitFlashTimer - deltaTime);
+
+            if (IsDead || IsAttributeAllocationPending)
+                return;
             UpdateWorldMovement(deltaTime);
             UpdateTownEntrance();
             UpdateSpawning(deltaTime);
@@ -276,7 +292,8 @@ namespace KaiChe.Gameplay.Survivor
                 Health = definition.MaxHealth,
                 AnimationPhase = Random.Range(0f, Mathf.PI * 2f),
                 BaseScale = variantScale,
-                IsAggro = true
+                IsAggro = true,
+                AttackTimer = Random.Range(0.15f, EnemyAttackInterval)
             };
 
             if (enemy.View != null)
@@ -300,6 +317,15 @@ namespace KaiChe.Gameplay.Survivor
                 enemy.SlowTimer = Mathf.Max(
                     0f,
                     enemy.SlowTimer - deltaTime);
+                enemy.AttackTimer = Mathf.Max(
+                    0f,
+                    enemy.AttackTimer - deltaTime);
+
+                if (enemy.SlowTimer <= 0f && enemy.SlowAura != null)
+                {
+                    Destroy(enemy.SlowAura);
+                    enemy.SlowAura = null;
+                }
 
                 Vector2 position = enemy.View.transform.position;
                 Vector2 offset = playerPosition - position;
@@ -325,11 +351,32 @@ namespace KaiChe.Gameplay.Survivor
                     0f,
                     Mathf.Sin(enemy.AnimationPhase * 0.73f) * 2.5f);
 
-                if (enemy.IsAggro && distance < EnemyContactRadius)
+                if (enemy.IsAggro
+                    && distance < EnemyContactRadius
+                    && enemy.AttackTimer <= 0f)
                 {
+                    float attackDamage =
+                        definition.ContactDamagePerSecond * EnemyAttackInterval;
                     PlayerHealth = Mathf.Max(
                         0f,
-                        PlayerHealth - definition.ContactDamagePerSecond * deltaTime);
+                        PlayerHealth - attackDamage);
+                    enemy.AttackTimer = EnemyAttackInterval;
+                    _playerHitFlashTimer = PlayerHitFlashDuration;
+                    CreatePlayerHitEffect(playerPosition);
+
+                    if (!_playerHitFirstLogged)
+                    {
+                        _playerHitFirstLogged = true;
+                        Debug.Log("KAI_CHE_PLAYER_HIT_FIRST");
+                    }
+
+                    if (distance > 0.001f)
+                    {
+                        Vector2 recoilDirection = -offset / distance;
+                        position += recoilDirection * EnemyContactKnockback;
+                        enemy.View.transform.position =
+                            new Vector3(position.x, position.y, 0f);
+                    }
                 }
             }
         }
@@ -622,6 +669,7 @@ namespace KaiChe.Gameplay.Survivor
                         projectile.Target.SlowTimer = Mathf.Max(
                             projectile.Target.SlowTimer,
                             IceSlowDuration);
+                        EnsureIceSlowAura(projectile.Target);
                         CreateIceImpactEffect(position);
                     }
                     else
@@ -748,6 +796,71 @@ namespace KaiChe.Gameplay.Survivor
                 MaxLife = 0.20f,
                 StartScale = Vector3.one,
                 SpinSpeed = -180f
+            });
+        }
+
+        private void EnsureIceSlowAura(EnemyState enemy)
+        {
+            if (enemy == null
+                || enemy.View == null
+                || enemy.SlowAura != null)
+                return;
+
+            var root = new GameObject("IceSlowAura");
+            root.transform.SetParent(enemy.View.transform, false);
+            root.transform.localPosition = new Vector3(0f, 0f, -0.08f);
+
+            GameObject horizontal = CreateQuad(
+                "IceSlowAuraHorizontal",
+                new Color(0.18f, 0.72f, 1f, 0.34f),
+                Vector3.zero,
+                1f);
+            horizontal.transform.SetParent(root.transform, false);
+            horizontal.transform.localScale =
+                new Vector3(1.75f, 0.12f, 1f);
+
+            GameObject vertical = CreateQuad(
+                "IceSlowAuraVertical",
+                new Color(0.72f, 0.95f, 1f, 0.28f),
+                Vector3.zero,
+                1f);
+            vertical.transform.SetParent(root.transform, false);
+            vertical.transform.localScale =
+                new Vector3(0.12f, 1.75f, 1f);
+
+            enemy.SlowAura = root;
+        }
+
+        private void CreatePlayerHitEffect(Vector2 position)
+        {
+            var root = new GameObject("PlayerHitEffect");
+            root.transform.SetParent(transform, false);
+            root.transform.position =
+                new Vector3(position.x, position.y, -0.22f);
+
+            for (int i = 0; i < 4; i++)
+            {
+                GameObject slash = CreateQuad(
+                    "PlayerHitSlash_" + i,
+                    i % 2 == 0
+                        ? new Color(1f, 0.18f, 0.10f, 0.92f)
+                        : new Color(1f, 0.66f, 0.20f, 0.84f),
+                    Vector3.zero,
+                    1f);
+                slash.transform.SetParent(root.transform, false);
+                slash.transform.localScale =
+                    new Vector3(0.54f, 0.07f, 1f);
+                slash.transform.localRotation =
+                    Quaternion.Euler(0f, 0f, 45f + i * 45f);
+            }
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = PlayerHitFlashDuration,
+                MaxLife = PlayerHitFlashDuration,
+                StartScale = Vector3.one,
+                SpinSpeed = 180f
             });
         }
 
