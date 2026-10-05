@@ -21,7 +21,7 @@ jobs:
   validate-build:
     name: Validate upgraded project and build Android
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 20
+    timeout-minutes: 60
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
 
@@ -31,6 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
+          clean: false
 
       - name: Verify Unity host and project version
         shell: cmd
