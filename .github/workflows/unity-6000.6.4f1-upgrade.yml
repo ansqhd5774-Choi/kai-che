@@ -1,0 +1,115 @@
+name: KAISE Unity 6000.6.4f1 Upgrade Validation
+
+on:
+  push:
+    branches:
+      - upgrade/unity-6000.6.4f1
+    paths:
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
+      - ".github/workflows/unity-6000.6.4f1-upgrade.yml"
+
+concurrency:
+  group: kaise-unity-upgrade-6000-6-4f1
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade-and-build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-upgrade]') }}
+    name: Upgrade project and build Android
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 60
+    env:
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+
+    steps:
+      - name: Checkout upgrade branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify Unity host
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" (
+            echo [ERROR] Unity 6000.6.4f1 not found:
+            echo %UNITY_EXE%
+            exit /b 20
+          )
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+
+      - name: Upgrade project with Unity 6000.6.4f1
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%UNITY_EXE%" -batchmode -nographics -quit -accept-apiupdate -projectPath "%GITHUB_WORKSPACE%" -logFile "%GITHUB_WORKSPACE%\Logs\unity-upgrade.log"
+          set "RC=%ERRORLEVEL%"
+          type "%GITHUB_WORKSPACE%\Logs\unity-upgrade.log"
+          exit /b %RC%
+
+      - name: Verify upgraded project version
+        shell: cmd
+        run: |
+          @echo off
+          type ProjectSettings\ProjectVersion.txt
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] ProjectVersion.txt was not upgraded to 6000.6.4f1
+            exit /b 30
+          )
+          echo [PASS] ProjectVersion.txt = 6000.6.4f1
+
+      - name: Commit Unity upgrade changes
+        shell: cmd
+        run: |
+          @echo off
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- Assets Packages ProjectSettings
+          git diff --cached --quiet
+          if errorlevel 1 (
+            git commit -m "chore: apply Unity 6000.6.4f1 upgrade [skip-upgrade]"
+            git push origin HEAD:upgrade/unity-6000.6.4f1
+          ) else (
+            echo No Unity-generated source changes to commit.
+          )
+
+      - name: Build Android development APK
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%UNITY_EXE%" -batchmode -nographics -quit -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          set "RC=%ERRORLEVEL%"
+          type "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          if not "%RC%"=="0" exit /b %RC%
+          if not exist "Builds\Android\KaiChe-dev.apk" (
+            echo [ERROR] APK was not produced.
+            exit /b 40
+          )
+          echo [PASS] Android APK created.
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Unity-6000.6.4f1-Android
+          path: Builds/Android/KaiChe-dev.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Unity logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Unity-6000.6.4f1-Logs
+          path: Logs
+          if-no-files-found: warn
+          retention-days: 14
