@@ -1095,32 +1095,32 @@ namespace KaiChe.Gameplay.Survivor
                 ? new Color(0.08f, 0.18f, 0.20f)
                 : isBrute
                     ? new Color(0.20f, 0.16f, 0.12f)
-                    : limbColor;
+                    : new Color(0.19f, 0.045f, 0.038f);
             Color bodyColor = isRunner
                 ? new Color(0.10f, 0.34f, 0.38f)
                 : isBrute
                     ? new Color(0.31f, 0.25f, 0.17f)
-                    : bodyColor;
+                    : new Color(0.30f, 0.075f, 0.060f);
             Color chestColor = isRunner
                 ? new Color(0.18f, 0.58f, 0.60f)
                 : isBrute
                     ? new Color(0.49f, 0.39f, 0.22f)
-                    : chestColor;
+                    : new Color(0.50f, 0.12f, 0.075f);
             Color headColor = isRunner
                 ? new Color(0.08f, 0.14f, 0.15f)
                 : isBrute
                     ? new Color(0.18f, 0.17f, 0.14f)
-                    : headColor;
+                    : new Color(0.12f, 0.12f, 0.11f);
             Color hornColor = isRunner
                 ? new Color(0.36f, 0.78f, 0.78f)
                 : isBrute
                     ? new Color(0.72f, 0.62f, 0.36f)
-                    : hornColor;
+                    : new Color(0.60f, 0.46f, 0.25f);
             Color eyeColor = isRunner
                 ? new Color(0.30f, 1f, 0.86f)
                 : isBrute
                     ? new Color(1f, 0.76f, 0.10f)
-                    : eyeColor;
+                    : new Color(1f, 0.34f, 0.06f);
 
             var root = new GameObject("Enemy_" + id);
             root.transform.SetParent(transform, false);
