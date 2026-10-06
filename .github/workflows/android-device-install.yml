@@ -39,6 +39,8 @@ jobs:
         run: |
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          del /q Logs\r18-backup-created.flag 2>nul
           if not exist "%ADB_EXE%" (
             echo [ERROR] adb.exe not found: %ADB_EXE%
             exit /b 20
@@ -169,6 +171,7 @@ jobs:
             exit /b 46
           )
 
+          >Logs\r18-backup-created.flag echo created
           echo [PASS] R18 smoke PlayerPrefs backed up.
 
       - name: Launch KaiChe
@@ -313,8 +316,8 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          if not exist Logs\r18-prefs-original.xml (
-            echo [WARN] No R18 PlayerPrefs backup was created; restore skipped.
+          if not exist Logs\r18-backup-created.flag (
+            echo [WARN] No R18 PlayerPrefs backup was created in this job; restore skipped.
             exit /b 0
           )
 
