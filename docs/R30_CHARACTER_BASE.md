@@ -37,3 +37,19 @@ R30 is accepted only when:
 5. The user visually approves the phone result.
 
 Until item 5, treat R30 as a deployed visual candidate rather than a final locked art asset.
+
+
+## R30 visual outcome — REJECTED
+
+R30 was successfully built and displayed on the physical-device capture, but the visual candidate was rejected.
+
+Observed failures:
+- facial features were not readable as a human face
+- legs/feet did not read as complete human lower limbs
+- body proportions and torso/pelvis transitions remained primitive/mannequin-like
+- procedural primitive assembly was not suitable as the production character-art foundation
+
+Decision:
+- Do not continue polishing the R30 capsule/cube/sphere body into the production character.
+- Preserve R30 only as a technical fallback/history point.
+- R31 starts the professional concept/reference pipeline defined in `docs/R31_CHARACTER_CONCEPT_REFERENCE.md`.
