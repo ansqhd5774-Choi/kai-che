@@ -5,7 +5,7 @@ namespace KaiChe.Prototypes.BumperSeed
 {
     public sealed class BumperSeedPrototype : MonoBehaviour
     {
-        private const float ArenaHalfWidth = 4.0f;
+        private const float ArenaHalfWidth = 3.15f;
         private const float ArenaHalfHeight = 7.0f;
         private const float WallThickness = 0.35f;
         private const float BallRadius = 0.28f;
