@@ -580,6 +580,15 @@ namespace KaiChe.Gameplay.Survivor
             _materialTemplate = materialTemplate;
             LoadPrototypeProgression();
             PrototypeAdventureState.EnsureLoaded();
+
+            if (PrototypeAdventureState.Health <= 0.01f)
+            {
+                PrototypeAdventureState.PrepareCombatRetry(MaxPlayerHealth);
+                Debug.Log(
+                    "KAI_CHE_R28_DEFEAT_RECOVERY_BOOTSTRAP_MAX_"
+                    + Mathf.RoundToInt(MaxPlayerHealth));
+            }
+
             PlayerHealth = Mathf.Min(
                 MaxPlayerHealth,
                 PrototypeAdventureState.Health);
@@ -726,6 +735,15 @@ namespace KaiChe.Gameplay.Survivor
         public int GetAttributeValue(CharacterAttribute attribute)
         {
             return _progression.GetAttribute(attribute);
+        }
+
+        public bool PrepareRetryAfterDefeat()
+        {
+            if (!IsDead)
+                return false;
+
+            PrepareDefeatRecoveryCheckpoint("MANUAL");
+            return true;
         }
 
         public bool TrySpendAttributePoint(CharacterAttribute attribute)
@@ -1985,10 +2003,16 @@ namespace KaiChe.Gameplay.Survivor
             float finalDamage =
                 damage * Mathf.Max(0.40f, 1f - damageReduction);
 
+            bool wasAlive = PlayerHealth > 0f;
             PlayerHealth = Mathf.Max(
                 0f,
                 PlayerHealth - finalDamage);
-            MarkAdventureHealthDirty();
+
+            if (wasAlive && PlayerHealth <= 0f)
+                PrepareDefeatRecoveryCheckpoint("DEATH");
+            else
+                MarkAdventureHealthDirty();
+
             _playerHitFlashTimer = PlayerHitFlashDuration;
             if (_playerVisualAnimator != null)
             {
@@ -4345,6 +4369,19 @@ namespace KaiChe.Gameplay.Survivor
                     + (_skillMastery.LastUnlockedSkillId
                         ?? "UNKNOWN"));
             }
+        }
+
+        private void PrepareDefeatRecoveryCheckpoint(string reason)
+        {
+            PrototypeAdventureState.PrepareCombatRetry(MaxPlayerHealth);
+            _adventureHealthSaveDirty = false;
+            _adventureHealthSaveTimer = 0f;
+
+            Debug.Log(
+                "KAI_CHE_R28_DEFEAT_RECOVERY_CHECKPOINT_"
+                + reason
+                + "_MAX_"
+                + Mathf.RoundToInt(MaxPlayerHealth));
         }
 
         private void MarkAdventureHealthDirty()
