@@ -166,7 +166,7 @@ namespace KaiChe.Prototypes.BumperSeed
                 _bumperMaterial);
 
             CircleCollider2D collider = bumper.AddComponent<CircleCollider2D>();
-            collider.radius = 0.5f;
+            collider.radius = BumperRadius;
             collider.sharedMaterial = _bounceMaterial;
 
             _bumpers.Enqueue(bumper);
@@ -241,22 +241,27 @@ namespace KaiChe.Prototypes.BumperSeed
 
         private void CreateWall(string name, Vector2 position, Vector2 size)
         {
-            GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wall.name = name;
+            GameObject wall = new GameObject(name);
             wall.transform.position = ToWorld(position);
-            wall.transform.localScale = new Vector3(size.x, size.y, 0.25f);
-
-            Collider threeDimensionalCollider = wall.GetComponent<Collider>();
-            if (threeDimensionalCollider != null)
-                Destroy(threeDimensionalCollider);
-
-            Renderer renderer = wall.GetComponent<Renderer>();
-            if (renderer != null)
-                renderer.sharedMaterial = _wallMaterial;
 
             BoxCollider2D collider = wall.AddComponent<BoxCollider2D>();
+            collider.size = size;
             collider.sharedMaterial = _bounceMaterial;
             wall.AddComponent<BumperSeedWall>();
+
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = "Visual";
+            visual.transform.SetParent(wall.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localScale = new Vector3(size.x, size.y, 0.25f);
+
+            Collider threeDimensionalCollider = visual.GetComponent<Collider>();
+            if (threeDimensionalCollider != null)
+                threeDimensionalCollider.enabled = false;
+
+            Renderer renderer = visual.GetComponent<Renderer>();
+            if (renderer != null)
+                renderer.sharedMaterial = _wallMaterial;
         }
 
         private void CreateBall()
@@ -268,7 +273,7 @@ namespace KaiChe.Prototypes.BumperSeed
                 _ballMaterial);
 
             CircleCollider2D collider = ball.AddComponent<CircleCollider2D>();
-            collider.radius = 0.5f;
+            collider.radius = BallRadius;
             collider.sharedMaterial = _bounceMaterial;
 
             _ball = ball.AddComponent<Rigidbody2D>();
@@ -293,7 +298,7 @@ namespace KaiChe.Prototypes.BumperSeed
                 _targetMaterial);
 
             CircleCollider2D collider = _target.AddComponent<CircleCollider2D>();
-            collider.radius = 0.5f;
+            collider.radius = 0.38f;
             collider.isTrigger = true;
         }
 
@@ -303,16 +308,20 @@ namespace KaiChe.Prototypes.BumperSeed
             float diameter,
             Material material)
         {
-            GameObject instance = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            instance.name = name;
+            GameObject instance = new GameObject(name);
             instance.transform.position = ToWorld(position);
-            instance.transform.localScale = new Vector3(diameter, diameter, 0.28f);
 
-            Collider threeDimensionalCollider = instance.GetComponent<Collider>();
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.name = "Visual";
+            visual.transform.SetParent(instance.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localScale = new Vector3(diameter, diameter, 0.28f);
+
+            Collider threeDimensionalCollider = visual.GetComponent<Collider>();
             if (threeDimensionalCollider != null)
-                Destroy(threeDimensionalCollider);
+                threeDimensionalCollider.enabled = false;
 
-            Renderer renderer = instance.GetComponent<Renderer>();
+            Renderer renderer = visual.GetComponent<Renderer>();
             if (renderer != null)
                 renderer.sharedMaterial = material;
 
