@@ -125,3 +125,22 @@ V4 therefore preserves the V3 total crown-to-sole height while redistributing th
 
 Runtime marker:
 - `KAI_CHE_R32_PROPORTION_UPGRADE_V4_95_GATE_READY`
+
+
+## R32 proportion upgrade V5 — final landmark fine-tune candidate
+
+V4 brought the torso width, waist, pelvis width and lower-garment position close to the R31 reference. V5 focuses only on the remaining large silhouette deltas:
+
+- slightly larger head and hair envelope
+- shorter neck
+- slightly wider shoulder envelope
+- sports-bra straps restored
+- knee landmark moved upward
+- fuller calf profile
+- larger/longer feet
+- lower-limb lengths redistributed without changing the overall R32 stage
+
+Runtime marker:
+- `KAI_CHE_R32_PROPORTION_UPGRADE_V5_95_GATE_READY`
+
+Acceptance remains unchanged: physical-device APK evidence and direct comparison against the R31 sheet must reach the user's minimum 95% threshold. Otherwise R32 remains open.
