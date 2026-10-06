@@ -67,7 +67,8 @@ jobs:
           if not exist Logs mkdir Logs
           del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
-          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"\n          if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
 
           set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-unity-build.cmd"
           >"%UNITY_RUNNER%" echo @echo off
@@ -115,7 +116,12 @@ jobs:
           copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK_DIR%\KaiChe-dev.apk"
           if errorlevel 1 exit /b 41
           if not exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" exit /b 42
+          >"%LOCAL_APK_DIR%\KaiChe-dev.sha" echo %GITHUB_SHA%
+          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" exit /b 43
+          set /p LOCAL_APK_SHA=<"%LOCAL_APK_DIR%\KaiChe-dev.sha"
+          if /I not "%LOCAL_APK_SHA%"=="%GITHUB_SHA%" exit /b 44
           for %%A in ("%LOCAL_APK_DIR%\KaiChe-dev.apk") do echo [PASS] Local APK persisted: %%~fA (%%~zA bytes)
+          echo [PASS] Local APK source SHA persisted: %GITHUB_SHA%
 
       - name: Upload Android APK
         if: success()
