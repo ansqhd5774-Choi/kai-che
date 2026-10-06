@@ -111,6 +111,9 @@ namespace KaiChe.EditorTools
             PlayerSettings.productName = ProductName;
             PlayerSettings.bundleVersion = VersionName;
             PlayerSettings.Android.bundleVersionCode = VersionCode;
+            PlayerSettings.Android.applicationEntry =
+                AndroidApplicationEntry.Activity;
+            Debug.Log("KAI_CHE_R22_ANDROID_ACTIVITY_ENTRY_ACTIVE");
             PlayerSettings.stripEngineCode = false;
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, PackageId);
         }
