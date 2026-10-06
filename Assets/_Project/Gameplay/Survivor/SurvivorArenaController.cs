@@ -105,6 +105,9 @@ namespace KaiChe.Gameplay.Survivor
         private int _bossVitalityRewardRank;
         private int _bossTempoRewardRank;
         private bool _bossRewardStateNeedsMigration;
+        private bool _skillMasteryStateNeedsMigration;
+        private bool _skillMasterySaveDirty;
+        private float _skillMasterySaveTimer;
         private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
@@ -220,6 +223,8 @@ namespace KaiChe.Gameplay.Survivor
             "KaiChe.PrototypeProgression.";
         private const int SkillProgressionSaveVersion = 1;
         private const int BossRewardSaveVersion = 1;
+        private const int SkillMasterySaveVersion = 1;
+        private const float SkillMasterySaveInterval = 1f;
 
         private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
@@ -615,11 +620,32 @@ namespace KaiChe.Gameplay.Survivor
             }
             Debug.Log("KAI_CHE_R24_PENDING_SKILL_CHOICE_PERSISTENCE_ACTIVE");
 
-            if (_bossRewardStateNeedsMigration)
+            bool migrateSkillMastery = _skillMasteryStateNeedsMigration;
+            bool migrateBossRewards = _bossRewardStateNeedsMigration;
+            if (migrateSkillMastery || migrateBossRewards)
             {
                 SavePrototypeProgression();
+                _skillMasteryStateNeedsMigration = false;
                 _bossRewardStateNeedsMigration = false;
-                Debug.Log("KAI_CHE_R25_BOSS_REWARD_STATE_MIGRATED");
+
+                if (migrateSkillMastery)
+                    Debug.Log("KAI_CHE_R26_SKILL_MASTERY_STATE_MIGRATED");
+                if (migrateBossRewards)
+                    Debug.Log("KAI_CHE_R25_BOSS_REWARD_STATE_MIGRATED");
+            }
+
+            Debug.Log("KAI_CHE_R26_SKILL_MASTERY_PERSISTENCE_ACTIVE");
+            if (DoesPersistedSkillMasteryStateMatchRuntime())
+            {
+                Debug.Log(
+                    "KAI_CHE_R26_SKILL_MASTERY_RESTORE_PASS_"
+                    + BuildSkillMasteryStateSummary());
+            }
+            else
+            {
+                Debug.LogError(
+                    "KAI_CHE_R26_SKILL_MASTERY_RESTORE_MISMATCH_"
+                    + BuildSkillMasteryStateSummary());
             }
 
             Debug.Log("KAI_CHE_R25_BOSS_REWARD_PERSISTENCE_ACTIVE");
@@ -705,6 +731,7 @@ namespace KaiChe.Gameplay.Survivor
                 return;
 
             float deltaTime = Time.deltaTime;
+            UpdateSkillMasteryPersistence(Time.unscaledDeltaTime);
             _playerHitFlashTimer = Mathf.Max(
                 0f,
                 _playerHitFlashTimer - deltaTime);
@@ -729,8 +756,21 @@ namespace KaiChe.Gameplay.Survivor
 
         private void OnDisable()
         {
+            FlushSkillMasteryPersistence();
+
             if (Time.timeScale != 1f)
                 Time.timeScale = 1f;
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused)
+                FlushSkillMasteryPersistence();
+        }
+
+        private void OnApplicationQuit()
+        {
+            FlushSkillMasteryPersistence();
         }
 
         private void OnDestroy()
@@ -2425,7 +2465,7 @@ namespace KaiChe.Gameplay.Survivor
 
                 if (hit)
                 {
-                    _skillMastery.RecordUse(skill.Id);
+                    RecordSkillMasteryUse(skill.Id);
 
                     if (projectile.IsIceBall)
                     {
@@ -4030,7 +4070,54 @@ namespace KaiChe.Gameplay.Survivor
                     attributes);
             }
 
+            LoadSkillMasteryProgression();
             LoadBossRewardProgression();
+        }
+
+        private void LoadSkillMasteryProgression()
+        {
+            int saveVersion = PlayerPrefs.GetInt(
+                ProgressionSavePrefix + "SkillMasteryState.Version",
+                0);
+
+            _skillMasteryStateNeedsMigration =
+                saveVersion < SkillMasterySaveVersion;
+
+            if (_skillMasteryStateNeedsMigration)
+            {
+                _skillMastery.RebuildUnlocksFromMastery();
+                Debug.Log("KAI_CHE_R26_SKILL_MASTERY_STATE_DEFAULT");
+                return;
+            }
+
+            for (int i = 0; i < SkillProgressionCatalog.All.Length; i++)
+            {
+                SkillProgressionDefinition definition =
+                    SkillProgressionCatalog.All[i];
+
+                int mastery = Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix
+                            + "SkillMastery."
+                            + definition.Id,
+                        0));
+
+                _skillMastery.RestoreMastery(
+                    definition.Id,
+                    mastery);
+            }
+
+            _skillMastery.RebuildUnlocksFromMastery();
+            _skillMastery.RestoreLastUnlockedSkillId(
+                PlayerPrefs.GetString(
+                    ProgressionSavePrefix
+                        + "SkillMastery.LastUnlockedSkillId",
+                    string.Empty));
+
+            Debug.Log(
+                "KAI_CHE_R26_SKILL_MASTERY_STATE_LOADED_"
+                + BuildSkillMasteryStateSummary());
         }
 
         private void LoadBossRewardProgression()
@@ -4142,7 +4229,141 @@ namespace KaiChe.Gameplay.Survivor
                 ProgressionSavePrefix + "BossReward.TempoRank",
                 Mathf.Max(0, _bossTempoRewardRank));
 
+            SaveSkillMasterySnapshotToPlayerPrefs();
             PlayerPrefs.Save();
+            _skillMasterySaveDirty = false;
+            _skillMasterySaveTimer = 0f;
+        }
+
+        private void SaveSkillMasterySnapshotToPlayerPrefs()
+        {
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "SkillMasteryState.Version",
+                SkillMasterySaveVersion);
+
+            for (int i = 0; i < SkillProgressionCatalog.All.Length; i++)
+            {
+                SkillProgressionDefinition definition =
+                    SkillProgressionCatalog.All[i];
+                PlayerPrefs.SetInt(
+                    ProgressionSavePrefix
+                        + "SkillMastery."
+                        + definition.Id,
+                    Mathf.Max(
+                        0,
+                        _skillMastery.GetMastery(definition.Id)));
+            }
+
+            PlayerPrefs.SetString(
+                ProgressionSavePrefix
+                    + "SkillMastery.LastUnlockedSkillId",
+                _skillMastery.LastUnlockedSkillId ?? string.Empty);
+        }
+
+        private void RecordSkillMasteryUse(string skillId)
+        {
+            int previousMastery = _skillMastery.GetMastery(skillId);
+            int previousUnlockedCount = _skillMastery.UnlockedSkillCount;
+
+            _skillMastery.RecordUse(skillId);
+
+            int currentMastery = _skillMastery.GetMastery(skillId);
+            if (currentMastery == previousMastery)
+                return;
+
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "SkillMasteryState.Version",
+                SkillMasterySaveVersion);
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "SkillMastery." + skillId,
+                currentMastery);
+            PlayerPrefs.SetString(
+                ProgressionSavePrefix
+                    + "SkillMastery.LastUnlockedSkillId",
+                _skillMastery.LastUnlockedSkillId ?? string.Empty);
+
+            if (!_skillMasterySaveDirty)
+                _skillMasterySaveTimer = SkillMasterySaveInterval;
+            _skillMasterySaveDirty = true;
+
+            if (_skillMastery.UnlockedSkillCount > previousUnlockedCount)
+            {
+                FlushSkillMasteryPersistence();
+                Debug.Log(
+                    "KAI_CHE_R26_SKILL_MASTERY_UNLOCKED_"
+                    + (_skillMastery.LastUnlockedSkillId
+                        ?? "UNKNOWN"));
+            }
+        }
+
+        private void UpdateSkillMasteryPersistence(float unscaledDeltaTime)
+        {
+            if (!_skillMasterySaveDirty)
+                return;
+
+            _skillMasterySaveTimer -= Mathf.Max(0f, unscaledDeltaTime);
+            if (_skillMasterySaveTimer <= 0f)
+                FlushSkillMasteryPersistence();
+        }
+
+        private void FlushSkillMasteryPersistence()
+        {
+            if (!_skillMasterySaveDirty)
+                return;
+
+            SaveSkillMasterySnapshotToPlayerPrefs();
+            PlayerPrefs.Save();
+            _skillMasterySaveDirty = false;
+            _skillMasterySaveTimer = 0f;
+        }
+
+        private bool DoesPersistedSkillMasteryStateMatchRuntime()
+        {
+            if (PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "SkillMasteryState.Version",
+                    0) < SkillMasterySaveVersion)
+                return false;
+
+            for (int i = 0; i < SkillProgressionCatalog.All.Length; i++)
+            {
+                SkillProgressionDefinition definition =
+                    SkillProgressionCatalog.All[i];
+                int persistedMastery = Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix
+                            + "SkillMastery."
+                            + definition.Id,
+                        0));
+
+                if (persistedMastery
+                    != _skillMastery.GetMastery(definition.Id))
+                    return false;
+            }
+
+            string persistedLastUnlocked = PlayerPrefs.GetString(
+                ProgressionSavePrefix
+                    + "SkillMastery.LastUnlockedSkillId",
+                string.Empty);
+            string runtimeLastUnlocked =
+                _skillMastery.LastUnlockedSkillId ?? string.Empty;
+
+            return persistedLastUnlocked == runtimeLastUnlocked;
+        }
+
+        private string BuildSkillMasteryStateSummary()
+        {
+            return "FIRE_"
+                + _skillMastery.GetMastery(
+                    SkillProgressionCatalog.Fireball)
+                + "_ICE_"
+                + _skillMastery.GetMastery(
+                    SkillProgressionCatalog.IceBall)
+                + "_UNLOCKED_"
+                + _skillMastery.UnlockedSkillCount
+                + "_LAST_"
+                + (_skillMastery.LastUnlockedSkillId
+                    ?? "NONE");
         }
 
         private bool DoesPersistedBossRewardStateMatchRuntime()

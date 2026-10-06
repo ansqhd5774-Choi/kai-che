@@ -10,7 +10,7 @@ namespace KaiChe.Presentation
 {
     public sealed class UguiSurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R25";
+        private const string BuildLabel = "R26";
         private static readonly Color PanelColor = new Color(0.045f, 0.040f, 0.034f, 0.94f);
         private static readonly Color GoldColor = new Color(0.94f, 0.72f, 0.22f, 1f);
         private static readonly Color ParchmentColor = new Color(0.93f, 0.88f, 0.75f, 1f);
@@ -341,6 +341,8 @@ namespace KaiChe.Presentation
                 + _arena.MaxActiveBaseSkillCount
                 + "   "
                 + _arena.ActiveBaseSkillProgressSummary
+                + "   숙련 F" + _arena.ActiveSkillMastery
+                + "/I" + _arena.IceSkillMastery
                 + (_arena.IsThermalShockUnlocked ? "   열충격" : string.Empty)
                 + (_arena.IsArcaneChainUnlocked ? "   비전연쇄" : string.Empty);
 
