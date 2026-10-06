@@ -1,0 +1,99 @@
+name: Bumper Seed R19 Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/r18-bumper-seed-upgrade
+    paths:
+      - "Assets/_Project/Prototypes/BumperSeed/**"
+      - "Assets/_Project/Editor/BumperSeedPrototypeBuild.cs"
+      - "docs/BUMPER_SEED_R18_FINAL_CONCEPT.md"
+      - ".github/workflows/bumper-seed-r19-build.yml"
+
+concurrency:
+  group: bumper-seed-r19-selfhosted
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Bumper Seed R19 APK
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 60
+    env:
+      UNITY_EXE: C:\\Program Files\\Unity\\Hub\\Editor\\6000.6.4f1\\Editor\\Unity.exe
+      LOCAL_APK_DIR: C:\\actions-runner-kaise\\local-builds
+
+    steps:
+      - name: Ensure Git is on PATH
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\\Program Files\\Git\\cmd\\git.exe" exit /b 22
+          echo C:\\Program Files\\Git\\cmd>>"%GITHUB_PATH%"
+          echo C:\\Program Files\\Git\\bin>>"%GITHUB_PATH%"
+          "C:\\Program Files\\Git\\cmd\\git.exe" --version
+
+      - name: Checkout prototype branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          clean: false
+
+      - name: Verify Unity host
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\\ProjectVersion.txt >nul
+          if errorlevel 1 exit /b 30
+          echo [PASS] Unity 6000.6.4f1 verified.
+
+      - name: Build Bumper Seed R19 APK
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          if not exist Logs mkdir Logs
+          if exist "Builds\\Android\\BumperSeed-R19.apk" del /q "Builds\\Android\\BumperSeed-R19.apk"
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.BumperSeedPrototypeBuild.BuildR19AndroidApk -logFile "%GITHUB_WORKSPACE%\\Logs\\bumper-seed-r19-build.log"
+          set "RC=%ERRORLEVEL%"
+          if exist "Logs\\bumper-seed-r19-build.log" type "Logs\\bumper-seed-r19-build.log"
+          if not "%RC%"=="0" exit /b %RC%
+          if not exist "Builds\\Android\\BumperSeed-R19.apk" exit /b 40
+          echo [PASS] Bumper Seed R19 APK created.
+
+      - name: Persist APK on runner
+        if: success()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%LOCAL_APK_DIR%" mkdir "%LOCAL_APK_DIR%"
+          copy /Y "Builds\\Android\\BumperSeed-R19.apk" "%LOCAL_APK_DIR%\\BumperSeed-R19.apk"
+          if errorlevel 1 exit /b 41
+          >"%LOCAL_APK_DIR%\\BumperSeed-R19.sha" echo %GITHUB_SHA%
+          echo [PASS] Bumper Seed R19 APK persisted.
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BumperSeed-R19-${{ github.sha }}
+          path: Builds/Android/BumperSeed-R19.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BumperSeed-R19-Log-${{ github.sha }}
+          path: Logs/bumper-seed-r19-build.log
+          if-no-files-found: warn
+          retention-days: 14
