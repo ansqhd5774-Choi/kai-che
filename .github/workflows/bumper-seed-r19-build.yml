@@ -5,9 +5,6 @@ on:
   pull_request:
     branches:
       - develop
-  push:
-    branches:
-      - feature/r18-bumper-seed-upgrade
     paths:
       - "Assets/_Project/Prototypes/BumperSeed/**"
       - "Assets/_Project/Editor/BumperSeedPrototypeBuild.cs"
