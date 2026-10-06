@@ -70,6 +70,10 @@ namespace KaiChe.Gameplay.Survivor
         private int _spawnSequence;
         private readonly Dictionary<string, float> _skillShotTimers =
             new Dictionary<string, float>();
+        private readonly Dictionary<int, Material> _runtimeMaterialCache =
+            new Dictionary<int, Material>();
+        private readonly HashSet<string> _loggedBaseSkillShots =
+            new HashSet<string>();
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private float _playerHitFlashTimer;
@@ -79,6 +83,7 @@ namespace KaiChe.Gameplay.Survivor
         private float _survivalTime;
         private int _lastWaveLog = 1;
         private int _lastBossWaveSpawned;
+        private int _lastActiveLoadoutWave;
         private int _pendingSkillChoices;
         private int _fireUpgradeRank;
         private int _iceUpgradeRank;
@@ -182,6 +187,12 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossRewardHealthPerRank = 28f;
         private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
+        private const int MaxActiveProjectiles = 56;
+        private const int RotatingSkillsPerWave = 2;
+        private static readonly int[] RotatingBaseSkillIndices =
+        {
+            1, 2, 4, 5, 6, 7, 8, 9
+        };
         private const float PerspectiveCameraHeight = 12.5f;
         private const float PerspectiveCameraBackDistance = 13.5f;
         private const float PerspectiveCameraSideOffset = -3.2f;
@@ -217,6 +228,20 @@ namespace KaiChe.Gameplay.Survivor
         public string IceSkillName => RuntimeContentCatalog.IceBall.DisplayName;
         public int IceSkillMastery =>
             _skillMastery.GetMastery(RuntimeContentCatalog.IceBall.Id);
+        public int ActiveBaseSkillCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+                {
+                    if (IsBaseSkillActive(i))
+                        count += 1;
+                }
+                return count;
+            }
+        }
+        public string ActiveBaseSkillSummary => BuildActiveBaseSkillSummary();
         public bool IsPlayerHitFlashActive => _playerHitFlashTimer > 0f;
         public float SurvivalTime => _survivalTime;
         public int Wave => 1 + Mathf.FloorToInt(_survivalTime / WaveDuration);
@@ -469,16 +494,19 @@ namespace KaiChe.Gameplay.Survivor
             _player = CreateWarriorView();
 
             _spawnTimer = 0.2f;
+            _skillShotTimers.Clear();
             for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
             {
                 SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
                 _skillShotTimers[skill.Id] = 0.08f + i * 0.09f;
             }
 
+            _lastActiveLoadoutWave = 0;
             Debug.Log(
                 "KAI_CHE_R21_BASE_SKILLS_READY_"
                 + RuntimeContentCatalog.BaseSkills.Length);
-            Debug.Log("KAI_CHE_R21_TEN_BASE_SKILLS_ACTIVE");
+            Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
+            LogActiveBaseSkillLoadout();
             _initialized = true;
         }
 
@@ -555,6 +583,17 @@ namespace KaiChe.Gameplay.Survivor
         {
             if (Time.timeScale != 1f)
                 Time.timeScale = 1f;
+        }
+
+        private void OnDestroy()
+        {
+            foreach (KeyValuePair<int, Material> pair in _runtimeMaterialCache)
+            {
+                if (pair.Value != null)
+                    Destroy(pair.Value);
+            }
+
+            _runtimeMaterialCache.Clear();
         }
 
         private void UpdateCinematicTime()
@@ -646,7 +685,57 @@ namespace KaiChe.Gameplay.Survivor
             {
                 _lastWaveLog = currentWave;
                 Debug.Log("KAI_CHE_WAVE_START_" + currentWave);
+                LogActiveBaseSkillLoadout();
             }
+        }
+
+        private bool IsBaseSkillActive(int skillIndex)
+        {
+            if (skillIndex == 0 || skillIndex == 3)
+                return true;
+
+            int pairStart =
+                ((Mathf.Max(1, Wave) - 1) * RotatingSkillsPerWave)
+                % RotatingBaseSkillIndices.Length;
+
+            for (int i = 0; i < RotatingSkillsPerWave; i++)
+            {
+                int rotatingIndex =
+                    RotatingBaseSkillIndices[
+                        (pairStart + i) % RotatingBaseSkillIndices.Length];
+                if (skillIndex == rotatingIndex)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private string BuildActiveBaseSkillSummary()
+        {
+            var names = new List<string>();
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                if (IsBaseSkillActive(i))
+                    names.Add(RuntimeContentCatalog.BaseSkills[i].DisplayName);
+            }
+
+            return string.Join(" · ", names.ToArray());
+        }
+
+        private void LogActiveBaseSkillLoadout()
+        {
+            if (_lastActiveLoadoutWave == Wave)
+                return;
+
+            _lastActiveLoadoutWave = Wave;
+            Debug.Log(
+                "KAI_CHE_R21_LOADOUT_WAVE_"
+                + Wave
+                + "_COUNT_"
+                + ActiveBaseSkillCount);
+            Debug.Log(
+                "KAI_CHE_R21_LOADOUT_NAMES_"
+                + BuildActiveBaseSkillSummary());
         }
 
         private void UpdateWorldMovement(float deltaTime)
@@ -1357,6 +1446,12 @@ namespace KaiChe.Gameplay.Survivor
         {
             for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
             {
+                if (!IsBaseSkillActive(i))
+                    continue;
+
+                if (_projectiles.Count >= MaxActiveProjectiles)
+                    break;
+
                 SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
                 float timer = _skillShotTimers.TryGetValue(
                     skill.Id,
@@ -1418,6 +1513,9 @@ namespace KaiChe.Gameplay.Survivor
                 _iceballFirstShotLogged = true;
                 Debug.Log("KAI_CHE_ICEBALL_FIRST_SHOT");
             }
+
+            if (_loggedBaseSkillShots.Add(skill.Id))
+                Debug.Log("KAI_CHE_R21_SKILL_FIRST_SHOT_" + skill.Id);
 
             _attackAnimationTime = AttackAnimationDuration;
             if (_playerVisualAnimator != null)
@@ -3362,17 +3460,32 @@ namespace KaiChe.Gameplay.Survivor
             if (collider != null)
                 Destroy(collider);            Renderer renderer = view.GetComponent<Renderer>();
             if (renderer != null && _materialTemplate != null)
-            {
-                var material = new Material(_materialTemplate);
-                if (material.HasProperty("_BaseColor"))
-                    material.SetColor("_BaseColor", color);
-                else
-                    material.color = color;
-
-                renderer.sharedMaterial = material;
-            }
+                renderer.sharedMaterial = GetSharedRuntimeMaterial(color);
 
             return view;
+        }
+
+        private Material GetSharedRuntimeMaterial(Color color)
+        {
+            Color32 packed = color;
+            int key =
+                packed.r
+                | (packed.g << 8)
+                | (packed.b << 16)
+                | (packed.a << 24);
+
+            if (_runtimeMaterialCache.TryGetValue(key, out Material cached)
+                && cached != null)
+                return cached;
+
+            var material = new Material(_materialTemplate);
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", color);
+            else
+                material.color = color;
+
+            _runtimeMaterialCache[key] = material;
+            return material;
         }
 
         private void LoadPrototypeProgression()

@@ -330,7 +330,8 @@ namespace KaiChe.Presentation
                 + (_arena.EliteCount > 0 ? "   엘리트 " + _arena.EliteCount : string.Empty);
 
             _skillText.text =
-                "F" + _arena.FireUpgradeRank
+                "기본기 " + _arena.ActiveBaseSkillCount + "/10"
+                + "   F" + _arena.FireUpgradeRank
                 + " / I" + _arena.IceUpgradeRank
                 + " / A" + _arena.ArcaneUpgradeRank
                 + (_arena.IsThermalShockUnlocked ? "   열충격" : string.Empty)
