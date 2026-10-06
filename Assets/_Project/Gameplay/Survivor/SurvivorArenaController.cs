@@ -104,6 +104,7 @@ namespace KaiChe.Gameplay.Survivor
         private int _bossAttackRewardRank;
         private int _bossVitalityRewardRank;
         private int _bossTempoRewardRank;
+        private bool _bossRewardStateNeedsMigration;
         private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
@@ -218,6 +219,7 @@ namespace KaiChe.Gameplay.Survivor
         private const string ProgressionSavePrefix =
             "KaiChe.PrototypeProgression.";
         private const int SkillProgressionSaveVersion = 1;
+        private const int BossRewardSaveVersion = 1;
 
         private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
@@ -424,6 +426,10 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _pendingBossRewards -= 1;
+            SavePrototypeProgression();
+            Debug.Log(
+                "KAI_CHE_R25_BOSS_REWARD_STATE_SAVED_"
+                + BuildBossRewardStateSummary());
             CreateLevelUpPowerEffect(PlayerPosition);
             TriggerImpactFeedback(0.11f, false);
             return true;
@@ -608,6 +614,28 @@ namespace KaiChe.Gameplay.Survivor
                     + _pendingSkillChoices);
             }
             Debug.Log("KAI_CHE_R24_PENDING_SKILL_CHOICE_PERSISTENCE_ACTIVE");
+
+            if (_bossRewardStateNeedsMigration)
+            {
+                SavePrototypeProgression();
+                _bossRewardStateNeedsMigration = false;
+                Debug.Log("KAI_CHE_R25_BOSS_REWARD_STATE_MIGRATED");
+            }
+
+            Debug.Log("KAI_CHE_R25_BOSS_REWARD_PERSISTENCE_ACTIVE");
+            if (DoesPersistedBossRewardStateMatchRuntime())
+            {
+                Debug.Log(
+                    "KAI_CHE_R25_BOSS_REWARD_STATE_RESTORE_PASS_"
+                    + BuildBossRewardStateSummary());
+            }
+            else
+            {
+                Debug.LogError(
+                    "KAI_CHE_R25_BOSS_REWARD_STATE_RESTORE_MISMATCH_"
+                    + BuildBossRewardStateSummary());
+            }
+
             _comboCount = 0;
             _comboTimer = 0f;
             _frenzyTimer = 0f;
@@ -3347,14 +3375,20 @@ namespace KaiChe.Gameplay.Survivor
                 }
             }
 
-            SavePrototypeProgression();
-
             if (isBoss)
             {
                 _pendingBossRewards += 1;
                 _moveInput = Vector2.zero;
                 TriggerBossDefeat(defeatedPosition);
                 Debug.Log("KAI_CHE_BOSS_REWARD_READY");
+            }
+
+            SavePrototypeProgression();
+            if (isBoss)
+            {
+                Debug.Log(
+                    "KAI_CHE_R25_BOSS_REWARD_PENDING_SAVED_"
+                    + BuildBossRewardStateSummary());
             }
 
             Destroy(enemy.View);
@@ -3972,29 +4006,76 @@ namespace KaiChe.Gameplay.Survivor
         private void LoadPrototypeProgression()
         {
             string levelKey = ProgressionSavePrefix + "Level";
-            if (!PlayerPrefs.HasKey(levelKey))
-                return;
-
-            int[] attributes = new int[8];
-            foreach (CharacterAttribute attribute in
-                     System.Enum.GetValues(typeof(CharacterAttribute)))
+            if (PlayerPrefs.HasKey(levelKey))
             {
-                attributes[(int)attribute] = PlayerPrefs.GetInt(
-                    ProgressionSavePrefix + "Attribute." + attribute,
-                    0);
+                int[] attributes = new int[8];
+                foreach (CharacterAttribute attribute in
+                         System.Enum.GetValues(typeof(CharacterAttribute)))
+                {
+                    attributes[(int)attribute] = PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "Attribute." + attribute,
+                        0);
+                }
+
+                long experience = ParseSavedLong("Experience");
+                long levelExperience = ParseSavedLong("LevelExperience");
+
+                _progression.RestorePrototypeState(
+                    PlayerPrefs.GetInt(levelKey, 1),
+                    experience,
+                    levelExperience,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "UnspentAttributePoints",
+                        0),
+                    attributes);
             }
 
-            long experience = ParseSavedLong("Experience");
-            long levelExperience = ParseSavedLong("LevelExperience");
+            LoadBossRewardProgression();
+        }
 
-            _progression.RestorePrototypeState(
-                PlayerPrefs.GetInt(levelKey, 1),
-                experience,
-                levelExperience,
+        private void LoadBossRewardProgression()
+        {
+            int saveVersion = PlayerPrefs.GetInt(
+                ProgressionSavePrefix + "BossRewardState.Version",
+                0);
+
+            _bossRewardStateNeedsMigration =
+                saveVersion < BossRewardSaveVersion;
+
+            if (_bossRewardStateNeedsMigration)
+            {
+                _pendingBossRewards = 0;
+                _bossAttackRewardRank = 0;
+                _bossVitalityRewardRank = 0;
+                _bossTempoRewardRank = 0;
+                Debug.Log("KAI_CHE_R25_BOSS_REWARD_STATE_DEFAULT");
+                return;
+            }
+
+            _pendingBossRewards = Mathf.Max(
+                0,
                 PlayerPrefs.GetInt(
-                    ProgressionSavePrefix + "UnspentAttributePoints",
-                    0),
-                attributes);
+                    ProgressionSavePrefix + "PendingBossRewards",
+                    0));
+            _bossAttackRewardRank = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "BossReward.AttackRank",
+                    0));
+            _bossVitalityRewardRank = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "BossReward.VitalityRank",
+                    0));
+            _bossTempoRewardRank = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "BossReward.TempoRank",
+                    0));
+
+            Debug.Log(
+                "KAI_CHE_R25_BOSS_REWARD_STATE_LOADED_"
+                + BuildBossRewardStateSummary());
         }
 
         private void SavePrototypeProgression()
@@ -4045,7 +4126,62 @@ namespace KaiChe.Gameplay.Survivor
                     GetBaseSkillUpgradeRank(skill.Id));
             }
 
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "BossRewardState.Version",
+                BossRewardSaveVersion);
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "PendingBossRewards",
+                Mathf.Max(0, _pendingBossRewards));
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "BossReward.AttackRank",
+                Mathf.Max(0, _bossAttackRewardRank));
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "BossReward.VitalityRank",
+                Mathf.Max(0, _bossVitalityRewardRank));
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "BossReward.TempoRank",
+                Mathf.Max(0, _bossTempoRewardRank));
+
             PlayerPrefs.Save();
+        }
+
+        private bool DoesPersistedBossRewardStateMatchRuntime()
+        {
+            return PlayerPrefs.GetInt(
+                       ProgressionSavePrefix + "BossRewardState.Version",
+                       0) >= BossRewardSaveVersion
+                && Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "PendingBossRewards",
+                        0)) == _pendingBossRewards
+                && Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "BossReward.AttackRank",
+                        0)) == _bossAttackRewardRank
+                && Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "BossReward.VitalityRank",
+                        0)) == _bossVitalityRewardRank
+                && Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix + "BossReward.TempoRank",
+                        0)) == _bossTempoRewardRank;
+        }
+
+        private string BuildBossRewardStateSummary()
+        {
+            return "PENDING_"
+                + _pendingBossRewards
+                + "_ATTACK_"
+                + _bossAttackRewardRank
+                + "_VITALITY_"
+                + _bossVitalityRewardRank
+                + "_TEMPO_"
+                + _bossTempoRewardRank;
         }
 
         private static long ParseSavedLong(string suffix)
