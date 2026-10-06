@@ -197,6 +197,8 @@ namespace KaiChe.Gameplay.Survivor
         private const float FrenzyDuration = 5.0f;
         private const float FrenzyDamageMultiplier = 1.18f;
         private const float FrenzyCooldownMultiplier = 0.82f;
+        private const float FrenzyMoveSpeedMultiplier = 1.12f;
+        private const float FrenzyHealFraction = 0.08f;
         private const int RotatingSkillsPerWave = 2;
         private static readonly int[] RotatingBaseSkillIndices =
         {
@@ -522,6 +524,7 @@ namespace KaiChe.Gameplay.Survivor
                 + RuntimeContentCatalog.BaseSkills.Length);
             Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
             Debug.Log("KAI_CHE_R21_COMBAT_MOMENTUM_ACTIVE");
+            Debug.Log("KAI_CHE_R21_FRENZY_REWARD_ACTIVE");
             LogActiveBaseSkillLoadout();
             _initialized = true;
         }
@@ -789,8 +792,11 @@ namespace KaiChe.Gameplay.Survivor
 
             _frenzyTimer = FrenzyDuration;
             _comboTimer = FrenzyDuration;
+            float healAmount = MaxPlayerHealth * FrenzyHealFraction;
+            PlayerHealth = Mathf.Min(MaxPlayerHealth, PlayerHealth + healAmount);
             TriggerImpactFeedback(0.14f, false);
             Debug.Log("KAI_CHE_R21_FRENZY_START_" + _comboCount);
+            Debug.Log("KAI_CHE_R21_FRENZY_HEAL_" + Mathf.RoundToInt(healAmount));
 
             if (!_frenzyFirstLogged)
             {
@@ -805,7 +811,8 @@ namespace KaiChe.Gameplay.Survivor
                 4.5f
                 * (1f
                     + GetAttributeValue(CharacterAttribute.Agility)
-                    * AgilityMoveSpeedPerPoint);
+                    * AgilityMoveSpeedPerPoint)
+                * (IsFrenzyActive ? FrenzyMoveSpeedMultiplier : 1f);
             _playerWorldPosition += _moveInput * speed * deltaTime;
 
             if (_player != null)
