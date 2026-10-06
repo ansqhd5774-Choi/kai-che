@@ -16,7 +16,10 @@ namespace KaiChe.Gameplay.Survivor
             float baseScale,
             out Transform weaponRoot)
         {
+            // Preserve the legacy R30 markers until the device smoke workflow
+            // is migrated to the R32 acceptance markers.
             Debug.Log("KAI_CHE_R30_NOVICE_BASE_BODY_ACTIVE");
+            Debug.Log("KAI_CHE_R32_HUMAN_BLOCKOUT_ACTIVE");
 
             var root = new GameObject("Player");
             root.transform.SetParent(parent, false);
@@ -26,429 +29,28 @@ namespace KaiChe.Gameplay.Survivor
             var modelObject = new GameObject("PlayerModelRoot");
             modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
-            modelRoot.localPosition = new Vector3(0f, 1.26f, 0f);
-
-            Color skin = new Color(0.78f, 0.58f, 0.45f);
-            Color skinShade = new Color(0.69f, 0.49f, 0.38f);
-            Color underwear = new Color(0.16f, 0.19f, 0.23f);
-            Color underwearTrim = new Color(0.32f, 0.37f, 0.43f);
-            Color hair = new Color(0.075f, 0.045f, 0.032f);
-            Color eyeWhite = new Color(0.94f, 0.90f, 0.82f);
-            Color eye = new Color(0.055f, 0.038f, 0.028f);
-            Color lip = new Color(0.50f, 0.18f, 0.18f);
+            modelRoot.localPosition = new Vector3(0f, 1.31f, 0f);
 
             CreatePart(
                 PrimitiveType.Cylinder,
                 root.transform,
                 "PlayerShadow3D",
                 new Color(0.02f, 0.018f, 0.015f, 0.68f),
-                new Vector3(0f, -0.73f, 0.18f),
-                new Vector3(0.72f, 0.025f, 0.38f),
+                new Vector3(0f, -0.64f, 0.16f),
+                new Vector3(0.58f, 0.020f, 0.32f),
                 Quaternion.identity,
                 materialTemplate);
 
-            // Lower body: neutral adult human proportions.
-            CreatePart(
-                PrimitiveType.Capsule,
+            RuntimeHumanBlockoutBuilder.Build(
                 modelRoot,
-                "PlayerThighLeft3D",
-                skin,
-                new Vector3(-0.24f, -0.82f, -0.04f),
-                new Vector3(0.26f, 0.62f, 0.28f),
-                Quaternion.Euler(0f, 0f, -2f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerThighRight3D",
-                skin,
-                new Vector3(0.24f, -0.82f, -0.04f),
-                new Vector3(0.26f, 0.62f, 0.28f),
-                Quaternion.Euler(0f, 0f, 2f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerKneeLeft3D",
-                skinShade,
-                new Vector3(-0.24f, -1.24f, -0.07f),
-                new Vector3(0.24f, 0.24f, 0.25f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerKneeRight3D",
-                skinShade,
-                new Vector3(0.24f, -1.24f, -0.07f),
-                new Vector3(0.24f, 0.24f, 0.25f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerShinLeft3D",
-                skin,
-                new Vector3(-0.24f, -1.53f, -0.11f),
-                new Vector3(0.21f, 0.50f, 0.22f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerShinRight3D",
-                skin,
-                new Vector3(0.24f, -1.53f, -0.11f),
-                new Vector3(0.21f, 0.50f, 0.22f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerFootLeft3D",
-                skinShade,
-                new Vector3(-0.24f, -1.86f, -0.27f),
-                new Vector3(0.24f, 0.17f, 0.43f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerFootRight3D",
-                skinShade,
-                new Vector3(0.24f, -1.86f, -0.27f),
-                new Vector3(0.24f, 0.17f, 0.43f),
-                Quaternion.identity,
-                materialTemplate);
-
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerPelvis3D",
-                skin,
-                new Vector3(0f, -0.34f, 0.02f),
-                new Vector3(0.68f, 0.48f, 0.42f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerBrief3D",
-                underwear,
-                new Vector3(0f, -0.39f, -0.035f),
-                new Vector3(0.71f, 0.36f, 0.44f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBriefWaist3D",
-                underwearTrim,
-                new Vector3(0f, -0.23f, -0.25f),
-                new Vector3(0.71f, 0.10f, 0.11f),
-                Quaternion.identity,
-                materialTemplate);
-
-            // Torso with a simple opaque sports-bra style base garment.
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerAbdomen3D",
-                skin,
-                new Vector3(0f, 0.13f, 0f),
-                new Vector3(0.58f, 0.48f, 0.37f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerChest3D",
-                skin,
-                new Vector3(0f, 0.54f, 0f),
-                new Vector3(0.78f, 0.56f, 0.42f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerBraCupLeft3D",
-                underwear,
-                new Vector3(-0.19f, 0.56f, -0.34f),
-                new Vector3(0.31f, 0.25f, 0.15f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerBraCupRight3D",
-                underwear,
-                new Vector3(0.19f, 0.56f, -0.34f),
-                new Vector3(0.31f, 0.25f, 0.15f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBraBandFront3D",
-                underwear,
-                new Vector3(0f, 0.45f, -0.31f),
-                new Vector3(0.72f, 0.20f, 0.10f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBraBandBack3D",
-                underwear,
-                new Vector3(0f, 0.45f, 0.31f),
-                new Vector3(0.72f, 0.18f, 0.08f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBraStrapLeft3D",
-                underwearTrim,
-                new Vector3(-0.27f, 0.78f, -0.17f),
-                new Vector3(0.08f, 0.38f, 0.08f),
-                Quaternion.Euler(0f, 0f, -7f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBraStrapRight3D",
-                underwearTrim,
-                new Vector3(0.27f, 0.78f, -0.17f),
-                new Vector3(0.08f, 0.38f, 0.08f),
-                Quaternion.Euler(0f, 0f, 7f),
-                materialTemplate);
-
-            // Arms in a relaxed, slightly open A-pose silhouette.
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerShoulderLeft3D",
-                skin,
-                new Vector3(-0.52f, 0.65f, 0f),
-                new Vector3(0.24f, 0.25f, 0.24f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerShoulderRight3D",
-                skin,
-                new Vector3(0.52f, 0.65f, 0f),
-                new Vector3(0.24f, 0.25f, 0.24f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerUpperArmLeft3D",
-                skin,
-                new Vector3(-0.67f, 0.29f, 0f),
-                new Vector3(0.19f, 0.43f, 0.20f),
-                Quaternion.Euler(0f, 0f, -12f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerUpperArmRight3D",
-                skin,
-                new Vector3(0.67f, 0.29f, 0f),
-                new Vector3(0.19f, 0.43f, 0.20f),
-                Quaternion.Euler(0f, 0f, 12f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerForearmLeft3D",
-                skin,
-                new Vector3(-0.81f, -0.13f, 0f),
-                new Vector3(0.16f, 0.36f, 0.17f),
-                Quaternion.Euler(0f, 0f, -8f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerForearmRight3D",
-                skin,
-                new Vector3(0.81f, -0.13f, 0f),
-                new Vector3(0.16f, 0.36f, 0.17f),
-                Quaternion.Euler(0f, 0f, 8f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerHandLeft3D",
-                skinShade,
-                new Vector3(-0.89f, -0.47f, -0.01f),
-                new Vector3(0.18f, 0.22f, 0.15f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerHandRight3D",
-                skinShade,
-                new Vector3(0.89f, -0.47f, -0.01f),
-                new Vector3(0.18f, 0.22f, 0.15f),
-                Quaternion.identity,
-                materialTemplate);
-
-            // Head and simple neutral facial landmarks.
-            CreatePart(
-                PrimitiveType.Cylinder,
-                modelRoot,
-                "PlayerNeck3D",
-                skinShade,
-                new Vector3(0f, 0.99f, 0f),
-                new Vector3(0.18f, 0.16f, 0.18f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerHead3D",
-                skin,
-                new Vector3(0f, 1.33f, -0.02f),
-                new Vector3(0.48f, 0.59f, 0.46f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEarLeft3D",
-                skinShade,
-                new Vector3(-0.27f, 1.34f, 0f),
-                new Vector3(0.08f, 0.12f, 0.07f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEarRight3D",
-                skinShade,
-                new Vector3(0.27f, 1.34f, 0f),
-                new Vector3(0.08f, 0.12f, 0.07f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEyeWhiteLeft3D",
-                eyeWhite,
-                new Vector3(-0.105f, 1.39f, -0.447f),
-                new Vector3(0.090f, 0.058f, 0.030f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEyeWhiteRight3D",
-                eyeWhite,
-                new Vector3(0.105f, 1.39f, -0.447f),
-                new Vector3(0.090f, 0.058f, 0.030f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEyeLeft3D",
-                eye,
-                new Vector3(-0.105f, 1.39f, -0.474f),
-                new Vector3(0.038f, 0.042f, 0.020f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerEyeRight3D",
-                eye,
-                new Vector3(0.105f, 1.39f, -0.474f),
-                new Vector3(0.038f, 0.042f, 0.020f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBrowLeft3D",
-                hair,
-                new Vector3(-0.11f, 1.48f, -0.452f),
-                new Vector3(0.15f, 0.025f, 0.025f),
-                Quaternion.Euler(0f, 0f, 5f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerBrowRight3D",
-                hair,
-                new Vector3(0.11f, 1.48f, -0.452f),
-                new Vector3(0.15f, 0.025f, 0.025f),
-                Quaternion.Euler(0f, 0f, -5f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerNose3D",
-                skinShade,
-                new Vector3(0f, 1.29f, -0.500f),
-                new Vector3(0.075f, 0.105f, 0.060f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Cube,
-                modelRoot,
-                "PlayerMouth3D",
-                lip,
-                new Vector3(0f, 1.17f, -0.490f),
-                new Vector3(0.19f, 0.035f, 0.022f),
-                Quaternion.identity,
-                materialTemplate);
-
-            // Simple short hair so the base still reads as a finished human character.
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerHairCap3D",
-                hair,
-                new Vector3(0f, 1.55f, 0.045f),
-                new Vector3(0.50f, 0.34f, 0.47f),
-                Quaternion.identity,
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerHairSideLeft3D",
-                hair,
-                new Vector3(-0.27f, 1.20f, 0.10f),
-                new Vector3(0.11f, 0.32f, 0.14f),
-                Quaternion.Euler(0f, 0f, -4f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Capsule,
-                modelRoot,
-                "PlayerHairSideRight3D",
-                hair,
-                new Vector3(0.27f, 1.20f, 0.10f),
-                new Vector3(0.11f, 0.32f, 0.14f),
-                Quaternion.Euler(0f, 0f, 4f),
-                materialTemplate);
-            CreatePart(
-                PrimitiveType.Sphere,
-                modelRoot,
-                "PlayerHairBack3D",
-                hair,
-                new Vector3(0f, 1.25f, 0.29f),
-                new Vector3(0.43f, 0.50f, 0.18f),
-                Quaternion.identity,
                 materialTemplate);
 
             RuntimeNoviceBodyAnimator bodyAnimator =
                 root.AddComponent<RuntimeNoviceBodyAnimator>();
             bodyAnimator.Configure(modelRoot);
+
             Debug.Log("KAI_CHE_R30_FACE_DETAIL_READY");
+            Debug.Log("KAI_CHE_R32_BLOCKOUT_PROPORTIONS_READY");
 
             weaponRoot = null;
 
@@ -469,6 +71,7 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             Debug.Log("KAI_CHE_R30_NOVICE_BASE_BODY_READY");
+            Debug.Log("KAI_CHE_R32_HUMAN_BLOCKOUT_READY");
             return root;
         }
 
