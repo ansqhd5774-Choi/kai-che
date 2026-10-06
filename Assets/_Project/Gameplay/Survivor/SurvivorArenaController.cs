@@ -217,6 +217,7 @@ namespace KaiChe.Gameplay.Survivor
         private const float TownEntranceRadius = 0.72f;
         private const string ProgressionSavePrefix =
             "KaiChe.PrototypeProgression.";
+        private const int SkillProgressionSaveVersion = 1;
 
         private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
@@ -257,6 +258,9 @@ namespace KaiChe.Gameplay.Survivor
             }
         }
         public string ActiveBaseSkillSummary => BuildActiveBaseSkillSummary();
+        public string ActiveBaseSkillProgressSummary =>
+            BuildActiveBaseSkillProgressSummary();
+        public int MaxActiveBaseSkillCount => MaxActiveBaseSkills;
         public int ComboCount => _comboCount;
         public bool IsFrenzyActive => _frenzyTimer > 0f;
         public float FrenzyTimeRemaining => _frenzyTimer;
@@ -546,6 +550,11 @@ namespace KaiChe.Gameplay.Survivor
             else
                 ClearSkillChoiceCandidates();
 
+            SavePrototypeProgression();
+            Debug.Log(
+                "KAI_CHE_R24_SKILL_STATE_SAVED_"
+                + BuildActiveBaseSkillProgressSummary());
+
             return true;
         }
 
@@ -590,6 +599,10 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_ACTIVE");
             Debug.Log("KAI_CHE_R23_INDEPENDENT_SKILL_GROWTH_ACTIVE");
             Debug.Log("KAI_CHE_R23_MAX_ACTIVE_SKILLS_" + MaxActiveBaseSkills);
+            Debug.Log("KAI_CHE_R24_SKILL_PERSISTENCE_ACTIVE");
+            Debug.Log(
+                "KAI_CHE_R24_SKILL_STATE_CURRENT_"
+                + BuildActiveBaseSkillProgressSummary());
             LogActiveBaseSkillLoadout();
             _initialized = true;
         }
@@ -818,11 +831,64 @@ namespace KaiChe.Gameplay.Survivor
 
             _activeBaseSkillIds.Add(ContentIds.StarterSkill);
             _activeBaseSkillIds.Add(ContentIds.IceBall);
-            _fireUpgradeRank = 0;
-            _iceUpgradeRank = 0;
+
+            int saveVersion = PlayerPrefs.GetInt(
+                ProgressionSavePrefix + "SkillState.Version",
+                0);
+
+            if (saveVersion >= SkillProgressionSaveVersion)
+            {
+                for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+                {
+                    SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                    int rank = Mathf.Max(
+                        0,
+                        PlayerPrefs.GetInt(
+                            ProgressionSavePrefix
+                                + "Skill.Rank."
+                                + skill.Id,
+                            0));
+                    _baseSkillUpgradeRanks[skill.Id] = rank;
+
+                    if (_activeBaseSkillIds.Count >= MaxActiveBaseSkills)
+                        continue;
+
+                    if (PlayerPrefs.GetInt(
+                            ProgressionSavePrefix
+                                + "Skill.Owned."
+                                + skill.Id,
+                            0) > 0)
+                    {
+                        _activeBaseSkillIds.Add(skill.Id);
+                    }
+                }
+
+                Debug.Log(
+                    "KAI_CHE_R24_SKILL_STATE_LOADED_"
+                    + BuildActiveBaseSkillProgressSummary());
+            }
+            else
+            {
+                Debug.Log("KAI_CHE_R24_SKILL_STATE_DEFAULT_FIRE_ICE");
+            }
+
+            _fireUpgradeRank =
+                GetBaseSkillUpgradeRank(ContentIds.StarterSkill);
+            _iceUpgradeRank =
+                GetBaseSkillUpgradeRank(ContentIds.IceBall);
             _arcaneUpgradeRank = 0;
 
-            Debug.Log("KAI_CHE_R23_STARTER_LOADOUT_FIRE_ICE");
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                if (skill.Id == ContentIds.StarterSkill
+                    || skill.Id == ContentIds.IceBall)
+                    continue;
+
+                _arcaneUpgradeRank += GetBaseSkillUpgradeRank(skill.Id);
+            }
+
+            Debug.Log("KAI_CHE_R24_SKILL_PERSISTENCE_READY");
         }
 
         private string BuildActiveBaseSkillSummary()
@@ -832,6 +898,24 @@ namespace KaiChe.Gameplay.Survivor
             {
                 if (IsBaseSkillActive(i))
                     names.Add(RuntimeContentCatalog.BaseSkills[i].DisplayName);
+            }
+
+            return string.Join(" · ", names.ToArray());
+        }
+
+        private string BuildActiveBaseSkillProgressSummary()
+        {
+            var names = new List<string>();
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                if (!IsBaseSkillOwned(skill.Id))
+                    continue;
+
+                names.Add(
+                    skill.DisplayName
+                    + " Lv."
+                    + (GetBaseSkillUpgradeRank(skill.Id) + 1));
             }
 
             return string.Join(" · ", names.ToArray());
@@ -3866,6 +3950,25 @@ namespace KaiChe.Gameplay.Survivor
                 PlayerPrefs.SetInt(
                     ProgressionSavePrefix + "Attribute." + attribute,
                     _progression.GetAttribute(attribute));
+            }
+
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "SkillState.Version",
+                SkillProgressionSaveVersion);
+
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                PlayerPrefs.SetInt(
+                    ProgressionSavePrefix
+                        + "Skill.Owned."
+                        + skill.Id,
+                    IsBaseSkillOwned(skill.Id) ? 1 : 0);
+                PlayerPrefs.SetInt(
+                    ProgressionSavePrefix
+                        + "Skill.Rank."
+                        + skill.Id,
+                    GetBaseSkillUpgradeRank(skill.Id));
             }
 
             PlayerPrefs.Save();
