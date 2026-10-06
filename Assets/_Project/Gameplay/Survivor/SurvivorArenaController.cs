@@ -898,7 +898,44 @@ namespace KaiChe.Gameplay.Survivor
                 Debug.Log("KAI_CHE_R24_SKILL_STATE_MIGRATED");
             }
 
+            if (DoesPersistedSkillStateMatchRuntime())
+                Debug.Log("KAI_CHE_R24_SKILL_STATE_RESTORE_PASS");
+            else
+                Debug.LogError("KAI_CHE_R24_SKILL_STATE_RESTORE_MISMATCH");
+
             Debug.Log("KAI_CHE_R24_SKILL_PERSISTENCE_READY");
+        }
+
+        private bool DoesPersistedSkillStateMatchRuntime()
+        {
+            if (PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "SkillState.Version",
+                    0) < SkillProgressionSaveVersion)
+                return false;
+
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                bool savedOwned = PlayerPrefs.GetInt(
+                    ProgressionSavePrefix
+                        + "Skill.Owned."
+                        + skill.Id,
+                    0) > 0;
+                int savedRank = Mathf.Max(
+                    0,
+                    PlayerPrefs.GetInt(
+                        ProgressionSavePrefix
+                            + "Skill.Rank."
+                            + skill.Id,
+                        0));
+
+                if (savedOwned != IsBaseSkillOwned(skill.Id))
+                    return false;
+                if (savedRank != GetBaseSkillUpgradeRank(skill.Id))
+                    return false;
+            }
+
+            return true;
         }
 
         private string BuildActiveBaseSkillSummary()
