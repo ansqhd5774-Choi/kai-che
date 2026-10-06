@@ -1,3 +1,4 @@
+using KaiChe.Gameplay;
 using KaiChe.Gameplay.Survivor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -11,7 +12,8 @@ namespace KaiChe.Gameplay.Adventure
         private static readonly Vector2 WorkshopPosition = new Vector2(-3.2f, -2.2f);
         private static readonly Vector2 HallPosition = new Vector2(3.2f, -2.2f);
         private static readonly Vector2 FieldGatePosition = new Vector2(0f, 6.3f);
-        private const float PerspectiveCameraDistance = 17f;
+        private const float PerspectiveCameraHeight = 11.5f;
+        private const float PerspectiveCameraBackDistance = 12f;
         private const float PerspectiveCameraSideOffset = -2.4f;
         private const float PerspectiveCameraFieldOfView = 58f;
 
@@ -44,7 +46,9 @@ namespace KaiChe.Gameplay.Adventure
                 FieldGatePosition);
             _player = CreatePlayerView();
             _player.transform.position =
-                new Vector3(_playerPosition.x, _playerPosition.y, 0f);
+                RuntimeWorldSpace.ToWorld(
+                    _playerPosition,
+                    RuntimeWorldSpace.PlayerRootHeight);
         }
 
         private static void ConfigureCamera()
@@ -57,14 +61,17 @@ namespace KaiChe.Gameplay.Adventure
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 100f;
 
-            Vector3 target = Vector3.zero;
+            Vector3 target = RuntimeWorldSpace.ToWorld(
+                Vector2.zero,
+                RuntimeWorldSpace.CameraTargetHeight);
             camera.transform.position = new Vector3(
                 PerspectiveCameraSideOffset,
-                0f,
-                -PerspectiveCameraDistance);
+                PerspectiveCameraHeight,
+                -PerspectiveCameraBackDistance);
             camera.transform.LookAt(target, Vector3.up);
             camera.backgroundColor = new Color(0.055f, 0.070f, 0.050f);
             Debug.Log("KAI_CHE_R19_TOWN_PERSPECTIVE_CAMERA_ACTIVE");
+            Debug.Log("KAI_CHE_R20_TOWN_XZ_WORLD_ACTIVE");
         }
 
         private void Update()
@@ -130,7 +137,9 @@ namespace KaiChe.Gameplay.Adventure
 
             if (_player != null)
                 _player.transform.position =
-                    new Vector3(_playerPosition.x, _playerPosition.y, 0f);
+                    RuntimeWorldSpace.ToWorld(
+                        _playerPosition,
+                        RuntimeWorldSpace.PlayerRootHeight);
         }
         private void UpdateFieldGate()
         {
@@ -173,7 +182,9 @@ namespace KaiChe.Gameplay.Adventure
             if (camera == null) return;
 
             Vector3 screen = camera.WorldToScreenPoint(
-                new Vector3(world.x, world.y, 0f));
+                RuntimeWorldSpace.ToWorld(
+                    world,
+                    RuntimeWorldSpace.LabelHeight));
             var rect = new Rect(
                 screen.x - 90f,
                 Screen.height - screen.y - 24f,

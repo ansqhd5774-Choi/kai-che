@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using KaiChe.Gameplay;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -29,8 +30,8 @@ namespace KaiChe.Gameplay.Adventure
                 root.transform,
                 "TownGround3D",
                 new Color(0.15f, 0.17f, 0.11f),
-                new Vector3(0f, 0f, 3.05f),
-                new Vector3(14.5f, 17.5f, 0.70f),
+                new Vector3(0f, -0.35f, 0f),
+                new Vector3(14.5f, 0.70f, 17.5f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -39,8 +40,8 @@ namespace KaiChe.Gameplay.Adventure
                 root.transform,
                 "TownPlaza3D",
                 new Color(0.31f, 0.28f, 0.20f),
-                new Vector3(0f, 0f, 2.62f),
-                new Vector3(6.8f, 5.5f, 0.34f),
+                new Vector3(0f, 0.17f, 0f),
+                new Vector3(6.8f, 0.34f, 5.5f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -49,8 +50,8 @@ namespace KaiChe.Gameplay.Adventure
                 root.transform,
                 "FieldRoad3D",
                 new Color(0.30f, 0.25f, 0.17f),
-                new Vector3(0f, 4.45f, 2.48f),
-                new Vector3(2.2f, 4.5f, 0.28f),
+                new Vector3(0f, 0.31f, 4.45f),
+                new Vector3(2.2f, 0.18f, 4.5f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -103,6 +104,7 @@ namespace KaiChe.Gameplay.Adventure
             CreateTownProps(root.transform, materialTemplate);
 
             Debug.Log("KAI_CHE_R18_3D_TOWN_ACTIVE");
+            Debug.Log("KAI_CHE_R20_TOWN_GROUND_PLANE_ACTIVE");
         }
 
         private static void CreateBuilding(
@@ -116,7 +118,7 @@ namespace KaiChe.Gameplay.Adventure
             var building = new GameObject(name);
             building.transform.SetParent(parent, false);
             building.transform.localPosition =
-                new Vector3(position.x, position.y, 2.05f);
+                RuntimeWorldSpace.ToWorld(position, 0.81f);
 
             CreatePart(
                 PrimitiveType.Cube,
@@ -179,7 +181,7 @@ namespace KaiChe.Gameplay.Adventure
             var npc = new GameObject(name);
             npc.transform.SetParent(parent, false);
             npc.transform.localPosition =
-                new Vector3(position.x, position.y, 1.45f);
+                RuntimeWorldSpace.ToWorld(position, 0.54f);
 
             CreatePart(
                 PrimitiveType.Capsule,
@@ -223,7 +225,7 @@ namespace KaiChe.Gameplay.Adventure
             var gate = new GameObject("FieldGate3D");
             gate.transform.SetParent(parent, false);
             gate.transform.localPosition =
-                new Vector3(position.x, position.y, 1.95f);
+                RuntimeWorldSpace.ToWorld(position, 1.03f);
 
             Color wood = new Color(0.40f, 0.29f, 0.14f);
             Color trim = new Color(0.62f, 0.46f, 0.20f);
@@ -275,7 +277,7 @@ namespace KaiChe.Gameplay.Adventure
                 var lamp = new GameObject("TownLamp3D_" + i);
                 lamp.transform.SetParent(parent, false);
                 lamp.transform.localPosition =
-                    new Vector3(position.x, position.y, 1.86f);
+                    RuntimeWorldSpace.ToWorld(position, 0.92f);
 
                 CreatePart(
                     PrimitiveType.Cylinder,
@@ -310,7 +312,9 @@ namespace KaiChe.Gameplay.Adventure
                         + i);
                     tree.transform.SetParent(parent, false);
                     tree.transform.localPosition =
-                        new Vector3(x, y, 2.00f);
+                        RuntimeWorldSpace.ToWorld(
+                            new Vector2(x, y),
+                            0.95f);
 
                     CreatePart(
                         PrimitiveType.Cylinder,

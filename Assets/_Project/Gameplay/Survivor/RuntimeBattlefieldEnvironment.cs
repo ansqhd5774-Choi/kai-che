@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using KaiChe.Gameplay;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -25,8 +26,8 @@ namespace KaiChe.Gameplay.Survivor
                 root.transform,
                 "GroundMass",
                 new Color(0.075f, 0.070f, 0.052f),
-                new Vector3(0f, 0f, 3.05f),
-                new Vector3(72f, 72f, 0.70f),
+                new Vector3(0f, -0.35f, 0f),
+                new Vector3(72f, 0.70f, 72f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -35,8 +36,8 @@ namespace KaiChe.Gameplay.Survivor
                 root.transform,
                 "MainRoad",
                 new Color(0.155f, 0.132f, 0.084f),
-                new Vector3(0f, 0f, 2.60f),
-                new Vector3(5.15f, 72f, 0.38f),
+                new Vector3(0f, 0.19f, 0f),
+                new Vector3(5.15f, 0.38f, 72f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -52,6 +53,7 @@ namespace KaiChe.Gameplay.Survivor
             CreateForestLine(root.transform, materialTemplate, 1);
 
             Debug.Log("KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE");
+            Debug.Log("KAI_CHE_R20_BATTLEFIELD_GROUND_PLANE_ACTIVE");
         }
 
         private static void CreateRoadEdge(
@@ -64,8 +66,8 @@ namespace KaiChe.Gameplay.Survivor
                 parent,
                 x < 0f ? "RoadEdgeLeft3D" : "RoadEdgeRight3D",
                 new Color(0.31f, 0.24f, 0.12f),
-                new Vector3(x, 0f, 2.34f),
-                new Vector3(0.22f, 72f, 0.48f),
+                new Vector3(x, 0.24f, 0f),
+                new Vector3(0.22f, 0.48f, 72f),
                 Quaternion.identity,
                 materialTemplate);
         }
@@ -87,9 +89,9 @@ namespace KaiChe.Gameplay.Survivor
                     i % 2 == 0
                         ? new Color(0.205f, 0.170f, 0.105f)
                         : new Color(0.135f, 0.116f, 0.080f),
-                    new Vector3(0f, y, 2.31f),
+                    new Vector3(0f, 0.42f, y),
                     new Vector3(width, 0.075f, depth),
-                    Quaternion.Euler(0f, 0f, (i % 5 - 2) * 0.45f),
+                    Quaternion.Euler(0f, (i % 5 - 2) * 0.45f, 0f),
                     materialTemplate);
             }
         }
@@ -102,7 +104,7 @@ namespace KaiChe.Gameplay.Survivor
             var gate = new GameObject("TownGate3D");
             gate.transform.SetParent(parent, false);
             gate.transform.localPosition =
-                new Vector3(entrance.x, entrance.y, 2.10f);
+                RuntimeWorldSpace.ToWorld(entrance, 1.18f);
 
             Color stone = new Color(0.33f, 0.27f, 0.17f);
             Color trim = new Color(0.56f, 0.43f, 0.20f);
@@ -166,9 +168,9 @@ namespace KaiChe.Gameplay.Survivor
                         0.17f + (i % 2) * 0.012f,
                         0.14f,
                         1f),
-                    new Vector3(x, y, 2.12f),
+                    new Vector3(x, height * 0.5f, y),
                     new Vector3(width, height, 0.85f),
-                    Quaternion.Euler(0f, 0f, side * (4f + (i % 4) * 2.5f)),
+                    Quaternion.Euler(0f, side * (4f + (i % 4) * 2.5f), 0f),
                     materialTemplate);
             }
 
@@ -185,7 +187,7 @@ namespace KaiChe.Gameplay.Survivor
                     parent,
                     "FieldRock3D_" + i,
                     new Color(0.22f, 0.20f, 0.16f),
-                    new Vector3(x, y, 2.00f),
+                    new Vector3(x, size * 0.41f, y),
                     new Vector3(
                         size * 1.45f,
                         size * 0.82f,
@@ -212,7 +214,10 @@ namespace KaiChe.Gameplay.Survivor
                 var tree = new GameObject(
                     (side < 0 ? "TreeLeft3D_" : "TreeRight3D_") + i);
                 tree.transform.SetParent(parent, false);
-                tree.transform.localPosition = new Vector3(x, y, 1.92f);
+                tree.transform.localPosition =
+                    RuntimeWorldSpace.ToWorld(
+                        new Vector2(x, y),
+                        1.12f);
                 tree.transform.localScale = Vector3.one * scale;
 
                 CreatePart(
