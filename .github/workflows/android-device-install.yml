@@ -486,7 +486,7 @@ jobs:
           )
 
           :r29_game_ready
-          for %%P in ("2250 1000" "1780 1000" "1000 2250" "1000 1780") do (
+          for %%P in ("1220 3060" "3060 1220" "1320 3060" "3060 1320" "2250 1000" "1780 1000" "1000 2250" "1000 1780") do (
             for /F "tokens=1,2" %%X in ("%%~P") do "%ADB_EXE%" shell input tap %%X %%Y
             ping -n 2 127.0.0.1 >nul
             "%ADB_EXE%" logcat -d -t 7000 > Logs\r29-potion-use-logcat.txt 2>&1
