@@ -324,7 +324,7 @@ namespace KaiChe.Gameplay.Adventure
             GameObject runtime3D = RuntimeCombatVisualFactory.CreateNoviceHuman(
                 transform,
                 _materialTemplate,
-                0.66f,
+                0.72f,
                 out _);
             if (runtime3D != null)
             {
@@ -334,7 +334,7 @@ namespace KaiChe.Gameplay.Adventure
 
             var root = new GameObject("TownPlayer");
             root.transform.SetParent(transform, false);
-            root.transform.localScale = Vector3.one * 0.66f;
+            root.transform.localScale = Vector3.one * 0.72f;
 
             GameObject body = CreateQuad("PlayerBody", new Color(0.22f, 0.24f, 0.25f), Vector3.zero, 0.9f);
             body.transform.SetParent(root.transform, false);
