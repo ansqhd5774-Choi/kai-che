@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using KaiChe.Core.Content;
 using KaiChe.Core.Progression;
+using KaiChe.Gameplay;
 using KaiChe.Gameplay.Adventure;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -180,8 +181,9 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossRewardHealthPerRank = 28f;
         private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
-        private const float PerspectiveCameraDistance = 19f;
-        private const float PerspectiveCameraSideOffset = -2.8f;
+        private const float PerspectiveCameraHeight = 12.5f;
+        private const float PerspectiveCameraBackDistance = 13.5f;
+        private const float PerspectiveCameraSideOffset = -3.2f;
         private const float PerspectiveCameraFieldOfView = 60f;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
@@ -588,7 +590,7 @@ namespace KaiChe.Gameplay.Survivor
             Time.timeScale = Mathf.Min(Time.timeScale, scale);
             CreateDamageNumber(
                 enemy != null && enemy.View != null
-                    ? (Vector2)enemy.View.transform.position
+                    ? RuntimeWorldSpace.ToLogical(enemy.View.transform.position)
                     : PlayerPosition,
                 damage,
                 isElite || isBoss);
@@ -606,6 +608,7 @@ namespace KaiChe.Gameplay.Survivor
             PositionPerspectiveCamera(camera, Vector2.zero);
             camera.backgroundColor = new Color(0.018f, 0.022f, 0.018f);
             Debug.Log("KAI_CHE_R19_PERSPECTIVE_CAMERA_ACTIVE");
+            Debug.Log("KAI_CHE_R20_XZ_WORLD_ACTIVE");
         }
 
         private static void PositionPerspectiveCamera(
@@ -615,11 +618,13 @@ namespace KaiChe.Gameplay.Survivor
             if (camera == null)
                 return;
 
-            Vector3 target = new Vector3(focus.x, focus.y, 0f);
+            Vector3 target = RuntimeWorldSpace.ToWorld(
+                focus,
+                RuntimeWorldSpace.CameraTargetHeight);
             camera.transform.position = new Vector3(
                 focus.x + PerspectiveCameraSideOffset,
-                focus.y,
-                -PerspectiveCameraDistance);
+                PerspectiveCameraHeight,
+                focus.y - PerspectiveCameraBackDistance);
             camera.transform.LookAt(target, Vector3.up);
         }
 
@@ -646,10 +651,10 @@ namespace KaiChe.Gameplay.Survivor
 
             if (_player != null)
             {
-                _player.transform.position = new Vector3(
-                    _playerWorldPosition.x,
-                    _playerWorldPosition.y,
-                    0f);
+                _player.transform.position =
+                    RuntimeWorldSpace.ToWorld(
+                        _playerWorldPosition,
+                        RuntimeWorldSpace.PlayerRootHeight);
             }
 
             Camera camera = Camera.main;
@@ -711,10 +716,10 @@ namespace KaiChe.Gameplay.Survivor
             float sway = moving ? stride * 1.8f : 0f;
             float scalePulse = moving ? Mathf.Abs(stride) * 0.009f : 0f;
 
-            _player.transform.position = new Vector3(
-                _playerWorldPosition.x,
-                _playerWorldPosition.y + bob,
-                0f);
+            _player.transform.position =
+                RuntimeWorldSpace.ToWorld(
+                    _playerWorldPosition,
+                    RuntimeWorldSpace.PlayerRootHeight + bob);
             _player.transform.localScale =
                 Vector3.one * (PlayerBaseScale + scalePulse);
             _player.transform.rotation =
@@ -854,7 +859,9 @@ namespace KaiChe.Gameplay.Survivor
             }
             else
             {
-                Vector3 focus = new Vector3(center.x, center.y, 0f);
+                Vector3 focus = RuntimeWorldSpace.ToWorld(
+                    center,
+                    RuntimeWorldSpace.CameraTargetHeight);
                 float distance = Vector3.Distance(
                     camera.transform.position,
                     focus);
@@ -930,7 +937,9 @@ namespace KaiChe.Gameplay.Survivor
             {
                 View = CreateEnemyView(
                     definition,
-                    new Vector3(spawn.x, spawn.y, 0f)),
+                    RuntimeWorldSpace.ToWorld(
+                        spawn,
+                        RuntimeWorldSpace.EnemyRootHeight)),
                 Definition = definition,
                 Health = maxHealth,
                 MaxHealth = maxHealth,
@@ -1000,7 +1009,7 @@ namespace KaiChe.Gameplay.Survivor
                     SpawnEnemy(RuntimeContentCatalog.RunnerMonster);
                     SpawnEnemy(RuntimeContentCatalog.BruteMonster);
                     CreateBossPhaseTwoEffect(
-                        (Vector2)enemy.View.transform.position);
+                        RuntimeWorldSpace.ToLogical(enemy.View.transform.position));
                     TriggerImpactFeedback(0.24f, true);
                     Debug.Log("KAI_CHE_BOSS_PHASE_TWO");
                 }
@@ -1024,7 +1033,7 @@ namespace KaiChe.Gameplay.Survivor
                     enemy.SlowAura = null;
                 }
 
-                Vector2 position = enemy.View.transform.position;
+                Vector2 position = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 Vector2 offset = playerPosition - position;
                 float distance = offset.magnitude;
 
@@ -1104,7 +1113,9 @@ namespace KaiChe.Gameplay.Survivor
                         * bossChargeMultiplier;
                     position += offset / distance * moveSpeed * deltaTime;
                     enemy.View.transform.position =
-                        new Vector3(position.x, position.y, 0f);
+                        RuntimeWorldSpace.ToWorld(
+                                position,
+                                RuntimeWorldSpace.EnemyRootHeight);
                 }
 
                 enemy.AnimationPhase += deltaTime * 5.2f;
@@ -1209,7 +1220,9 @@ namespace KaiChe.Gameplay.Survivor
                         Vector2 recoilDirection = -offset / distance;
                         position += recoilDirection * BruteSlamKnockback;
                         enemy.View.transform.position =
-                            new Vector3(position.x, position.y, 0f);
+                            RuntimeWorldSpace.ToWorld(
+                                position,
+                                RuntimeWorldSpace.EnemyRootHeight);
                     }
                 }
                 else if (!isBrute
@@ -1230,7 +1243,9 @@ namespace KaiChe.Gameplay.Survivor
                         Vector2 recoilDirection = -offset / distance;
                         position += recoilDirection * EnemyContactKnockback;
                         enemy.View.transform.position =
-                            new Vector3(position.x, position.y, 0f);
+                            RuntimeWorldSpace.ToWorld(
+                                position,
+                                RuntimeWorldSpace.EnemyRootHeight);
                     }
                 }
             }
@@ -1352,7 +1367,7 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             Vector2 origin = PlayerPosition;
-            Vector2 targetPosition = target.View.transform.position;
+            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(target.View.transform.position);
             Vector2 direction = (targetPosition - origin).normalized;
 
             GameObject projectileView =
@@ -1395,7 +1410,7 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             Vector2 origin = PlayerPosition;
-            Vector2 targetPosition = target.View.transform.position;
+            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(target.View.transform.position);
             Vector2 direction = (targetPosition - origin).normalized;
 
             GameObject projectileView =
@@ -1504,7 +1519,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("Fireball_" + skillId);
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(origin.x, origin.y, -0.14f);
+                RuntimeWorldSpace.ToWorld(
+                    origin,
+                    RuntimeWorldSpace.ProjectileHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -1568,7 +1585,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("IceBall_" + skillId);
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(origin.x, origin.y, -0.15f);
+                RuntimeWorldSpace.ToWorld(
+                    origin,
+                    RuntimeWorldSpace.ProjectileHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -1633,7 +1652,7 @@ namespace KaiChe.Gameplay.Survivor
                 EnemyState enemy = _enemies[i];
                 if (enemy.View == null) continue;
 
-                Vector2 enemyPosition = enemy.View.transform.position;
+                Vector2 enemyPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 float distanceSquared = (enemyPosition - origin).sqrMagnitude;
                 if (distanceSquared >= bestDistanceSquared) continue;
 
@@ -1660,17 +1679,23 @@ namespace KaiChe.Gameplay.Survivor
 
                 if (projectile.Target != null && projectile.Target.View != null)
                 {
-                    Vector2 current = projectile.View.transform.position;
-                    Vector2 target = projectile.Target.View.transform.position;
+                    Vector2 current = RuntimeWorldSpace.ToLogical(
+                        projectile.View.transform.position);
+                    Vector2 target = RuntimeWorldSpace.ToLogical(
+                        projectile.Target.View.transform.position);
                     Vector2 offset = target - current;
                     if (offset.sqrMagnitude > 0.0001f)
                         projectile.Direction = offset.normalized;
                 }
 
-                Vector3 position = projectile.View.transform.position;
-                position += (Vector3)(
-                    projectile.Direction * GetProjectileSpeed(skill) * deltaTime);
-                projectile.View.transform.position = position;
+                Vector2 position = RuntimeWorldSpace.ToLogical(
+                    projectile.View.transform.position);
+                position +=
+                    projectile.Direction * GetProjectileSpeed(skill) * deltaTime;
+                projectile.View.transform.position =
+                    RuntimeWorldSpace.ToWorld(
+                        position,
+                        RuntimeWorldSpace.ProjectileHeight);
                 projectile.View.transform.rotation = Quaternion.Euler(
                     0f,
                     0f,
@@ -1681,8 +1706,9 @@ namespace KaiChe.Gameplay.Survivor
 
                 bool hit = projectile.Target != null
                     && projectile.Target.View != null
-                    && ((Vector2)projectile.Target.View.transform.position
-                        - (Vector2)position).sqrMagnitude < 0.16f;
+                    && (RuntimeWorldSpace.ToLogical(
+                            projectile.Target.View.transform.position)
+                        - position).sqrMagnitude < 0.16f;
 
                 if (hit)
                 {
@@ -1779,7 +1805,7 @@ namespace KaiChe.Gameplay.Survivor
                     || enemy.View == null)
                     continue;
 
-                Vector2 enemyPosition = enemy.View.transform.position;
+                Vector2 enemyPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 float distanceSq = (enemyPosition - center).sqrMagnitude;
                 if (distanceSq >= nearestDistanceSq)
                     continue;
@@ -1791,7 +1817,7 @@ namespace KaiChe.Gameplay.Survivor
             if (nearest == null)
                 return;
 
-            Vector2 targetPosition = nearest.View.transform.position;
+            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(nearest.View.transform.position);
             CreateArcaneChainEffect(center, targetPosition);
 
             if (isIceBall)
@@ -1828,7 +1854,7 @@ namespace KaiChe.Gameplay.Survivor
                     || enemy.View == null)
                     continue;
 
-                Vector2 enemyPosition = enemy.View.transform.position;
+                Vector2 enemyPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 if ((enemyPosition - center).sqrMagnitude > radiusSq)
                     continue;
 
@@ -1865,7 +1891,7 @@ namespace KaiChe.Gameplay.Survivor
                     || enemy.View == null)
                     continue;
 
-                Vector2 enemyPosition = enemy.View.transform.position;
+                Vector2 enemyPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 if ((enemyPosition - center).sqrMagnitude > radiusSq)
                     continue;
 
@@ -1897,7 +1923,7 @@ namespace KaiChe.Gameplay.Survivor
                     || enemy.View == null)
                     continue;
 
-                Vector2 enemyPosition = enemy.View.transform.position;
+                Vector2 enemyPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
                 if ((enemyPosition - center).sqrMagnitude > radiusSq)
                     continue;
 
@@ -1948,10 +1974,10 @@ namespace KaiChe.Gameplay.Survivor
         {
             var root = new GameObject("FireballCastEffect");
             root.transform.SetParent(transform, false);
-            root.transform.position = new Vector3(
-                origin.x + direction.x * 0.42f,
-                origin.y + direction.y * 0.42f,
-                -0.17f);
+            root.transform.position =
+                RuntimeWorldSpace.ToWorld(
+                    origin + direction * 0.42f,
+                    RuntimeWorldSpace.EffectHeight);
 
             GameObject ring = CreateQuad(
                 "FireballCastRing",
@@ -1989,10 +2015,10 @@ namespace KaiChe.Gameplay.Survivor
         {
             var root = new GameObject("IceBallCastEffect");
             root.transform.SetParent(transform, false);
-            root.transform.position = new Vector3(
-                origin.x + direction.x * 0.42f,
-                origin.y + direction.y * 0.42f,
-                -0.17f);
+            root.transform.position =
+                RuntimeWorldSpace.ToWorld(
+                    origin + direction * 0.42f,
+                    RuntimeWorldSpace.EffectHeight);
 
             GameObject ring = CreateQuad(
                 "IceBallCastRing",
@@ -2063,7 +2089,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("RunnerDashEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.16f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -2101,7 +2129,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("DamageNumber");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y + 0.72f, -0.32f);
+                RuntimeWorldSpace.ToWorld(
+                    position,
+                    RuntimeWorldSpace.LabelHeight);
 
             TextMesh text = root.AddComponent<TextMesh>();
             text.text = Mathf.Max(1, Mathf.RoundToInt(damage)).ToString();
@@ -2136,7 +2166,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossLineTelegraph");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.205f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -2171,7 +2203,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossLineBlast");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.225f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -2239,7 +2273,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("ArcaneChainEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(from.x, from.y, -0.225f);
+                RuntimeWorldSpace.ToWorld(
+                from,
+                RuntimeWorldSpace.EffectHeight);
             root.transform.rotation = Quaternion.Euler(
                 0f,
                 0f,
@@ -2278,7 +2314,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("ThermalShockEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.22f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 12; i++)
             {
@@ -2311,7 +2349,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossPhaseTwoEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.23f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 20; i++)
             {
@@ -2347,7 +2387,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossPulseTelegraph");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.20f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 12; i++)
             {
@@ -2394,7 +2436,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossPulseImpact");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.21f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 16; i++)
             {
@@ -2431,7 +2475,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BruteSlamEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.19f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 8; i++)
             {
@@ -2464,7 +2510,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("PlayerHitEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.22f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 4; i++)
             {
@@ -2497,7 +2545,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("IceImpactEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.18f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 6; i++)
             {
@@ -2530,7 +2580,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("ImpactEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.18f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 4; i++)
             {
@@ -2568,7 +2620,7 @@ namespace KaiChe.Gameplay.Survivor
             MonsterDefinition definition =
                 enemy.Definition ?? RuntimeContentCatalog.StarterMonster;
             bool isBoss = definition.Id == ContentIds.BossMonster;
-            Vector2 defeatedPosition = enemy.View.transform.position;
+            Vector2 defeatedPosition = RuntimeWorldSpace.ToLogical(enemy.View.transform.position);
             int experienceReward =
                 definition.ExperienceReward
                 * Mathf.Max(1, enemy.ExperienceMultiplier);
@@ -2622,7 +2674,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("LevelUpPowerEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.23f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 16; i++)
             {
@@ -2672,7 +2726,9 @@ namespace KaiChe.Gameplay.Survivor
             var root = new GameObject("BossDefeatEffect");
             root.transform.SetParent(transform, false);
             root.transform.position =
-                new Vector3(position.x, position.y, -0.24f);
+                RuntimeWorldSpace.ToWorld(
+                position,
+                RuntimeWorldSpace.EffectHeight);
 
             for (int i = 0; i < 28; i++)
             {
@@ -2758,7 +2814,9 @@ namespace KaiChe.Gameplay.Survivor
             GameObject glow = CreateQuad(
                 "TownEntrance",
                 new Color(0.24f, 0.46f, 0.22f, 0.52f),
-                new Vector3(TownEntrancePosition.x, TownEntrancePosition.y, 1.95f),
+                RuntimeWorldSpace.ToWorld(
+                    TownEntrancePosition,
+                    RuntimeWorldSpace.EffectHeight),
                 1f);
             glow.transform.localScale = new Vector3(1.35f, 0.72f, 1f);
 
@@ -2767,7 +2825,9 @@ namespace KaiChe.Gameplay.Survivor
                 GameObject post = CreateQuad(
                     side < 0 ? "TownGateLeft" : "TownGateRight",
                     new Color(0.31f, 0.24f, 0.13f),
-                    new Vector3(side * 0.95f, TownEntrancePosition.y, 1.90f),
+                    RuntimeWorldSpace.ToWorld(
+                        new Vector2(side * 0.95f, TownEntrancePosition.y),
+                        0.90f),
                     1f);
                 post.transform.localScale = new Vector3(0.22f, 1.75f, 1f);
             }
