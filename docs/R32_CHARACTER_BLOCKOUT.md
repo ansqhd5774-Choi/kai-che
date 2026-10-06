@@ -102,3 +102,26 @@ V3 runtime marker:
 - `KAI_CHE_R32_PROPORTION_UPGRADE_V3_95_GATE_READY`
 
 Acceptance remains visual: APK install + physical-phone capture + direct comparison to the R31 reference. If the result is below 95%, R32 remains open and is revised again.
+
+
+## R32 proportion upgrade V4 — landmark rebalance
+
+V3 confirmed that total lower-body length and shoulder width were much closer, but the physical-device capture still showed:
+- knee landmark too low relative to the R31 reference
+- pelvis and upper thighs too narrow
+- calf volume too weak
+- neck too long
+- head slightly too small
+- briefs/lower-garment bottom slightly too low
+
+V4 therefore preserves the V3 total crown-to-sole height while redistributing the lower limb:
+- shorter femur block
+- higher knee landmark
+- longer shin/calf block
+- fuller hip and upper-thigh volume
+- slightly higher lower-garment edge
+- larger feet
+- shorter neck with a slightly larger head/hair envelope
+
+Runtime marker:
+- `KAI_CHE_R32_PROPORTION_UPGRADE_V4_95_GATE_READY`
