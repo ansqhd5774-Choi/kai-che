@@ -326,6 +326,11 @@ namespace KaiChe.Presentation
                 + ":" + Mathf.FloorToInt(_arena.SurvivalTime % 60f).ToString("00")
                 + (_arena.IsPressureWave ? "   공세" : string.Empty)
                 + "   처치 " + _arena.Kills
+                + (_arena.IsFrenzyActive
+                    ? "   폭주 " + _arena.FrenzyTimeRemaining.ToString("0.0") + "s"
+                    : _arena.ComboCount > 1
+                        ? "   콤보 x" + _arena.ComboCount
+                        : string.Empty)
                 + "   적 " + _arena.EnemyCount
                 + (_arena.EliteCount > 0 ? "   엘리트 " + _arena.EliteCount : string.Empty);
 

@@ -221,7 +221,13 @@ namespace KaiChe.Presentation
                 + $"   {Mathf.FloorToInt(_arena.SurvivalTime / 60f):00}"
                 + $":{Mathf.FloorToInt(_arena.SurvivalTime % 60f):00}"
                 + (_arena.IsPressureWave ? "   공세" : string.Empty)
-                + $"   ·   처치 {_arena.Kills}   적 {_arena.EnemyCount}",
+                + $"   ·   처치 {_arena.Kills}"
+                + (_arena.IsFrenzyActive
+                    ? $"   폭주 {_arena.FrenzyTimeRemaining:0.0}s"
+                    : _arena.ComboCount > 1
+                        ? $"   콤보 x{_arena.ComboCount}"
+                        : string.Empty)
+                + $"   적 {_arena.EnemyCount}",
                 _smallStyle);
 
             Rect hpRect = new Rect(

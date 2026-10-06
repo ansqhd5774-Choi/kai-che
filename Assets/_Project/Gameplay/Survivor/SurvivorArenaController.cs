@@ -84,6 +84,10 @@ namespace KaiChe.Gameplay.Survivor
         private int _lastWaveLog = 1;
         private int _lastBossWaveSpawned;
         private int _lastActiveLoadoutWave;
+        private int _comboCount;
+        private float _comboTimer;
+        private float _frenzyTimer;
+        private bool _frenzyFirstLogged;
         private int _pendingSkillChoices;
         private int _fireUpgradeRank;
         private int _iceUpgradeRank;
@@ -188,6 +192,11 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
         private const int MaxActiveProjectiles = 56;
+        private const float ComboWindow = 2.25f;
+        private const int FrenzyComboThreshold = 8;
+        private const float FrenzyDuration = 5.0f;
+        private const float FrenzyDamageMultiplier = 1.18f;
+        private const float FrenzyCooldownMultiplier = 0.82f;
         private const int RotatingSkillsPerWave = 2;
         private static readonly int[] RotatingBaseSkillIndices =
         {
@@ -242,6 +251,9 @@ namespace KaiChe.Gameplay.Survivor
             }
         }
         public string ActiveBaseSkillSummary => BuildActiveBaseSkillSummary();
+        public int ComboCount => _comboCount;
+        public bool IsFrenzyActive => _frenzyTimer > 0f;
+        public float FrenzyTimeRemaining => _frenzyTimer;
         public bool IsPlayerHitFlashActive => _playerHitFlashTimer > 0f;
         public float SurvivalTime => _survivalTime;
         public int Wave => 1 + Mathf.FloorToInt(_survivalTime / WaveDuration);
@@ -502,10 +514,14 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _lastActiveLoadoutWave = 0;
+            _comboCount = 0;
+            _comboTimer = 0f;
+            _frenzyTimer = 0f;
             Debug.Log(
                 "KAI_CHE_R21_BASE_SKILLS_READY_"
                 + RuntimeContentCatalog.BaseSkills.Length);
             Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
+            Debug.Log("KAI_CHE_R21_COMBAT_MOMENTUM_ACTIVE");
             LogActiveBaseSkillLoadout();
             _initialized = true;
         }
@@ -569,6 +585,7 @@ namespace KaiChe.Gameplay.Survivor
                 return;
 
             UpdateSurvivalWave(deltaTime);
+            UpdateCombatMomentum(deltaTime);
             UpdateWorldMovement(deltaTime);
             UpdateTownEntrance();
             UpdateSpawning(deltaTime);
@@ -736,6 +753,50 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log(
                 "KAI_CHE_R21_LOADOUT_NAMES_"
                 + BuildActiveBaseSkillSummary());
+        }
+
+        private void UpdateCombatMomentum(float deltaTime)
+        {
+            if (_comboTimer > 0f)
+                _comboTimer = Mathf.Max(0f, _comboTimer - deltaTime);
+
+            if (_frenzyTimer > 0f)
+            {
+                _frenzyTimer = Mathf.Max(0f, _frenzyTimer - deltaTime);
+                if (_frenzyTimer <= 0f)
+                {
+                    _comboCount = 0;
+                    _comboTimer = 0f;
+                    Debug.Log("KAI_CHE_R21_FRENZY_END");
+                }
+
+                return;
+            }
+
+            if (_comboTimer <= 0f)
+                _comboCount = 0;
+        }
+
+        private void RegisterCombatKill()
+        {
+            _comboCount = _comboTimer > 0f
+                ? _comboCount + 1
+                : 1;
+            _comboTimer = ComboWindow;
+
+            if (_comboCount < FrenzyComboThreshold || IsFrenzyActive)
+                return;
+
+            _frenzyTimer = FrenzyDuration;
+            _comboTimer = FrenzyDuration;
+            TriggerImpactFeedback(0.14f, false);
+            Debug.Log("KAI_CHE_R21_FRENZY_START_" + _comboCount);
+
+            if (!_frenzyFirstLogged)
+            {
+                _frenzyFirstLogged = true;
+                Debug.Log("KAI_CHE_R21_FRENZY_FIRST");
+            }
         }
 
         private void UpdateWorldMovement(float deltaTime)
@@ -1539,9 +1600,12 @@ namespace KaiChe.Gameplay.Survivor
             if (isFireball)
                 reduction += _fireUpgradeRank * FireCooldownPerRank;
 
-            return Mathf.Max(
-                0.18f,
-                skill.Cooldown * Mathf.Max(0.42f, 1f - reduction));
+            float cooldown =
+                skill.Cooldown * Mathf.Max(0.42f, 1f - reduction);
+            if (IsFrenzyActive)
+                cooldown *= FrenzyCooldownMultiplier;
+
+            return Mathf.Max(0.18f, cooldown);
         }
 
         private float GetSkillRange(SkillDefinition skill)
@@ -1600,12 +1664,18 @@ namespace KaiChe.Gameplay.Survivor
             float bossRewardMultiplier =
                 1f + _bossAttackRewardRank * BossRewardDamagePerRank;
 
-            return skill.Damage
+            float damage =
+                skill.Damage
                 * buildMultiplier
                 * levelMultiplier
                 * intelligenceMultiplier
                 * elementMultiplier
                 * bossRewardMultiplier;
+
+            if (IsFrenzyActive)
+                damage *= FrenzyDamageMultiplier;
+
+            return damage;
         }
 
         private GameObject CreateBaseSkillProjectile(
@@ -2841,6 +2911,7 @@ namespace KaiChe.Gameplay.Survivor
                     experienceReward);
             SavePrototypeProgression();
             Kills += 1;
+            RegisterCombatKill();
 
             if (levelsGained > 0)
             {
