@@ -2,11 +2,13 @@ name: Install KaiChe APK to Android Device
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows:
+      - "Unity Android Build"
+    types:
+      - completed
     branches:
       - develop
-    paths:
-      - ".github/workflows/android-device-install.yml"
 
 concurrency:
   group: kaise-android-device-install
@@ -18,11 +20,14 @@ permissions:
 jobs:
   install-device:
     name: Install and launch KaiChe on paired Android device
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 20
     env:
       ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
       APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
+      APK_SHA_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.sha
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
       PACKAGE_ID: com.kaiche.rpg
       PREFS_FILE: shared_prefs/com.kaiche.rpg.v2.playerprefs.xml
       ADB_MDNS: 1
@@ -33,6 +38,7 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
           if not exist "%ADB_EXE%" (
             echo [ERROR] adb.exe not found: %ADB_EXE%
             exit /b 20
@@ -40,6 +46,18 @@ jobs:
           if not exist "%APK_PATH%" (
             echo [ERROR] APK not found: %APK_PATH%
             exit /b 21
+          )
+          if "%GITHUB_EVENT_NAME%"=="workflow_run" (
+            if not exist "%APK_SHA_PATH%" (
+              echo [ERROR] APK source SHA file not found: %APK_SHA_PATH%
+              exit /b 22
+            )
+            set /p APK_SHA=<"%APK_SHA_PATH%"
+            if /I not "!APK_SHA!"=="%EXPECTED_SHA%" (
+              echo [ERROR] APK source SHA mismatch. expected=%EXPECTED_SHA% actual=!APK_SHA!
+              exit /b 23
+            )
+            echo [PASS] APK source SHA verified: !APK_SHA!
           )
           for %%A in ("%APK_PATH%") do echo [PASS] APK: %%~fA (%%~zA bytes)
 
