@@ -345,7 +345,7 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerKneeRight3D",
                 skinShade,
                 new Vector3(0.205f, -1.660f, -0.012f),
-                new Vector3(0.095f, 0.102f, 0.094f),
+                new Vector3(0.105f, 0.108f, 0.102f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -379,13 +379,14 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerFootRight3D",
                 skinShade,
                 new Vector3(0.205f, -3.455f, -0.225f),
-                new Vector3(0.125f, 0.125f, 0.300f),
+                new Vector3(0.140f, 0.145f, 0.340f),
                 Quaternion.identity,
                 materialTemplate);
 
             Debug.Log("KAI_CHE_R32_PROPORTION_7_5_HEAD_BASE");
             Debug.Log("KAI_CHE_R32_FULL_LIMB_SILHOUETTE_READY");
-            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V3_95_GATE_READY");\n            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V4_95_GATE_READY");
+            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V3_95_GATE_READY");
+            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V4_95_GATE_READY");
         }
 
         private static Ring[] ArmUpperProfile()
