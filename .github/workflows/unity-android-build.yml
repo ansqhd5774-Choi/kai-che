@@ -1,5 +1,6 @@
 name: Unity Android Build
 
+# Successful develop builds are followed by the default-branch device smoke workflow.
 on:
   workflow_dispatch:
   push:
