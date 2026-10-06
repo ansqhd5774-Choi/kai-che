@@ -193,7 +193,12 @@ jobs:
 
           :game_ready
           "%ADB_EXE%" exec-out screencap -p > Logs\device-game-screen.png 2>nul
-          echo [PASS] Game scene loaded.
+          findstr /C:"KAI_CHE_R19_PERSPECTIVE_CAMERA_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R19 battlefield perspective camera marker not found.
+            exit /b 64
+          )
+          echo [PASS] Game scene loaded with R19 perspective camera.
 
           rem Saved progression may open the level-up attribute modal and block movement.
           rem Reuse the R16-verified first attribute touch point until all 3 points are consumed.
@@ -246,7 +251,12 @@ jobs:
 
           "%ADB_EXE%" exec-out screencap -p > Logs\device-town-screen.png 2>nul
           "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
-          echo [PASS] R18 field-to-town route and 3D town activation verified.
+          findstr /C:"KAI_CHE_R19_TOWN_PERSPECTIVE_CAMERA_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R19 town perspective camera marker not found.
+            exit /b 65
+          )
+          echo [PASS] R19 perspective battlefield and town route verified.
 
       - name: Capture runtime evidence
         if: success()
