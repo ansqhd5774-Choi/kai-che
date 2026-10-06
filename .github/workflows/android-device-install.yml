@@ -51,6 +51,7 @@ jobs:
           if not exist Logs mkdir Logs
 
           del /q Logs\adb-version.txt Logs\adb-server-before.txt Logs\adb-server-after.txt Logs\adb-mdns.txt Logs\adb-mdns-current.txt Logs\adb-devices-before.txt Logs\adb-devices-after.txt Logs\adb-reconnect.txt 2>nul
+          del /q Logs\r18-prefs-original.xml Logs\r18-prefs-after-attributes.xml Logs\r18-prefs-restored.xml Logs\r18-prefs-restore-compare.txt Logs\r18-prefs-backup.sh Logs\r18-prefs-restore.sh 2>nul
 
           "%ADB_EXE%" version > Logs\adb-version.txt 2>&1
           "%ADB_EXE%" server-status > Logs\adb-server-before.txt 2>&1
