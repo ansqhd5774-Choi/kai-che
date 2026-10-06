@@ -216,7 +216,7 @@ namespace KaiChe.Presentation
 
             GUI.Label(
                 new Rect(hudPanel.x + 24f, hudPanel.y + 10f, 360f, 44f),
-                $"전사  LV {_arena.Level}",
+                $"초보자  LV {_arena.Level}",
                 _hudStyle);
             GUI.Label(
                 new Rect(hudPanel.xMax - 330f, hudPanel.y + 12f, 302f, 40f),
