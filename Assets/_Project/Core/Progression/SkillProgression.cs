@@ -55,12 +55,20 @@ namespace KaiChe.Core.Progression
             FusionMasteryRequired = fusionMasteryRequired;
         }
     }
+
     public static class SkillProgressionCatalog
     {
-        public const string PulseShot = "SKILL_0001";
-        public const string OrbitBlade = "SKILL_0002";
+        public const string Fireball = "SKILL_0001";
+        public const string WindBlade = "SKILL_0002";
         public const string ArcSpark = "SKILL_0003";
         public const string IceBall = "SKILL_0004";
+        public const string PoisonOrb = "SKILL_0005";
+        public const string StoneShot = "SKILL_0006";
+        public const string LightOrb = "SKILL_0007";
+        public const string DarkOrb = "SKILL_0008";
+        public const string WaterOrb = "SKILL_0009";
+        public const string MagicArrow = "SKILL_0010";
+
         public const string PiercingPulse = "SKILL_0101";
         public const string TwinOrbit = "SKILL_0102";
         public const string ChainSpark = "SKILL_0103";
@@ -69,21 +77,35 @@ namespace KaiChe.Core.Progression
         public static readonly SkillProgressionDefinition[] All =
         {
             new SkillProgressionDefinition(
-                PulseShot, "Pulse Shot", SkillTags.Projectile),
+                Fireball, "파이어볼", SkillTags.Projectile),
             new SkillProgressionDefinition(
-                OrbitBlade, "Orbit Blade", SkillTags.Orbit),
+                WindBlade, "윈드 블레이드", SkillTags.Projectile),
             new SkillProgressionDefinition(
-                ArcSpark, "Arc Spark", SkillTags.Lightning),
+                ArcSpark, "아크 스파크",
+                SkillTags.Projectile | SkillTags.Lightning),
             new SkillProgressionDefinition(
-                IceBall, "Ice Ball", SkillTags.Projectile | SkillTags.Frost),
+                IceBall, "아이스볼",
+                SkillTags.Projectile | SkillTags.Frost),
+            new SkillProgressionDefinition(
+                PoisonOrb, "포이즌 오브", SkillTags.Projectile),
+            new SkillProgressionDefinition(
+                StoneShot, "스톤 샷", SkillTags.Projectile),
+            new SkillProgressionDefinition(
+                LightOrb, "라이트 오브", SkillTags.Projectile),
+            new SkillProgressionDefinition(
+                DarkOrb, "다크 오브", SkillTags.Projectile),
+            new SkillProgressionDefinition(
+                WaterOrb, "워터 오브", SkillTags.Projectile),
+            new SkillProgressionDefinition(
+                MagicArrow, "매직 애로우", SkillTags.Projectile),
             new SkillProgressionDefinition(
                 PiercingPulse, "Piercing Pulse",
                 SkillTags.Projectile | SkillTags.Pierce,
-                PulseShot, 30),
+                Fireball, 30),
             new SkillProgressionDefinition(
                 TwinOrbit, "Twin Orbit",
                 SkillTags.Orbit | SkillTags.MultiHit,
-                OrbitBlade, 30),
+                WindBlade, 30),
             new SkillProgressionDefinition(
                 ChainSpark, "Chain Spark",
                 SkillTags.Lightning | SkillTags.Chain,
@@ -107,6 +129,7 @@ namespace KaiChe.Core.Progression
             return null;
         }
     }
+
     public sealed class SkillMasteryState
     {
         private readonly Dictionary<string, int> _mastery =
@@ -136,6 +159,7 @@ namespace KaiChe.Core.Progression
                 ? value
                 : 0;
         }
+
         public bool IsUnlocked(string skillId)
         {
             return _unlocked.Contains(skillId);
