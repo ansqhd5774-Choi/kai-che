@@ -623,7 +623,7 @@ namespace KaiChe.Gameplay.Survivor
                 return null;
 
             Color32 rgba = color;
-            int key = template.GetInstanceID();
+            int key = template.GetEntityId().GetHashCode();
             unchecked
             {
                 key = (key * 397) ^ rgba.r;
