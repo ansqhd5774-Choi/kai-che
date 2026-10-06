@@ -210,9 +210,17 @@ namespace KaiChe.Gameplay.Adventure
             }
 
             if (nearApothecary <= 1.45f
-                && GUI.Button(action, "약제상", _buttonStyle))
+                && GUI.Button(action, "물약 보급", _buttonStyle))
             {
-                _message = "물약 거래는 플레이어 주화·교환 규칙과 함께 연결됩니다.";
+                int added = PrototypeAdventureState.RefillStarterPotions();
+                _message = added > 0
+                    ? "물약 보급 +" + added + " · 현재 " + PotionCount + "개"
+                    : "물약은 이미 " + PotionCount + "개 보유 중입니다.";
+                Debug.Log(
+                    "KAI_CHE_R29_TOWN_POTION_REFILL_ADDED_"
+                    + added
+                    + "_COUNT_"
+                    + PotionCount);
             }
         }
 
