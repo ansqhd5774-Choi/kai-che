@@ -20,16 +20,19 @@ namespace KaiChe.Presentation
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
+            Debug.Log("KAI_CHE_R22_STARTUP_INSTALL_BEGIN");
             if (_installed) return;
             _installed = true;
 
             var root = new GameObject("KaiCheRuntimeFlow");
             DontDestroyOnLoad(root);
             root.AddComponent<KaiCheRuntimeFlow>();
+            Debug.Log("KAI_CHE_R22_STARTUP_INSTALL_END");
         }
 
         private void Awake()
         {
+            Debug.Log("KAI_CHE_R22_STARTUP_AWAKE");
             Application.targetFrameRate = 60;
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -41,6 +44,7 @@ namespace KaiChe.Presentation
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             _loading = false;
+            Debug.Log("KAI_CHE_R22_SCENE_LOADED_" + scene.name);
 
             if (scene.name == "Boot")
             {
@@ -52,6 +56,8 @@ namespace KaiChe.Presentation
                 SetupSurvivorWorld();
             else if (scene.name == "Town")
                 SetupTownWorld();
+            else if (scene.name == "Main")
+                Debug.Log("KAI_CHE_R22_MAIN_READY");
         }
 
         private IEnumerator AdvanceFromBoot()
@@ -59,6 +65,7 @@ namespace KaiChe.Presentation
             if (_loading) yield break;
             _loading = true;
             yield return null;
+            Debug.Log("KAI_CHE_R22_BOOT_ADVANCE_MAIN");
             SceneManager.LoadScene("Main");
         }
 
