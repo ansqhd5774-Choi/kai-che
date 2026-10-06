@@ -1,6 +1,6 @@
 name: Unity Android Build
 
-# Successful develop builds are followed by the default-branch device smoke workflow.
+# Successful develop builds are followed by the default-branch device smoke workflow. R20 final route verification trigger.
 on:
   workflow_dispatch:
   push:
