@@ -29,7 +29,7 @@ namespace KaiChe.Gameplay.Survivor
             var modelObject = new GameObject("PlayerModelRoot");
             modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
-            modelRoot.localPosition = new Vector3(0f, 1.82f, 0f);
+            modelRoot.localPosition = new Vector3(0f, 3.00f, 0f);
 
             CreatePart(
                 PrimitiveType.Cylinder,
