@@ -583,7 +583,7 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log(
                 "KAI_CHE_R21_BASE_SKILLS_READY_"
                 + RuntimeContentCatalog.BaseSkills.Length);
-            Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
+            Debug.Log("KAI_CHE_R23_PLAYER_SELECTED_LOADOUT_ACTIVE");
             Debug.Log("KAI_CHE_R21_COMBAT_MOMENTUM_ACTIVE");
             Debug.Log("KAI_CHE_R21_FRENZY_REWARD_ACTIVE");
             Debug.Log("KAI_CHE_R22_FRENZY_TEMPO_ACTIVE_5_3000_5500");
