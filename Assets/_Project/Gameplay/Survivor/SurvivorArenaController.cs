@@ -586,8 +586,28 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _lastActiveLoadoutWave = 0;
-            _skillChoiceGeneration = 0;
+            _pendingSkillChoices = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "PendingSkillChoices",
+                    0));
+            int savedSkillChoiceGeneration = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(
+                    ProgressionSavePrefix + "SkillChoiceGeneration",
+                    0));
+            _skillChoiceGeneration = _pendingSkillChoices > 0
+                ? Mathf.Max(0, savedSkillChoiceGeneration - 1)
+                : savedSkillChoiceGeneration;
             ClearSkillChoiceCandidates();
+            if (_pendingSkillChoices > 0)
+            {
+                GenerateSkillChoiceCandidates();
+                Debug.Log(
+                    "KAI_CHE_R24_PENDING_SKILL_CHOICES_RESTORED_"
+                    + _pendingSkillChoices);
+            }
+            Debug.Log("KAI_CHE_R24_PENDING_SKILL_CHOICE_PERSISTENCE_ACTIVE");
             _comboCount = 0;
             _comboTimer = 0f;
             _frenzyTimer = 0f;
@@ -3294,7 +3314,6 @@ namespace KaiChe.Gameplay.Survivor
             int levelsGained =
                 _progression.AddExperienceAndApplyPrototypeLevelUp(
                     experienceReward);
-            SavePrototypeProgression();
             Kills += 1;
             RegisterCombatKill();
 
@@ -3327,6 +3346,8 @@ namespace KaiChe.Gameplay.Survivor
                     Debug.Log("KAI_CHE_SKILL_CHOICE_READY");
                 }
             }
+
+            SavePrototypeProgression();
 
             if (isBoss)
             {
@@ -4002,6 +4023,12 @@ namespace KaiChe.Gameplay.Survivor
             PlayerPrefs.SetInt(
                 ProgressionSavePrefix + "SkillState.Version",
                 SkillProgressionSaveVersion);
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "PendingSkillChoices",
+                Mathf.Max(0, _pendingSkillChoices));
+            PlayerPrefs.SetInt(
+                ProgressionSavePrefix + "SkillChoiceGeneration",
+                Mathf.Max(0, _skillChoiceGeneration));
 
             for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
             {
