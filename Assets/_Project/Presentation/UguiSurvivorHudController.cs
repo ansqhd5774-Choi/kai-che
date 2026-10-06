@@ -10,7 +10,7 @@ namespace KaiChe.Presentation
 {
     public sealed class UguiSurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R29";
+        private const string BuildLabel = "R30";
         private static readonly Color PanelColor = new Color(0.045f, 0.040f, 0.034f, 0.94f);
         private static readonly Color GoldColor = new Color(0.94f, 0.72f, 0.22f, 1f);
         private static readonly Color ParchmentColor = new Color(0.93f, 0.88f, 0.75f, 1f);

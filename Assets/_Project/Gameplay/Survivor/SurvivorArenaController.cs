@@ -638,7 +638,7 @@ namespace KaiChe.Gameplay.Survivor
                 transform,
                 _materialTemplate,
                 TownEntrancePosition);
-            _player = CreateWarriorView();
+            _player = CreatePlayerView();
             InitializeBaseSkillLoadout();
 
             _spawnTimer = 0.2f;
@@ -3938,9 +3938,9 @@ namespace KaiChe.Gameplay.Survivor
             return root;
         }
 
-        private GameObject CreateWarriorView()
+        private GameObject CreatePlayerView()
         {
-            GameObject runtime3D = RuntimeCombatVisualFactory.CreateWarrior(
+            GameObject runtime3D = RuntimeCombatVisualFactory.CreateNoviceHuman(
                 transform,
                 _materialTemplate,
                 PlayerBaseScale,
