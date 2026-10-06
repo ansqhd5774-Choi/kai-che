@@ -83,3 +83,22 @@ The goal is not to add anatomy detail. It is to make the gameplay silhouette bel
 
 Additional runtime marker:
 - `KAI_CHE_R32_PROPORTION_UPGRADE_V2_READY`
+
+
+## R32 proportion upgrade V3 — 95% gate
+
+R32 does not advance to R33 until the gameplay silhouette reaches the user's minimum 95% reference-similarity gate against the approved R31 concept sheet.
+
+V3 calibration targets:
+- projected crotch / lower-garment bottom near 52-53% of crown-to-sole screen height
+- longer thighs and shins to counter perspective foreshortening
+- narrower shoulder envelope
+- smaller head/hair mass
+- stronger chest -> waist -> pelvis transition
+- longer arm reach with fingertips near/below the upper-thigh region
+- briefs taper toward the leg openings instead of reading as shorts
+
+V3 runtime marker:
+- `KAI_CHE_R32_PROPORTION_UPGRADE_V3_95_GATE_READY`
+
+Acceptance remains visual: APK install + physical-phone capture + direct comparison to the R31 reference. If the result is below 95%, R32 remains open and is revised again.
