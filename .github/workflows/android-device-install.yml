@@ -169,7 +169,7 @@ jobs:
           )
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
-      - name: Verify R18 field-to-town route
+      - name: Verify R20 XZ field-to-town route
         shell: cmd
         run: |
           @echo off
@@ -199,7 +199,17 @@ jobs:
             echo [ERROR] R19 battlefield perspective camera marker not found.
             exit /b 64
           )
-          echo [PASS] Game scene loaded with R19 perspective camera.
+          findstr /C:"KAI_CHE_R20_XZ_WORLD_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 battlefield XZ world marker not found.
+            exit /b 66
+          )
+          findstr /C:"KAI_CHE_R20_BATTLEFIELD_GROUND_PLANE_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 battlefield ground-plane marker not found.
+            exit /b 67
+          )
+          echo [PASS] Game scene loaded with R20 XZ battlefield.
 
           rem Saved progression may open the level-up attribute modal and block movement.
           rem Reuse the R16-verified first attribute touch point until all 3 points are consumed.
@@ -257,7 +267,17 @@ jobs:
             echo [ERROR] R19 town perspective camera marker not found.
             exit /b 65
           )
-          echo [PASS] R19 perspective battlefield and town route verified.
+          findstr /C:"KAI_CHE_R20_TOWN_XZ_WORLD_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 town XZ world marker not found.
+            exit /b 68
+          )
+          findstr /C:"KAI_CHE_R20_TOWN_GROUND_PLANE_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 town ground-plane marker not found.
+            exit /b 69
+          )
+          echo [PASS] R20 XZ battlefield and town route verified.
 
       - name: Capture runtime evidence
         if: success()
