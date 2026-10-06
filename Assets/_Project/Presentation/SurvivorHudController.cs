@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R21";
+        private const string BuildLabel = "R24";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -262,10 +262,8 @@ namespace KaiChe.Presentation
                     hudPanel.y + 132f,
                     hudPanel.width - 48f,
                     32f),
-                $"{_arena.ActiveSkillName} {_arena.ActiveSkillMastery}"
-                + $"   ·   {_arena.IceSkillName} {_arena.IceSkillMastery}"
-                + $"   ·   빌드 F{_arena.FireUpgradeRank}"
-                + $"/I{_arena.IceUpgradeRank}/A{_arena.ArcaneUpgradeRank}"
+                $"기본기 {_arena.ActiveBaseSkillCount}/{_arena.MaxActiveBaseSkillCount}"
+                + $"   ·   {_arena.ActiveBaseSkillProgressSummary}"
                 + (_arena.IsThermalShockUnlocked ? "   ·   열충격" : string.Empty)
                 + (_arena.IsArcaneChainUnlocked ? "   ·   비전연쇄" : string.Empty)
                 + (_arena.EliteCount > 0 ? $"   ·   엘리트 {_arena.EliteCount}" : string.Empty),
