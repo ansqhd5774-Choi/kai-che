@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using KaiChe.Prototypes.BumperSeed;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
