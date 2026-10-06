@@ -229,14 +229,14 @@ jobs:
           )
 
           "%ADB_EXE%" logcat -d -t 4000 > Logs\bumper-r19-logcat.txt 2>&1
+          "%ADB_EXE%" exec-out screencap -p > Logs\bumper-r19-screen.png 2>nul
+          if not exist Logs\bumper-r19-screen.png exit /b 53
+
           findstr /C:"BUMPER_SEED_R19_CORE_ACTIVE" Logs\bumper-r19-logcat.txt >nul
           if errorlevel 1 (
             echo [ERROR] R19 core activation marker missing.
             exit /b 52
           )
-
-          "%ADB_EXE%" exec-out screencap -p > Logs\bumper-r19-screen.png 2>nul
-          if not exist Logs\bumper-r19-screen.png exit /b 53
 
           echo [PASS] Bumper Seed R19 launched. PID=%APP_PID%
           echo [PASS] BUMPER_SEED_R19_CORE_ACTIVE found.
