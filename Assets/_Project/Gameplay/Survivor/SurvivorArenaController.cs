@@ -108,6 +108,8 @@ namespace KaiChe.Gameplay.Survivor
         private bool _skillMasteryStateNeedsMigration;
         private bool _skillMasterySaveDirty;
         private float _skillMasterySaveTimer;
+        private bool _adventureHealthSaveDirty;
+        private float _adventureHealthSaveTimer;
         private bool _skillChoiceFirstLogged;
         private bool _initialized;
         private bool _fireballFirstShotLogged;
@@ -225,6 +227,7 @@ namespace KaiChe.Gameplay.Survivor
         private const int BossRewardSaveVersion = 1;
         private const int SkillMasterySaveVersion = 1;
         private const float SkillMasterySaveInterval = 1f;
+        private const float AdventureHealthSaveInterval = 1f;
 
         private readonly SkillMasteryState _skillMastery = new SkillMasteryState();
         private readonly CharacterProgressionState _progression = new CharacterProgressionState();
@@ -420,6 +423,7 @@ namespace KaiChe.Gameplay.Survivor
                     PlayerHealth = Mathf.Min(
                         MaxPlayerHealth,
                         PlayerHealth + BossRewardHealthPerRank);
+                    MarkAdventureHealthDirty();
                     Debug.Log("KAI_CHE_BOSS_REWARD_VITALITY_" + _bossVitalityRewardRank);
                     break;
                 case 2:
@@ -579,6 +583,33 @@ namespace KaiChe.Gameplay.Survivor
             PlayerHealth = Mathf.Min(
                 MaxPlayerHealth,
                 PrototypeAdventureState.Health);
+            MarkAdventureHealthDirty();
+            FlushAdventureHealthPersistence();
+            Debug.Log("KAI_CHE_R27_HEALTH_PERSISTENCE_ACTIVE");
+            if (DoesPersistedAdventureHealthMatchRuntime())
+            {
+                Debug.Log(
+                    "KAI_CHE_R27_HEALTH_RESTORE_PASS_CURRENT_"
+                    + Mathf.RoundToInt(PlayerHealth)
+                    + "_MAX_"
+                    + Mathf.RoundToInt(MaxPlayerHealth));
+            }
+            else
+            {
+                Debug.LogError(
+                    "KAI_CHE_R27_HEALTH_RESTORE_MISMATCH_CURRENT_"
+                    + Mathf.RoundToInt(PlayerHealth)
+                    + "_MAX_"
+                    + Mathf.RoundToInt(MaxPlayerHealth));
+            }
+            if (MaxPlayerHealth > PrototypeAdventureState.BaseMaxHealth + 0.01f
+                && PrototypeAdventureState.MaxHealth
+                    > PrototypeAdventureState.BaseMaxHealth + 0.01f)
+            {
+                Debug.Log(
+                    "KAI_CHE_R27_DYNAMIC_MAX_HEALTH_RESTORED_"
+                    + Mathf.RoundToInt(PrototypeAdventureState.MaxHealth));
+            }
             ConfigureCamera();
 
             RuntimeBattlefieldEnvironment.Build(
@@ -712,6 +743,7 @@ namespace KaiChe.Gameplay.Survivor
                 PlayerHealth = Mathf.Min(
                     MaxPlayerHealth,
                     PlayerHealth + healthGain);
+                MarkAdventureHealthDirty();
             }
 
             SavePrototypeProgression();
@@ -731,7 +763,9 @@ namespace KaiChe.Gameplay.Survivor
                 return;
 
             float deltaTime = Time.deltaTime;
-            UpdateSkillMasteryPersistence(Time.unscaledDeltaTime);
+            float unscaledDeltaTime = Time.unscaledDeltaTime;
+            UpdateSkillMasteryPersistence(unscaledDeltaTime);
+            UpdateAdventureHealthPersistence(unscaledDeltaTime);
             _playerHitFlashTimer = Mathf.Max(
                 0f,
                 _playerHitFlashTimer - deltaTime);
@@ -756,6 +790,7 @@ namespace KaiChe.Gameplay.Survivor
 
         private void OnDisable()
         {
+            FlushAdventureHealthPersistence();
             FlushSkillMasteryPersistence();
 
             if (Time.timeScale != 1f)
@@ -764,12 +799,16 @@ namespace KaiChe.Gameplay.Survivor
 
         private void OnApplicationPause(bool paused)
         {
-            if (paused)
-                FlushSkillMasteryPersistence();
+            if (!paused)
+                return;
+
+            FlushAdventureHealthPersistence();
+            FlushSkillMasteryPersistence();
         }
 
         private void OnApplicationQuit()
         {
+            FlushAdventureHealthPersistence();
             FlushSkillMasteryPersistence();
         }
 
@@ -1239,6 +1278,7 @@ namespace KaiChe.Gameplay.Survivor
             _comboTimer = FrenzyDuration;
             float healAmount = MaxPlayerHealth * FrenzyHealFraction;
             PlayerHealth = Mathf.Min(MaxPlayerHealth, PlayerHealth + healAmount);
+            MarkAdventureHealthDirty();
             TriggerImpactFeedback(0.14f, false);
             Debug.Log("KAI_CHE_R21_FRENZY_START_" + _comboCount);
             Debug.Log("KAI_CHE_R21_FRENZY_HEAL_" + Mathf.RoundToInt(healAmount));
@@ -1300,7 +1340,16 @@ namespace KaiChe.Gameplay.Survivor
                 > TownEntranceRadius * TownEntranceRadius)
                 return;
 
-            PrototypeAdventureState.SetHealth(PlayerHealth);
+            PrototypeAdventureState.SetHealth(
+                PlayerHealth,
+                MaxPlayerHealth);
+            _adventureHealthSaveDirty = false;
+            _adventureHealthSaveTimer = 0f;
+            Debug.Log(
+                "KAI_CHE_R27_HEALTH_TOWN_CHECKPOINT_"
+                + Mathf.RoundToInt(PlayerHealth)
+                + "_MAX_"
+                + Mathf.RoundToInt(MaxPlayerHealth));
             _moveInput = Vector2.zero;
             _initialized = false;
             SceneManager.LoadScene("Town");
@@ -1939,6 +1988,7 @@ namespace KaiChe.Gameplay.Survivor
             PlayerHealth = Mathf.Max(
                 0f,
                 PlayerHealth - finalDamage);
+            MarkAdventureHealthDirty();
             _playerHitFlashTimer = PlayerHitFlashDuration;
             if (_playerVisualAnimator != null)
             {
@@ -3399,6 +3449,7 @@ namespace KaiChe.Gameplay.Survivor
                 PlayerHealth = Mathf.Min(
                     MaxPlayerHealth,
                     PlayerHealth + healAmount);
+                MarkAdventureHealthDirty();
 
                 CreateLevelUpPowerEffect(PlayerPosition);
                 TriggerImpactFeedback(0.10f, false);
@@ -4294,6 +4345,59 @@ namespace KaiChe.Gameplay.Survivor
                     + (_skillMastery.LastUnlockedSkillId
                         ?? "UNKNOWN"));
             }
+        }
+
+        private void MarkAdventureHealthDirty()
+        {
+            if (!_adventureHealthSaveDirty)
+                _adventureHealthSaveTimer = AdventureHealthSaveInterval;
+
+            _adventureHealthSaveDirty = true;
+        }
+
+        private void UpdateAdventureHealthPersistence(float unscaledDeltaTime)
+        {
+            if (!_adventureHealthSaveDirty)
+                return;
+
+            _adventureHealthSaveTimer -= Mathf.Max(0f, unscaledDeltaTime);
+            if (_adventureHealthSaveTimer <= 0f)
+                FlushAdventureHealthPersistence();
+        }
+
+        private void FlushAdventureHealthPersistence()
+        {
+            if (!_adventureHealthSaveDirty)
+                return;
+
+            PrototypeAdventureState.SetHealth(
+                PlayerHealth,
+                MaxPlayerHealth);
+            _adventureHealthSaveDirty = false;
+            _adventureHealthSaveTimer = 0f;
+
+            Debug.Log(
+                "KAI_CHE_R27_HEALTH_PERSISTED_CURRENT_"
+                + Mathf.RoundToInt(PlayerHealth)
+                + "_MAX_"
+                + Mathf.RoundToInt(MaxPlayerHealth));
+
+            if (MaxPlayerHealth > PrototypeAdventureState.BaseMaxHealth + 0.01f)
+            {
+                Debug.Log(
+                    "KAI_CHE_R27_DYNAMIC_MAX_HEALTH_PERSISTED_"
+                    + Mathf.RoundToInt(MaxPlayerHealth));
+            }
+        }
+
+        private bool DoesPersistedAdventureHealthMatchRuntime()
+        {
+            return Mathf.Abs(
+                       PrototypeAdventureState.Health
+                       - PlayerHealth) <= 0.01f
+                && Mathf.Abs(
+                       PrototypeAdventureState.MaxHealth
+                       - MaxPlayerHealth) <= 0.01f;
         }
 
         private void UpdateSkillMasteryPersistence(float unscaledDeltaTime)
