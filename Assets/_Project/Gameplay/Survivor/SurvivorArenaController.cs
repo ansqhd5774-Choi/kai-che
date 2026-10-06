@@ -552,7 +552,9 @@ namespace KaiChe.Gameplay.Survivor
 
             SavePrototypeProgression();
             Debug.Log(
-                "KAI_CHE_R24_SKILL_STATE_SAVED_"
+                "KAI_CHE_R24_SKILL_STATE_SAVED_COUNT_"
+                + ActiveBaseSkillCount
+                + "_"
                 + BuildActiveBaseSkillProgressSummary());
 
             return true;
@@ -864,7 +866,9 @@ namespace KaiChe.Gameplay.Survivor
                 }
 
                 Debug.Log(
-                    "KAI_CHE_R24_SKILL_STATE_LOADED_"
+                    "KAI_CHE_R24_SKILL_STATE_LOADED_COUNT_"
+                    + ActiveBaseSkillCount
+                    + "_"
                     + BuildActiveBaseSkillProgressSummary());
             }
             else
@@ -886,6 +890,12 @@ namespace KaiChe.Gameplay.Survivor
                     continue;
 
                 _arcaneUpgradeRank += GetBaseSkillUpgradeRank(skill.Id);
+            }
+
+            if (saveVersion < SkillProgressionSaveVersion)
+            {
+                SavePrototypeProgression();
+                Debug.Log("KAI_CHE_R24_SKILL_STATE_MIGRATED");
             }
 
             Debug.Log("KAI_CHE_R24_SKILL_PERSISTENCE_READY");
