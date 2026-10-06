@@ -1,0 +1,368 @@
+name: Install KaiChe APK to Android Device
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Unity Android Build"
+    types:
+      - completed
+    branches:
+      - develop
+
+concurrency:
+  group: kaise-android-device-install
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install-device:
+    name: Install and launch KaiChe on paired Android device
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 20
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      APK_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.apk
+      APK_SHA_PATH: C:\actions-runner-kaise\local-builds\KaiChe-dev.sha
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      PACKAGE_ID: com.kaiche.rpg
+      PREFS_FILE: shared_prefs/com.kaiche.rpg.v2.playerprefs.xml
+      ADB_MDNS: 1
+      ADB_MDNS_OPENSCREEN: 0
+
+    steps:
+      - name: Verify local APK and ADB
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist "%ADB_EXE%" (
+            echo [ERROR] adb.exe not found: %ADB_EXE%
+            exit /b 20
+          )
+          if not exist "%APK_PATH%" (
+            echo [ERROR] APK not found: %APK_PATH%
+            exit /b 21
+          )
+          if "%GITHUB_EVENT_NAME%"=="workflow_run" (
+            if not exist "%APK_SHA_PATH%" (
+              echo [ERROR] APK source SHA file not found: %APK_SHA_PATH%
+              exit /b 22
+            )
+            set /p APK_SHA=<"%APK_SHA_PATH%"
+            if /I not "!APK_SHA!"=="%EXPECTED_SHA%" (
+              echo [ERROR] APK source SHA mismatch. expected=%EXPECTED_SHA% actual=!APK_SHA!
+              exit /b 23
+            )
+            echo [PASS] APK source SHA verified: !APK_SHA!
+          )
+          for %%A in ("%APK_PATH%") do echo [PASS] APK: %%~fA (%%~zA bytes)
+
+      - name: Verify paired Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+
+          del /q Logs\adb-version.txt Logs\adb-server-before.txt Logs\adb-server-after.txt Logs\adb-mdns.txt Logs\adb-mdns-current.txt Logs\adb-devices-before.txt Logs\adb-devices-after.txt Logs\adb-reconnect.txt 2>nul
+          del /q Logs\r18-prefs-original.xml Logs\r18-prefs-after-attributes.xml Logs\r18-prefs-restored.xml Logs\r18-prefs-restore-compare.txt Logs\r18-prefs-backup.sh Logs\r18-prefs-restore.sh 2>nul
+
+          "%ADB_EXE%" version > Logs\adb-version.txt 2>&1
+          "%ADB_EXE%" server-status > Logs\adb-server-before.txt 2>&1
+          "%ADB_EXE%" devices -l > Logs\adb-devices-before.txt 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 (
+            echo [INFO] Android device already online; preserving current wireless ADB session. > Logs\adb-reconnect.txt
+            goto device_ready
+          )
+
+          echo [INFO] No online device; trying current adb server and mDNS first. > Logs\adb-reconnect.txt
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
+
+          echo [INFO] mDNS connect did not recover device; trying adb reconnect. >> Logs\adb-reconnect.txt
+          "%ADB_EXE%" reconnect >> Logs\adb-reconnect.txt 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          echo [INFO] Soft recovery failed; restarting adb server and retrying mDNS. >> Logs\adb-reconnect.txt
+          "%ADB_EXE%" kill-server >nul 2>&1
+          "%ADB_EXE%" start-server >> Logs\adb-reconnect.txt 2>&1
+          ping -n 8 127.0.0.1 >nul
+          "%ADB_EXE%" server-status > Logs\adb-server-after.txt 2>&1
+          call :try_mdns
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
+          echo [ERROR] No single online Android device is available through ADB.
+          exit /b 30
+
+          :try_mdns
+          "%ADB_EXE%" mdns services > Logs\adb-mdns-current.txt 2>&1
+          type Logs\adb-mdns-current.txt >> Logs\adb-mdns.txt
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\adb-mdns-current.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              echo [INFO] Trying !ENDPOINT! >> Logs\adb-reconnect.txt
+              "%ADB_EXE%" connect !ENDPOINT! >> Logs\adb-reconnect.txt 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 exit /b 0
+            )
+          )
+          exit /b 1
+
+          :device_ready
+          "%ADB_EXE%" devices -l > Logs\adb-devices-after.txt 2>&1
+          echo ===== ADB VERSION =====
+          type Logs\adb-version.txt
+          echo ===== ADB SERVER BEFORE =====
+          type Logs\adb-server-before.txt
+          echo ===== ADB SERVER AFTER =====
+          if exist Logs\adb-server-after.txt type Logs\adb-server-after.txt
+          echo ===== ADB MDNS SERVICES =====
+          if exist Logs\adb-mdns.txt type Logs\adb-mdns.txt
+          echo ===== ADB DEVICES BEFORE =====
+          type Logs\adb-devices-before.txt
+          echo ===== ADB RECONNECT =====
+          type Logs\adb-reconnect.txt
+          echo ===== ADB DEVICES AFTER =====
+          type Logs\adb-devices-after.txt
+          echo [PASS] Android device online.
+          exit /b 0
+
+      - name: Install latest KaiChe APK
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" install -r "%APK_PATH%"
+          if errorlevel 1 exit /b 40
+          "%ADB_EXE%" shell pm path %PACKAGE_ID%
+          if errorlevel 1 exit /b 41
+          echo [PASS] KaiChe installed.
+
+      - name: Backup PlayerPrefs for R18 smoke
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          ping -n 2 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-original.xml 2>&1
+          if errorlevel 1 (
+            echo [ERROR] Could not read PlayerPrefs before R18 smoke.
+            exit /b 45
+          )
+
+          >Logs\r18-prefs-backup.sh echo cp %PREFS_FILE% files/r18-prefs-backup.xml
+          type Logs\r18-prefs-backup.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          if errorlevel 1 (
+            echo [ERROR] Could not back up PlayerPrefs on device.
+            exit /b 46
+          )
+
+          echo [PASS] R18 smoke PlayerPrefs backed up.
+
+      - name: Launch KaiChe
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID%
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 50
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\device-app-pid.txt
+          set /p APP_PID=<Logs\device-app-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] KaiChe process is not running after launch.
+            exit /b 51
+          )
+          echo [PASS] KaiChe launched. PID=%APP_PID%
+
+      - name: Verify R20 XZ field-to-town route
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" logcat -c
+
+          rem Main screen can appear in portrait or landscape.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R17_3D_ENVIRONMENT_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-main-failure.png 2>nul
+          echo [ERROR] R18 smoke could not enter Game.
+          exit /b 60
+
+          :game_ready
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-game-screen.png 2>nul
+          findstr /C:"KAI_CHE_R19_PERSPECTIVE_CAMERA_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R19 battlefield perspective camera marker not found.
+            exit /b 64
+          )
+          findstr /C:"KAI_CHE_R20_XZ_WORLD_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 battlefield XZ world marker not found.
+            exit /b 66
+          )
+          findstr /C:"KAI_CHE_R20_BATTLEFIELD_GROUND_PLANE_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 battlefield ground-plane marker not found.
+            exit /b 67
+          )
+          echo [PASS] Game scene loaded with R20 XZ battlefield.
+
+          rem Saved progression may open the level-up attribute modal and block movement.
+          rem Reuse the R16-verified first attribute touch point until all 3 points are consumed.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 2 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 3 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-after-attributes.xml 2>&1
+          findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r18-prefs-after-attributes.xml >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
+            echo [ERROR] R18 smoke could not resolve pending attribute points.
+            exit /b 63
+          )
+
+          rem If a skill-choice modal follows, this same tested point selects the first option.
+          "%ADB_EXE%" shell input tap 300 1430
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
+          echo [PASS] Pending level-up modal resolved for R18 route test.
+
+          rem Portrait route: downward screen drag means negative Unity Y toward the town entrance.
+          "%ADB_EXE%" shell input swipe 720 1500 720 2850 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          rem Landscape fallback.
+          "%ADB_EXE%" shell input swipe 1600 560 1600 1320 2800
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R18_3D_TOWN_ACTIVE" Logs\device-town-logcat.txt >nul
+          if not errorlevel 1 goto town_ready
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-town-failure.png 2>nul
+          echo [ERROR] R18 3D town activation marker not found.
+          exit /b 61
+
+          :town_ready
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\device-app-pid.txt
+          set /p APP_PID=<Logs\device-app-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] KaiChe process stopped during R18 town smoke.
+            exit /b 62
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-town-screen.png 2>nul
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\device-town-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R19_TOWN_PERSPECTIVE_CAMERA_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R19 town perspective camera marker not found.
+            exit /b 65
+          )
+          findstr /C:"KAI_CHE_R20_TOWN_XZ_WORLD_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 town XZ world marker not found.
+            exit /b 68
+          )
+          findstr /C:"KAI_CHE_R20_TOWN_GROUND_PLANE_ACTIVE" Logs\device-town-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R20 town ground-plane marker not found.
+            exit /b 69
+          )
+          echo [PASS] R20 XZ battlefield and town route verified.
+
+      - name: Capture runtime evidence
+        if: success()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%ADB_EXE%" shell dumpsys activity activities > Logs\device-activity.txt 2>&1
+          "%ADB_EXE%" logcat -d -t 300 > Logs\device-logcat.txt 2>&1
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-screen.png 2>nul
+          echo [INFO] Runtime evidence captured.
+
+      - name: Restore original PlayerPrefs
+        if: always()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs\r18-prefs-original.xml (
+            echo [WARN] No R18 PlayerPrefs backup was created; restore skipped.
+            exit /b 0
+          )
+
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+
+          >Logs\r18-prefs-restore.sh echo if [ -f files/r18-prefs-backup.xml ]; then
+          >>Logs\r18-prefs-restore.sh echo cp files/r18-prefs-backup.xml %PREFS_FILE%
+          >>Logs\r18-prefs-restore.sh echo rm -f files/r18-prefs-backup.xml
+          >>Logs\r18-prefs-restore.sh echo fi
+          type Logs\r18-prefs-restore.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-restored.xml 2>&1
+          fc /b Logs\r18-prefs-original.xml Logs\r18-prefs-restored.xml > Logs\r18-prefs-restore-compare.txt 2>&1
+          if errorlevel 1 (
+            echo [ERROR] PlayerPrefs restore verification failed.
+            exit /b 70
+          )
+
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          echo [PASS] Original PlayerPrefs restored byte-for-byte and app relaunched.
+
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Android-Device-Evidence
+          path: |
+            Logs/adb-version.txt
+            Logs/adb-server-before.txt
+            Logs/adb-server-after.txt
+            Logs/adb-mdns.txt
+            Logs/adb-devices-before.txt
+            Logs/adb-reconnect.txt
+            Logs/adb-devices-after.txt
+            Logs/device-app-pid.txt
+            Logs/device-activity.txt
+            Logs/device-logcat.txt
+            Logs/device-screen.png
+            Logs/device-town-logcat.txt
+            Logs/device-game-screen.png
+            Logs/device-town-screen.png
+            Logs/device-main-failure.png
+            Logs/device-town-failure.png
+            Logs/device-after-modal.png
+            Logs/r18-prefs-original.xml
+            Logs/r18-prefs-after-attributes.xml
+            Logs/r18-prefs-restored.xml
+            Logs/r18-prefs-restore-compare.txt
+          if-no-files-found: warn
+          retention-days: 7
