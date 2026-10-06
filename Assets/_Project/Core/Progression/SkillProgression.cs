@@ -165,6 +165,47 @@ namespace KaiChe.Core.Progression
             return _unlocked.Contains(skillId);
         }
 
+        public bool RestoreMastery(string skillId, int mastery)
+        {
+            if (!_mastery.ContainsKey(skillId))
+                return false;
+
+            _mastery[skillId] = Math.Max(0, mastery);
+            return true;
+        }
+
+        public void RebuildUnlocksFromMastery()
+        {
+            _unlocked.Clear();
+            LastUnlockedSkillId = null;
+
+            for (int i = 0; i < SkillProgressionCatalog.All.Length; i++)
+            {
+                SkillProgressionDefinition definition =
+                    SkillProgressionCatalog.All[i];
+
+                if (definition.IsBaseSkill)
+                    _unlocked.Add(definition.Id);
+            }
+
+            EvaluateUnlocks();
+        }
+
+        public bool RestoreLastUnlockedSkillId(string skillId)
+        {
+            if (string.IsNullOrEmpty(skillId)
+                || !_unlocked.Contains(skillId))
+                return false;
+
+            SkillProgressionDefinition definition =
+                SkillProgressionCatalog.Find(skillId);
+            if (definition == null || definition.IsBaseSkill)
+                return false;
+
+            LastUnlockedSkillId = skillId;
+            return true;
+        }
+
         public void RecordUse(string skillId, int amount = 1)
         {
             if (amount <= 0 || !_mastery.ContainsKey(skillId))
