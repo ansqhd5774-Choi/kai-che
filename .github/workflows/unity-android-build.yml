@@ -66,7 +66,7 @@ jobs:
           if not exist Logs mkdir Logs
           del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
-          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"\n          if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
 
           set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-unity-build.cmd"
           >"%UNITY_RUNNER%" echo @echo off
