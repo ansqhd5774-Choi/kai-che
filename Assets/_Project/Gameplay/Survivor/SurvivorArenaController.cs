@@ -74,6 +74,13 @@ namespace KaiChe.Gameplay.Survivor
             new Dictionary<int, Material>();
         private readonly HashSet<string> _loggedBaseSkillShots =
             new HashSet<string>();
+        private readonly HashSet<string> _activeBaseSkillIds =
+            new HashSet<string>();
+        private readonly Dictionary<string, int> _baseSkillUpgradeRanks =
+            new Dictionary<string, int>();
+        private readonly string[] _skillChoiceCandidateIds =
+            new string[3];
+        private int _skillChoiceGeneration;
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private float _playerHitFlashTimer;
@@ -133,9 +140,9 @@ namespace KaiChe.Gameplay.Survivor
         private const float FireCooldownPerRank = 0.06f;
         private const float IceDamagePerRank = 0.18f;
         private const float IceSlowDurationPerRank = 0.35f;
-        private const float ArcaneCooldownPerRank = 0.08f;
-        private const float ArcaneProjectileSpeedPerRank = 0.10f;
-        private const float ArcaneBaseSkillDamagePerRank = 0.14f;
+        private const float IndependentBaseSkillDamagePerRank = 0.14f;
+        private const float IndependentBaseSkillCooldownPerRank = 0.04f;
+        private const float IndependentBaseSkillProjectileSpeedPerRank = 0.05f;
         private const int FireEvolutionRank = 3;
         private const int IceEvolutionRank = 3;
         private const float FireSplashRadius = 1.35f;
@@ -200,11 +207,7 @@ namespace KaiChe.Gameplay.Survivor
         private const float FrenzyCooldownMultiplier = 0.82f;
         private const float FrenzyMoveSpeedMultiplier = 1.12f;
         private const float FrenzyHealFraction = 0.08f;
-        private const int RotatingSkillsPerWave = 2;
-        private static readonly int[] RotatingBaseSkillIndices =
-        {
-            1, 2, 4, 5, 6, 7, 8, 9
-        };
+        private const int MaxActiveBaseSkills = 4;
         private const float PerspectiveCameraHeight = 12.5f;
         private const float PerspectiveCameraBackDistance = 13.5f;
         private const float PerspectiveCameraSideOffset = -3.2f;
@@ -424,46 +427,69 @@ namespace KaiChe.Gameplay.Survivor
 
         public string GetSkillUpgradeTitle(int choiceIndex)
         {
-            switch (choiceIndex)
+            SkillDefinition skill = GetSkillChoiceDefinition(choiceIndex);
+            if (skill == null)
+                return "스킬 선택 대기";
+
+            if (!IsBaseSkillOwned(skill.Id))
+                return "신규 습득 · " + skill.DisplayName;
+
+            if (skill.Id == ContentIds.StarterSkill)
             {
-                case 0:
-                    return _fireUpgradeRank + 1 >= FireEvolutionRank
-                        ? "화염 진화 · 태양 폭발"
-                        : "화염 각인 · 파이어볼 강화";
-                case 1:
-                    return _iceUpgradeRank + 1 >= IceEvolutionRank
-                        ? "냉기 진화 · 절대영도 파동"
-                        : "빙결 각인 · 아이스볼 강화";
-                case 2:
-                    return "원소 공명 · 8종 기본기 강화";
-                default:
-                    return "알 수 없는 강화";
+                return _fireUpgradeRank + 1 >= FireEvolutionRank
+                    ? "화염 진화 · 태양 폭발"
+                    : "파이어볼 강화 · Lv." + (_fireUpgradeRank + 2);
             }
+
+            if (skill.Id == ContentIds.IceBall)
+            {
+                return _iceUpgradeRank + 1 >= IceEvolutionRank
+                    ? "냉기 진화 · 절대영도 파동"
+                    : "아이스볼 강화 · Lv." + (_iceUpgradeRank + 2);
+            }
+
+            return skill.DisplayName
+                + " 강화 · Lv."
+                + (GetBaseSkillUpgradeRank(skill.Id) + 2);
         }
 
         public string GetSkillUpgradeDescription(int choiceIndex)
         {
-            switch (choiceIndex)
+            SkillDefinition skill = GetSkillChoiceDefinition(choiceIndex);
+            if (skill == null)
+                return string.Empty;
+
+            if (!IsBaseSkillOwned(skill.Id))
             {
-                case 0:
-                    return $"+{Mathf.RoundToInt(FireDamagePerRank * 100f)}% 피해"
-                        + $" · 재사용 -{Mathf.RoundToInt(FireCooldownPerRank * 100f)}%"
-                        + (_fireUpgradeRank + 1 == FireEvolutionRank
-                            ? " · 3랭크부터 명중 시 광역 폭발"
-                            : string.Empty);
-                case 1:
-                    return $"+{Mathf.RoundToInt(IceDamagePerRank * 100f)}% 피해"
-                        + $" · 둔화 +{IceSlowDurationPerRank:0.00}초"
-                        + (_iceUpgradeRank + 1 == IceEvolutionRank
-                            ? " · 3랭크부터 주변 적 냉기 파동"
-                            : string.Empty);
-                case 2:
-                    return $"비화염·냉기 8종 피해 +{Mathf.RoundToInt(ArcaneBaseSkillDamagePerRank * 100f)}%"
-                        + $" · 전체 기본기 재사용 -{Mathf.RoundToInt(ArcaneCooldownPerRank * 100f)}%"
-                        + $" · 탄속 +{Mathf.RoundToInt(ArcaneProjectileSpeedPerRank * 100f)}%";
-                default:
-                    return string.Empty;
+                return "기본기 습득 · 피해 "
+                    + Mathf.RoundToInt(skill.Damage)
+                    + " · 재사용 "
+                    + skill.Cooldown.ToString("0.00")
+                    + "초 · 사거리 "
+                    + skill.Range.ToString("0.0");
             }
+
+            if (skill.Id == ContentIds.StarterSkill)
+            {
+                return $"+{Mathf.RoundToInt(FireDamagePerRank * 100f)}% 피해"
+                    + $" · 재사용 -{Mathf.RoundToInt(FireCooldownPerRank * 100f)}%"
+                    + (_fireUpgradeRank + 1 == FireEvolutionRank
+                        ? " · 이번 강화부터 명중 시 광역 폭발"
+                        : string.Empty);
+            }
+
+            if (skill.Id == ContentIds.IceBall)
+            {
+                return $"+{Mathf.RoundToInt(IceDamagePerRank * 100f)}% 피해"
+                    + $" · 둔화 +{IceSlowDurationPerRank:0.00}초"
+                    + (_iceUpgradeRank + 1 == IceEvolutionRank
+                        ? " · 이번 강화부터 주변 적 냉기 파동"
+                        : string.Empty);
+            }
+
+            return $"+{Mathf.RoundToInt(IndependentBaseSkillDamagePerRank * 100f)}% 피해"
+                + $" · 재사용 -{Mathf.RoundToInt(IndependentBaseSkillCooldownPerRank * 100f)}%"
+                + $" · 탄속 +{Mathf.RoundToInt(IndependentBaseSkillProjectileSpeedPerRank * 100f)}%";
         }
 
         public bool TryChooseSkillUpgrade(int choiceIndex)
@@ -471,26 +497,55 @@ namespace KaiChe.Gameplay.Survivor
             if (_pendingSkillChoices <= 0)
                 return false;
 
-            switch (choiceIndex)
+            SkillDefinition skill = GetSkillChoiceDefinition(choiceIndex);
+            if (skill == null)
+                return false;
+
+            if (!IsBaseSkillOwned(skill.Id))
             {
-                case 0:
-                    _fireUpgradeRank += 1;
-                    Debug.Log("KAI_CHE_SKILL_PICK_FIRE_" + _fireUpgradeRank);
-                    break;
-                case 1:
-                    _iceUpgradeRank += 1;
-                    Debug.Log("KAI_CHE_SKILL_PICK_ICE_" + _iceUpgradeRank);
-                    break;
-                case 2:
-                    _arcaneUpgradeRank += 1;
-                    Debug.Log("KAI_CHE_SKILL_PICK_ARCANE_" + _arcaneUpgradeRank);
-                    Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_RANK_" + _arcaneUpgradeRank);
-                    break;
-                default:
+                if (_activeBaseSkillIds.Count >= MaxActiveBaseSkills)
                     return false;
+
+                _activeBaseSkillIds.Add(skill.Id);
+                EnsureBaseSkillRankEntry(skill.Id);
+                Debug.Log("KAI_CHE_R23_SKILL_ACQUIRE_" + skill.Id);
+            }
+            else
+            {
+                int nextRank = GetBaseSkillUpgradeRank(skill.Id) + 1;
+                _baseSkillUpgradeRanks[skill.Id] = nextRank;
+
+                if (skill.Id == ContentIds.StarterSkill)
+                {
+                    _fireUpgradeRank = nextRank;
+                    Debug.Log("KAI_CHE_SKILL_PICK_FIRE_" + _fireUpgradeRank);
+                }
+                else if (skill.Id == ContentIds.IceBall)
+                {
+                    _iceUpgradeRank = nextRank;
+                    Debug.Log("KAI_CHE_SKILL_PICK_ICE_" + _iceUpgradeRank);
+                }
+                else
+                {
+                    _arcaneUpgradeRank += 1;
+                }
+
+                Debug.Log(
+                    "KAI_CHE_R23_SKILL_UPGRADE_"
+                    + skill.Id
+                    + "_"
+                    + nextRank);
             }
 
             _pendingSkillChoices -= 1;
+            _lastActiveLoadoutWave = 0;
+            LogActiveBaseSkillLoadout();
+
+            if (_pendingSkillChoices > 0)
+                GenerateSkillChoiceCandidates();
+            else
+                ClearSkillChoiceCandidates();
+
             return true;
         }
 
@@ -509,6 +564,7 @@ namespace KaiChe.Gameplay.Survivor
                 _materialTemplate,
                 TownEntrancePosition);
             _player = CreateWarriorView();
+            InitializeBaseSkillLoadout();
 
             _spawnTimer = 0.2f;
             _skillShotTimers.Clear();
@@ -519,6 +575,8 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             _lastActiveLoadoutWave = 0;
+            _skillChoiceGeneration = 0;
+            ClearSkillChoiceCandidates();
             _comboCount = 0;
             _comboTimer = 0f;
             _frenzyTimer = 0f;
@@ -530,6 +588,8 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log("KAI_CHE_R21_FRENZY_REWARD_ACTIVE");
             Debug.Log("KAI_CHE_R22_FRENZY_TEMPO_ACTIVE_5_3000_5500");
             Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_ACTIVE");
+            Debug.Log("KAI_CHE_R23_INDEPENDENT_SKILL_GROWTH_ACTIVE");
+            Debug.Log("KAI_CHE_R23_MAX_ACTIVE_SKILLS_" + MaxActiveBaseSkills);
             LogActiveBaseSkillLoadout();
             _initialized = true;
         }
@@ -716,23 +776,53 @@ namespace KaiChe.Gameplay.Survivor
 
         private bool IsBaseSkillActive(int skillIndex)
         {
-            if (skillIndex == 0 || skillIndex == 3)
-                return true;
+            if (skillIndex < 0
+                || skillIndex >= RuntimeContentCatalog.BaseSkills.Length)
+                return false;
 
-            int pairStart =
-                ((Mathf.Max(1, Wave) - 1) * RotatingSkillsPerWave)
-                % RotatingBaseSkillIndices.Length;
+            return IsBaseSkillOwned(
+                RuntimeContentCatalog.BaseSkills[skillIndex].Id);
+        }
 
-            for (int i = 0; i < RotatingSkillsPerWave; i++)
+        private bool IsBaseSkillOwned(string skillId)
+        {
+            return !string.IsNullOrEmpty(skillId)
+                && _activeBaseSkillIds.Contains(skillId);
+        }
+
+        private int GetBaseSkillUpgradeRank(string skillId)
+        {
+            return _baseSkillUpgradeRanks.TryGetValue(
+                skillId,
+                out int rank)
+                ? rank
+                : 0;
+        }
+
+        private void EnsureBaseSkillRankEntry(string skillId)
+        {
+            if (!string.IsNullOrEmpty(skillId)
+                && !_baseSkillUpgradeRanks.ContainsKey(skillId))
             {
-                int rotatingIndex =
-                    RotatingBaseSkillIndices[
-                        (pairStart + i) % RotatingBaseSkillIndices.Length];
-                if (skillIndex == rotatingIndex)
-                    return true;
+                _baseSkillUpgradeRanks[skillId] = 0;
             }
+        }
 
-            return false;
+        private void InitializeBaseSkillLoadout()
+        {
+            _activeBaseSkillIds.Clear();
+            _baseSkillUpgradeRanks.Clear();
+
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+                EnsureBaseSkillRankEntry(RuntimeContentCatalog.BaseSkills[i].Id);
+
+            _activeBaseSkillIds.Add(ContentIds.StarterSkill);
+            _activeBaseSkillIds.Add(ContentIds.IceBall);
+            _fireUpgradeRank = 0;
+            _iceUpgradeRank = 0;
+            _arcaneUpgradeRank = 0;
+
+            Debug.Log("KAI_CHE_R23_STARTER_LOADOUT_FIRE_ICE");
         }
 
         private string BuildActiveBaseSkillSummary()
@@ -754,15 +844,147 @@ namespace KaiChe.Gameplay.Survivor
 
             _lastActiveLoadoutWave = Wave;
             Debug.Log(
-                "KAI_CHE_R21_LOADOUT_WAVE_"
+                "KAI_CHE_R23_LOADOUT_WAVE_"
                 + Wave
                 + "_COUNT_"
                 + ActiveBaseSkillCount);
             Debug.Log(
-                "KAI_CHE_R21_LOADOUT_NAMES_"
+                "KAI_CHE_R23_LOADOUT_NAMES_"
                 + BuildActiveBaseSkillSummary());
         }
 
+        private SkillDefinition GetSkillChoiceDefinition(int choiceIndex)
+        {
+            if (choiceIndex < 0
+                || choiceIndex >= _skillChoiceCandidateIds.Length)
+                return null;
+
+            string skillId = _skillChoiceCandidateIds[choiceIndex];
+            return string.IsNullOrEmpty(skillId)
+                ? null
+                : RuntimeContentCatalog.FindSkill(skillId);
+        }
+
+        private void ClearSkillChoiceCandidates()
+        {
+            for (int i = 0; i < _skillChoiceCandidateIds.Length; i++)
+                _skillChoiceCandidateIds[i] = null;
+        }
+
+        private bool ContainsSkillChoiceCandidate(string skillId)
+        {
+            for (int i = 0; i < _skillChoiceCandidateIds.Length; i++)
+            {
+                if (_skillChoiceCandidateIds[i] == skillId)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void GenerateSkillChoiceCandidates()
+        {
+            ClearSkillChoiceCandidates();
+
+            var owned = new List<SkillDefinition>();
+            var unowned = new List<SkillDefinition>();
+            var eligible = new List<SkillDefinition>();
+
+            bool canAcquireNew =
+                _activeBaseSkillIds.Count < MaxActiveBaseSkills;
+
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                if (IsBaseSkillOwned(skill.Id))
+                {
+                    owned.Add(skill);
+                    eligible.Add(skill);
+                }
+                else if (canAcquireNew)
+                {
+                    unowned.Add(skill);
+                    eligible.Add(skill);
+                }
+            }
+
+            int generation = _skillChoiceGeneration++;
+            int slot = 0;
+
+            if (owned.Count > 0)
+            {
+                SkillDefinition upgrade =
+                    owned[(generation + Mathf.Max(0, Level - 1)) % owned.Count];
+                _skillChoiceCandidateIds[slot++] = upgrade.Id;
+            }
+
+            if (slot < _skillChoiceCandidateIds.Length
+                && unowned.Count > 0)
+            {
+                SkillDefinition acquire =
+                    unowned[(generation * 2 + Mathf.Max(0, Level - 1))
+                        % unowned.Count];
+                if (!ContainsSkillChoiceCandidate(acquire.Id))
+                    _skillChoiceCandidateIds[slot++] = acquire.Id;
+            }
+
+            int cursor = eligible.Count > 0
+                ? (generation * 3 + Mathf.Max(0, Level - 1))
+                    % eligible.Count
+                : 0;
+
+            for (int attempts = 0;
+                slot < _skillChoiceCandidateIds.Length
+                    && attempts < eligible.Count * 2;
+                attempts++)
+            {
+                SkillDefinition candidate =
+                    eligible[(cursor + attempts) % eligible.Count];
+
+                if (ContainsSkillChoiceCandidate(candidate.Id))
+                    continue;
+
+                _skillChoiceCandidateIds[slot++] = candidate.Id;
+            }
+
+            if (slot < _skillChoiceCandidateIds.Length)
+            {
+                for (int i = 0;
+                    slot < _skillChoiceCandidateIds.Length
+                        && i < owned.Count;
+                    i++)
+                {
+                    SkillDefinition fallback = owned[i];
+                    if (ContainsSkillChoiceCandidate(fallback.Id))
+                        continue;
+
+                    _skillChoiceCandidateIds[slot++] = fallback.Id;
+                }
+            }
+
+            Debug.Log(
+                "KAI_CHE_R23_CHOICES_"
+                + BuildSkillChoiceSummary());
+        }
+
+        private string BuildSkillChoiceSummary()
+        {
+            var names = new List<string>();
+            for (int i = 0; i < _skillChoiceCandidateIds.Length; i++)
+            {
+                SkillDefinition skill = GetSkillChoiceDefinition(i);
+                if (skill != null)
+                {
+                    names.Add(
+                        (IsBaseSkillOwned(skill.Id) ? "UP:" : "NEW:")
+                        + skill.DisplayName);
+                }
+            }
+
+            return string.Join("|", names.ToArray());
+        }
+
+        private void UpdateCombatMomentum(float deltaTime)
         private void UpdateCombatMomentum(float deltaTime)
         {
             if (_comboTimer > 0f)
@@ -1604,13 +1826,25 @@ namespace KaiChe.Gameplay.Survivor
             bool isIceBall,
             bool isFireball)
         {
+            int independentRank =
+                GetBaseSkillUpgradeRank(skill.Id);
+
             float reduction =
-                _arcaneUpgradeRank * ArcaneCooldownPerRank
-                + GetAttributeValue(CharacterAttribute.Wisdom)
+                GetAttributeValue(CharacterAttribute.Wisdom)
                     * WisdomCooldownPerPoint
                 + _bossTempoRewardRank * BossRewardCooldownPerRank;
+
             if (isFireball)
-                reduction += _fireUpgradeRank * FireCooldownPerRank;
+            {
+                reduction +=
+                    _fireUpgradeRank * FireCooldownPerRank;
+            }
+            else if (!isIceBall)
+            {
+                reduction +=
+                    independentRank
+                    * IndependentBaseSkillCooldownPerRank;
+            }
 
             float cooldown =
                 skill.Cooldown * Mathf.Max(0.42f, 1f - reduction);
@@ -1634,12 +1868,19 @@ namespace KaiChe.Gameplay.Survivor
                 1f
                 + GetAttributeValue(CharacterAttribute.Perception)
                     * PerceptionProjectileSpeedPerPoint;
-            float arcaneMultiplier =
-                1f + _arcaneUpgradeRank * ArcaneProjectileSpeedPerRank;
+
+            bool usesIndependentGrowth =
+                skill.Id != ContentIds.StarterSkill
+                && skill.Id != ContentIds.IceBall;
+            float skillRankMultiplier = usesIndependentGrowth
+                ? 1f
+                    + GetBaseSkillUpgradeRank(skill.Id)
+                        * IndependentBaseSkillProjectileSpeedPerRank
+                : 1f;
 
             return skill.ProjectileSpeed
                 * perceptionMultiplier
-                * arcaneMultiplier;
+                * skillRankMultiplier;
         }
 
         private float GetProjectileDamage(
@@ -1651,7 +1892,9 @@ namespace KaiChe.Gameplay.Survivor
                 ? 1f + _iceUpgradeRank * IceDamagePerRank
                 : isFireball
                     ? 1f + _fireUpgradeRank * FireDamagePerRank
-                    : 1f + _arcaneUpgradeRank * ArcaneBaseSkillDamagePerRank;
+                    : 1f
+                        + GetBaseSkillUpgradeRank(skill.Id)
+                            * IndependentBaseSkillDamagePerRank;
 
             float levelMultiplier =
                 1f
@@ -2927,7 +3170,11 @@ namespace KaiChe.Gameplay.Survivor
 
             if (levelsGained > 0)
             {
+                bool wasSkillChoicePending = _pendingSkillChoices > 0;
                 _pendingSkillChoices += levelsGained;
+                if (!wasSkillChoicePending)
+                    GenerateSkillChoiceCandidates();
+
                 _moveInput = Vector2.zero;
 
                 float healAmount =
