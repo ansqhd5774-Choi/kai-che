@@ -135,6 +135,7 @@ namespace KaiChe.Gameplay.Survivor
         private const float IceSlowDurationPerRank = 0.35f;
         private const float ArcaneCooldownPerRank = 0.08f;
         private const float ArcaneProjectileSpeedPerRank = 0.10f;
+        private const float ArcaneBaseSkillDamagePerRank = 0.14f;
         private const int FireEvolutionRank = 3;
         private const int IceEvolutionRank = 3;
         private const float FireSplashRadius = 1.35f;
@@ -434,7 +435,7 @@ namespace KaiChe.Gameplay.Survivor
                         ? "냉기 진화 · 절대영도 파동"
                         : "빙결 각인 · 아이스볼 강화";
                 case 2:
-                    return "비전 가속 · 쌍마법 공명";
+                    return "원소 공명 · 8종 기본기 강화";
                 default:
                     return "알 수 없는 강화";
             }
@@ -457,7 +458,8 @@ namespace KaiChe.Gameplay.Survivor
                             ? " · 3랭크부터 주변 적 냉기 파동"
                             : string.Empty);
                 case 2:
-                    return $"두 스킬 재사용 -{Mathf.RoundToInt(ArcaneCooldownPerRank * 100f)}%"
+                    return $"비화염·냉기 8종 피해 +{Mathf.RoundToInt(ArcaneBaseSkillDamagePerRank * 100f)}%"
+                        + $" · 전체 기본기 재사용 -{Mathf.RoundToInt(ArcaneCooldownPerRank * 100f)}%"
                         + $" · 탄속 +{Mathf.RoundToInt(ArcaneProjectileSpeedPerRank * 100f)}%";
                 default:
                     return string.Empty;
@@ -482,6 +484,7 @@ namespace KaiChe.Gameplay.Survivor
                 case 2:
                     _arcaneUpgradeRank += 1;
                     Debug.Log("KAI_CHE_SKILL_PICK_ARCANE_" + _arcaneUpgradeRank);
+                    Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_RANK_" + _arcaneUpgradeRank);
                     break;
                 default:
                     return false;
@@ -525,6 +528,7 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
             Debug.Log("KAI_CHE_R21_COMBAT_MOMENTUM_ACTIVE");
             Debug.Log("KAI_CHE_R21_FRENZY_REWARD_ACTIVE");
+            Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_ACTIVE");
             LogActiveBaseSkillLoadout();
             _initialized = true;
         }
@@ -1646,7 +1650,7 @@ namespace KaiChe.Gameplay.Survivor
                 ? 1f + _iceUpgradeRank * IceDamagePerRank
                 : isFireball
                     ? 1f + _fireUpgradeRank * FireDamagePerRank
-                    : 1f;
+                    : 1f + _arcaneUpgradeRank * ArcaneBaseSkillDamagePerRank;
 
             float levelMultiplier =
                 1f
