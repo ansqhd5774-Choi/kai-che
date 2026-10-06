@@ -50,22 +50,25 @@ namespace KaiChe.Gameplay.Survivor
             Color eye = new Color(0.055f, 0.038f, 0.028f);
             Color lip = new Color(0.48f, 0.17f, 0.17f);
 
-            // R32 blockout target:
-            // approximately 7.3-7.5 head units from crown to sole.
-            // The purpose is proportion and silhouette, not tertiary detail.
+            // R32 proportion upgrade V2.
+            // The game camera foreshortens upright characters, so the runtime
+            // blockout intentionally uses a slightly smaller head and longer
+            // lower body than the literal construction guide. The target is
+            // the R31 adult-human silhouette at gameplay distance.
+
             CreateProfilePart(
                 modelRoot,
                 "PlayerPelvis3D",
                 skin,
-                new Vector3(0f, -0.13f, 0f),
+                new Vector3(0f, -0.25f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.24f, 0.31f, 0.21f),
-                    new Ring(0.09f, 0.36f, 0.24f),
-                    new Ring(-0.08f, 0.39f, 0.26f),
-                    new Ring(-0.23f, 0.36f, 0.25f),
-                    new Ring(-0.31f, 0.25f, 0.20f)
+                    new Ring(0.27f, 0.30f, 0.20f),
+                    new Ring(0.10f, 0.36f, 0.24f),
+                    new Ring(-0.10f, 0.42f, 0.27f),
+                    new Ring(-0.28f, 0.39f, 0.26f),
+                    new Ring(-0.42f, 0.27f, 0.21f)
                 },
                 materialTemplate);
 
@@ -73,14 +76,14 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerAbdomen3D",
                 skin,
-                new Vector3(0f, 0.25f, 0f),
+                new Vector3(0f, 0.28f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.29f, 0.31f, 0.20f),
-                    new Ring(0.10f, 0.285f, 0.185f),
-                    new Ring(-0.10f, 0.27f, 0.18f),
-                    new Ring(-0.28f, 0.30f, 0.20f)
+                    new Ring(0.30f, 0.30f, 0.195f),
+                    new Ring(0.12f, 0.265f, 0.180f),
+                    new Ring(-0.12f, 0.245f, 0.175f),
+                    new Ring(-0.32f, 0.295f, 0.198f)
                 },
                 materialTemplate);
 
@@ -88,31 +91,31 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerChest3D",
                 skin,
-                new Vector3(0f, 0.75f, 0f),
+                new Vector3(0f, 0.92f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.33f, 0.27f, 0.18f),
-                    new Ring(0.19f, 0.34f, 0.215f),
-                    new Ring(0.02f, 0.36f, 0.23f),
-                    new Ring(-0.16f, 0.34f, 0.22f),
-                    new Ring(-0.31f, 0.30f, 0.20f)
+                    new Ring(0.32f, 0.275f, 0.180f),
+                    new Ring(0.18f, 0.345f, 0.215f),
+                    new Ring(0.00f, 0.370f, 0.228f),
+                    new Ring(-0.20f, 0.345f, 0.216f),
+                    new Ring(-0.40f, 0.300f, 0.198f)
                 },
                 materialTemplate);
 
-            // Opaque base garments remain simple so later equipment can replace them.
+            // Base garments stay simple during blockout.
             CreateProfilePart(
                 modelRoot,
                 "PlayerSportsBra3D",
                 underwear,
-                new Vector3(0f, 0.75f, 0f),
+                new Vector3(0f, 0.91f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.20f, 0.345f, 0.225f),
-                    new Ring(0.07f, 0.372f, 0.238f),
-                    new Ring(-0.09f, 0.36f, 0.235f),
-                    new Ring(-0.22f, 0.335f, 0.222f)
+                    new Ring(0.20f, 0.350f, 0.222f),
+                    new Ring(0.06f, 0.378f, 0.238f),
+                    new Ring(-0.10f, 0.368f, 0.236f),
+                    new Ring(-0.22f, 0.340f, 0.222f)
                 },
                 materialTemplate);
 
@@ -120,29 +123,29 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerBrief3D",
                 underwear,
-                new Vector3(0f, -0.13f, 0f),
+                new Vector3(0f, -0.25f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.18f, 0.37f, 0.25f),
-                    new Ring(0.04f, 0.402f, 0.27f),
-                    new Ring(-0.11f, 0.39f, 0.266f),
-                    new Ring(-0.24f, 0.34f, 0.245f)
+                    new Ring(0.22f, 0.365f, 0.245f),
+                    new Ring(0.05f, 0.425f, 0.275f),
+                    new Ring(-0.12f, 0.415f, 0.272f),
+                    new Ring(-0.30f, 0.350f, 0.248f)
                 },
                 materialTemplate);
 
-            // Neck and head establish the head-unit used by the body blockout.
+            // Longer neck and a smaller head counter the top-down camera.
             CreateProfilePart(
                 modelRoot,
                 "PlayerNeck3D",
                 skinShade,
-                new Vector3(0f, 1.14f, 0f),
+                new Vector3(0f, 1.36f, 0f),
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.14f, 0.105f, 0.10f),
-                    new Ring(0.02f, 0.115f, 0.105f),
-                    new Ring(-0.12f, 0.13f, 0.115f)
+                    new Ring(0.20f, 0.095f, 0.090f),
+                    new Ring(0.05f, 0.105f, 0.095f),
+                    new Ring(-0.15f, 0.125f, 0.108f)
                 },
                 materialTemplate);
 
@@ -150,8 +153,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerHead3D",
                 skin,
-                new Vector3(0f, 1.51f, -0.01f),
-                new Vector3(0.215f, 0.255f, 0.225f),
+                new Vector3(0f, 1.79f, -0.012f),
+                new Vector3(0.180f, 0.225f, 0.188f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -159,86 +162,85 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerEarLeft3D",
                 skinShade,
-                new Vector3(-0.215f, 1.51f, 0f),
-                new Vector3(0.030f, 0.060f, 0.024f),
+                new Vector3(-0.181f, 1.79f, 0f),
+                new Vector3(0.026f, 0.052f, 0.021f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerEarRight3D",
                 skinShade,
-                new Vector3(0.215f, 1.51f, 0f),
-                new Vector3(0.030f, 0.060f, 0.024f),
+                new Vector3(0.181f, 1.79f, 0f),
+                new Vector3(0.026f, 0.052f, 0.021f),
                 Quaternion.identity,
                 materialTemplate);
 
-            // R32 keeps only readable facial landmarks; R33-R35 refine anatomy/detail.
+            // Minimal readable face landmarks only. R33-R35 own the final face.
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerEyeLeft3D",
                 eye,
-                new Vector3(-0.080f, 1.545f, -0.226f),
-                new Vector3(0.036f, 0.020f, 0.012f),
+                new Vector3(-0.066f, 1.820f, -0.190f),
+                new Vector3(0.030f, 0.017f, 0.010f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerEyeRight3D",
                 eye,
-                new Vector3(0.080f, 1.545f, -0.226f),
-                new Vector3(0.036f, 0.020f, 0.012f),
+                new Vector3(0.066f, 1.820f, -0.190f),
+                new Vector3(0.030f, 0.017f, 0.010f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerNose3D",
                 skinShade,
-                new Vector3(0f, 1.470f, -0.238f),
-                new Vector3(0.030f, 0.052f, 0.038f),
+                new Vector3(0f, 1.755f, -0.201f),
+                new Vector3(0.025f, 0.045f, 0.032f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerMouth3D",
                 lip,
-                new Vector3(0f, 1.385f, -0.226f),
-                new Vector3(0.065f, 0.014f, 0.012f),
+                new Vector3(0f, 1.680f, -0.190f),
+                new Vector3(0.052f, 0.012f, 0.010f),
                 Quaternion.identity,
                 materialTemplate);
 
-            // Short hair masses; still blockout geometry, not final hair cards/strands.
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerHairCap3D",
                 hair,
-                new Vector3(0f, 1.610f, 0.075f),
-                new Vector3(0.226f, 0.205f, 0.205f),
+                new Vector3(0f, 1.885f, 0.060f),
+                new Vector3(0.194f, 0.170f, 0.182f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerHairBack3D",
                 hair,
-                new Vector3(0f, 1.465f, 0.125f),
-                new Vector3(0.220f, 0.235f, 0.145f),
+                new Vector3(0f, 1.745f, 0.105f),
+                new Vector3(0.190f, 0.205f, 0.125f),
                 Quaternion.identity,
                 materialTemplate);
 
-            // Shoulders and arms: relaxed A-pose proportions with shoulder/elbow/wrist landmarks.
+            // Shoulder line: wider than the waist but not heroic.
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerShoulderLeft3D",
                 skin,
-                new Vector3(-0.385f, 0.965f, 0f),
-                new Vector3(0.135f, 0.145f, 0.135f),
+                new Vector3(-0.420f, 1.105f, 0f),
+                new Vector3(0.130f, 0.142f, 0.128f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerShoulderRight3D",
                 skin,
-                new Vector3(0.385f, 0.965f, 0f),
-                new Vector3(0.135f, 0.145f, 0.135f),
+                new Vector3(0.420f, 1.105f, 0f),
+                new Vector3(0.130f, 0.142f, 0.128f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -246,16 +248,16 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerUpperArmLeft3D",
                 skin,
-                new Vector3(-0.395f, 0.955f, 0f),
-                Quaternion.Euler(0f, 0f, -10f),
+                new Vector3(-0.430f, 1.095f, 0f),
+                Quaternion.Euler(0f, 0f, -8f),
                 ArmUpperProfile(),
                 materialTemplate);
             CreateProfilePart(
                 modelRoot,
                 "PlayerUpperArmRight3D",
                 skin,
-                new Vector3(0.395f, 0.955f, 0f),
-                Quaternion.Euler(0f, 0f, 10f),
+                new Vector3(0.430f, 1.095f, 0f),
+                Quaternion.Euler(0f, 0f, 8f),
                 ArmUpperProfile(),
                 materialTemplate);
 
@@ -263,16 +265,16 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerElbowLeft3D",
                 skinShade,
-                new Vector3(-0.505f, 0.345f, 0f),
-                new Vector3(0.105f, 0.105f, 0.105f),
+                new Vector3(-0.535f, 0.355f, 0f),
+                new Vector3(0.100f, 0.100f, 0.100f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerElbowRight3D",
                 skinShade,
-                new Vector3(0.505f, 0.345f, 0f),
-                new Vector3(0.105f, 0.105f, 0.105f),
+                new Vector3(0.535f, 0.355f, 0f),
+                new Vector3(0.100f, 0.100f, 0.100f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -280,16 +282,16 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerForearmLeft3D",
                 skin,
-                new Vector3(-0.505f, 0.345f, 0f),
-                Quaternion.Euler(0f, 0f, -7f),
+                new Vector3(-0.535f, 0.355f, 0f),
+                Quaternion.Euler(0f, 0f, -6f),
                 ForearmProfile(),
                 materialTemplate);
             CreateProfilePart(
                 modelRoot,
                 "PlayerForearmRight3D",
                 skin,
-                new Vector3(0.505f, 0.345f, 0f),
-                Quaternion.Euler(0f, 0f, 7f),
+                new Vector3(0.535f, 0.355f, 0f),
+                Quaternion.Euler(0f, 0f, 6f),
                 ForearmProfile(),
                 materialTemplate);
 
@@ -297,34 +299,35 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerHandLeft3D",
                 skinShade,
-                new Vector3(-0.575f, -0.205f, -0.015f),
-                new Vector3(0.085f, 0.145f, 0.065f),
-                Quaternion.Euler(0f, 0f, -5f),
+                new Vector3(-0.610f, -0.315f, -0.015f),
+                new Vector3(0.098f, 0.165f, 0.072f),
+                Quaternion.Euler(0f, 0f, -4f),
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerHandRight3D",
                 skinShade,
-                new Vector3(0.575f, -0.205f, -0.015f),
-                new Vector3(0.085f, 0.145f, 0.065f),
-                Quaternion.Euler(0f, 0f, 5f),
+                new Vector3(0.610f, -0.315f, -0.015f),
+                new Vector3(0.098f, 0.165f, 0.072f),
+                Quaternion.Euler(0f, 0f, 4f),
                 materialTemplate);
 
-            // Legs: clear hip -> thigh -> knee -> calf -> ankle -> foot silhouette.
+            // Long lower body is deliberate: it restores adult proportions
+            // after projection through the fixed gameplay camera.
             CreateProfilePart(
                 modelRoot,
                 "PlayerThighLeft3D",
                 skin,
-                new Vector3(-0.205f, -0.335f, 0f),
-                Quaternion.Euler(0f, 0f, -1.5f),
+                new Vector3(-0.220f, -0.555f, 0f),
+                Quaternion.Euler(0f, 0f, -1.0f),
                 ThighProfile(),
                 materialTemplate);
             CreateProfilePart(
                 modelRoot,
                 "PlayerThighRight3D",
                 skin,
-                new Vector3(0.205f, -0.335f, 0f),
-                Quaternion.Euler(0f, 0f, 1.5f),
+                new Vector3(0.220f, -0.555f, 0f),
+                Quaternion.Euler(0f, 0f, 1.0f),
                 ThighProfile(),
                 materialTemplate);
 
@@ -332,16 +335,16 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerKneeLeft3D",
                 skinShade,
-                new Vector3(-0.222f, -1.075f, -0.012f),
-                new Vector3(0.120f, 0.120f, 0.115f),
+                new Vector3(-0.230f, -1.515f, -0.012f),
+                new Vector3(0.112f, 0.112f, 0.108f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerKneeRight3D",
                 skinShade,
-                new Vector3(0.222f, -1.075f, -0.012f),
-                new Vector3(0.120f, 0.120f, 0.115f),
+                new Vector3(0.230f, -1.515f, -0.012f),
+                new Vector3(0.112f, 0.112f, 0.108f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -349,7 +352,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShinLeft3D",
                 skin,
-                new Vector3(-0.222f, -1.085f, 0f),
+                new Vector3(-0.230f, -1.520f, 0f),
                 Quaternion.identity,
                 ShinProfile(),
                 materialTemplate);
@@ -357,7 +360,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShinRight3D",
                 skin,
-                new Vector3(0.222f, -1.085f, 0f),
+                new Vector3(0.230f, -1.520f, 0f),
                 Quaternion.identity,
                 ShinProfile(),
                 materialTemplate);
@@ -366,32 +369,33 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerFootLeft3D",
                 skinShade,
-                new Vector3(-0.222f, -1.825f, -0.155f),
-                new Vector3(0.135f, 0.095f, 0.285f),
+                new Vector3(-0.230f, -2.360f, -0.185f),
+                new Vector3(0.150f, 0.100f, 0.330f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
                 modelRoot,
                 "PlayerFootRight3D",
                 skinShade,
-                new Vector3(0.222f, -1.825f, -0.155f),
-                new Vector3(0.135f, 0.095f, 0.285f),
+                new Vector3(0.230f, -2.360f, -0.185f),
+                new Vector3(0.150f, 0.100f, 0.330f),
                 Quaternion.identity,
                 materialTemplate);
 
             Debug.Log("KAI_CHE_R32_PROPORTION_7_5_HEAD_BASE");
             Debug.Log("KAI_CHE_R32_FULL_LIMB_SILHOUETTE_READY");
+            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V2_READY");
         }
 
         private static Ring[] ArmUpperProfile()
         {
             return new[]
             {
-                new Ring(0f, 0.125f, 0.125f),
-                new Ring(-0.17f, 0.135f, 0.135f),
-                new Ring(-0.38f, 0.118f, 0.120f),
-                new Ring(-0.58f, 0.102f, 0.105f),
-                new Ring(-0.63f, 0.098f, 0.100f)
+                new Ring(0f, 0.118f, 0.118f),
+                new Ring(-0.20f, 0.128f, 0.128f),
+                new Ring(-0.43f, 0.116f, 0.118f),
+                new Ring(-0.67f, 0.100f, 0.103f),
+                new Ring(-0.75f, 0.094f, 0.098f)
             };
         }
 
@@ -399,10 +403,10 @@ namespace KaiChe.Gameplay.Survivor
         {
             return new[]
             {
-                new Ring(0f, 0.105f, 0.108f),
-                new Ring(-0.15f, 0.118f, 0.120f),
-                new Ring(-0.34f, 0.100f, 0.102f),
-                new Ring(-0.50f, 0.075f, 0.078f)
+                new Ring(0f, 0.100f, 0.104f),
+                new Ring(-0.18f, 0.112f, 0.116f),
+                new Ring(-0.40f, 0.095f, 0.098f),
+                new Ring(-0.62f, 0.072f, 0.075f)
             };
         }
 
@@ -410,11 +414,11 @@ namespace KaiChe.Gameplay.Survivor
         {
             return new[]
             {
-                new Ring(0f, 0.145f, 0.160f),
-                new Ring(-0.18f, 0.172f, 0.180f),
-                new Ring(-0.42f, 0.160f, 0.170f),
-                new Ring(-0.66f, 0.130f, 0.145f),
-                new Ring(-0.74f, 0.115f, 0.125f)
+                new Ring(0f, 0.142f, 0.158f),
+                new Ring(-0.24f, 0.175f, 0.185f),
+                new Ring(-0.52f, 0.164f, 0.175f),
+                new Ring(-0.80f, 0.134f, 0.148f),
+                new Ring(-0.96f, 0.112f, 0.123f)
             };
         }
 
@@ -422,11 +426,11 @@ namespace KaiChe.Gameplay.Survivor
         {
             return new[]
             {
-                new Ring(0f, 0.115f, 0.122f),
-                new Ring(-0.18f, 0.130f, 0.140f, 0f, 0.012f),
-                new Ring(-0.36f, 0.120f, 0.132f, 0f, 0.020f),
-                new Ring(-0.58f, 0.095f, 0.105f),
-                new Ring(-0.68f, 0.080f, 0.090f)
+                new Ring(0f, 0.110f, 0.118f),
+                new Ring(-0.22f, 0.130f, 0.142f, 0f, 0.012f),
+                new Ring(-0.47f, 0.122f, 0.136f, 0f, 0.022f),
+                new Ring(-0.70f, 0.092f, 0.104f),
+                new Ring(-0.80f, 0.078f, 0.088f)
             };
         }
 
