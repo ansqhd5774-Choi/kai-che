@@ -191,7 +191,7 @@ jobs:
           )
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
-      - name: Verify R24-R26 progression persistence restart
+      - name: Verify R24-R27 progression and health persistence restart
         shell: cmd
         run: |
           @echo off
@@ -274,6 +274,31 @@ jobs:
           copy /Y Logs\r24-skill-prefs-before-restart.xml Logs\r26-skill-mastery-before-restart.xml >nul
           echo [PASS] R26 non-zero skill mastery persisted to PlayerPrefs.
 
+          rem R27 requires a dynamic max-health checkpoint above the legacy 100 HP cap.
+          "%ADB_EXE%" logcat -d -t 7000 > Logs\r27-health-first-launch-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R27_DYNAMIC_MAX_HEALTH_PERSISTED_" Logs\r27-health-first-launch-logcat.txt >nul
+          if errorlevel 1 (
+            for /L %%I in (1,1,8) do (
+              "%ADB_EXE%" shell input tap 300 1430
+            )
+            ping -n 7 127.0.0.1 >nul
+            "%ADB_EXE%" logcat -d -t 7000 > Logs\r27-health-first-launch-logcat.txt 2>&1
+            findstr /C:"KAI_CHE_R27_DYNAMIC_MAX_HEALTH_PERSISTED_" Logs\r27-health-first-launch-logcat.txt >nul
+          )
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\r27-health-first-launch-failure.png 2>nul
+            echo [ERROR] R27 did not persist a dynamic max-health checkpoint above 100 HP.
+            exit /b 98
+          )
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r27-health-before-restart.xml 2>&1
+          findstr /C:"KaiChe.Adventure.HealthState.Version\" value=\"1\"" Logs\r27-health-before-restart.xml >nul
+          if errorlevel 1 exit /b 99
+          findstr /C:"KaiChe.Adventure.MaxHealth" Logs\r27-health-before-restart.xml >nul
+          if errorlevel 1 exit /b 100
+          findstr /C:"KaiChe.Adventure.Health" Logs\r27-health-before-restart.xml >nul
+          if errorlevel 1 exit /b 101
+          echo [PASS] R27 dynamic health checkpoint persisted to PlayerPrefs.
+
           rem Restart the app, enter Game again, and require runtime restore validation.
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
           "%ADB_EXE%" logcat -c
@@ -350,6 +375,30 @@ jobs:
           copy /Y Logs\r24-skill-restart-logcat.txt Logs\r26-skill-mastery-restart-logcat.txt >nul
           copy /Y Logs\r24-skill-prefs-after-restart.xml Logs\r26-skill-mastery-after-restart.xml >nul
           echo [PASS] R26 non-zero skill mastery restored after app restart.
+
+          findstr /C:"KAI_CHE_R27_HEALTH_PERSISTENCE_ACTIVE" Logs\r24-skill-restart-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R27 health persistence marker missing after restart.
+            exit /b 102
+          )
+          findstr /C:"KAI_CHE_R27_HEALTH_RESTORE_PASS_CURRENT_" Logs\r24-skill-restart-logcat.txt >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\r27-health-restart-failure.png 2>nul
+            echo [ERROR] R27 health restore validation failed after restart.
+            exit /b 103
+          )
+          findstr /C:"KAI_CHE_R27_DYNAMIC_MAX_HEALTH_RESTORED_" Logs\r24-skill-restart-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R27 dynamic max health was not restored after restart.
+            exit /b 104
+          )
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r27-health-after-restart.xml 2>&1
+          findstr /C:"KaiChe.Adventure.HealthState.Version\" value=\"1\"" Logs\r27-health-after-restart.xml >nul
+          if errorlevel 1 exit /b 105
+          findstr /C:"KaiChe.Adventure.MaxHealth" Logs\r27-health-after-restart.xml >nul
+          if errorlevel 1 exit /b 106
+          copy /Y Logs\r24-skill-restart-logcat.txt Logs\r27-health-restart-logcat.txt >nul
+          echo [PASS] R27 dynamic health state restored after app restart.
 
           rem Return to Main so the existing R20 route smoke starts from its expected state.
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
@@ -547,5 +596,11 @@ jobs:
             Logs/r26-skill-mastery-restart-logcat.txt
             Logs/r26-skill-mastery-first-launch-failure.png
             Logs/r26-skill-mastery-restart-failure.png
+            Logs/r27-health-before-restart.xml
+            Logs/r27-health-after-restart.xml
+            Logs/r27-health-first-launch-logcat.txt
+            Logs/r27-health-restart-logcat.txt
+            Logs/r27-health-first-launch-failure.png
+            Logs/r27-health-restart-failure.png
           if-no-files-found: warn
           retention-days: 7
