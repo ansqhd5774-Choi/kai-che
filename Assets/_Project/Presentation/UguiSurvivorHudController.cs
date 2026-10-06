@@ -113,7 +113,7 @@ namespace KaiChe.Presentation
             _levelText = CreateText(
                 "LevelText",
                 statusPanel,
-                "전사  LV 1",
+                "초보자  LV 1",
                 38,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft,
@@ -335,7 +335,7 @@ namespace KaiChe.Presentation
                 + " / " + _arena.ExperienceRequiredForNextLevel;
 
             _levelText.text =
-                "전사  LV " + _arena.Level
+                "초보자  LV " + _arena.Level
                 + "   공격 +" + Mathf.RoundToInt(_arena.LevelDamageBonusPercent) + "%";
 
             _waveText.text =
