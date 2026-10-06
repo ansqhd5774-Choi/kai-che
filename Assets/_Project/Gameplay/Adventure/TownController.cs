@@ -311,7 +311,7 @@ namespace KaiChe.Gameplay.Adventure
 
         private GameObject CreatePlayerView()
         {
-            GameObject runtime3D = RuntimeCombatVisualFactory.CreateWarrior(
+            GameObject runtime3D = RuntimeCombatVisualFactory.CreateNoviceHuman(
                 transform,
                 _materialTemplate,
                 0.58f,
