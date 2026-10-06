@@ -985,7 +985,6 @@ namespace KaiChe.Gameplay.Survivor
         }
 
         private void UpdateCombatMomentum(float deltaTime)
-        private void UpdateCombatMomentum(float deltaTime)
         {
             if (_comboTimer > 0f)
                 _comboTimer = Mathf.Max(0f, _comboTimer - deltaTime);
