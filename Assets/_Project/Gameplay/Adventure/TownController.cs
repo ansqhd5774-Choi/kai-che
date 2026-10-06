@@ -30,6 +30,7 @@ namespace KaiChe.Gameplay.Adventure
         private GUIStyle _buttonStyle;
 
         public float Health => PrototypeAdventureState.Health;
+        public float MaxHealth => PrototypeAdventureState.MaxHealth;
         public int PotionCount => PrototypeAdventureState.PotionCount;
         public void Initialize(Material materialTemplate)
         {
@@ -158,7 +159,7 @@ namespace KaiChe.Gameplay.Adventure
             GUI.Label(new Rect(44f, 28f, 400f, 54f), "마을", _titleStyle);
             GUI.Label(
                 new Rect(44f, 82f, 700f, 38f),
-                $"체력 {Mathf.CeilToInt(Health)} / 100   ·   물약 {PotionCount}",
+                $"체력 {Mathf.CeilToInt(Health)} / {Mathf.CeilToInt(MaxHealth)}   ·   물약 {PotionCount}",
                 _bodyStyle);
             GUI.Label(new Rect(44f, 120f, 720f, 36f), _message, _bodyStyle);
 
