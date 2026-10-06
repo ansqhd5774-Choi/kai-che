@@ -395,10 +395,10 @@ namespace KaiChe.Presentation
 
             if (_arena.IsSkillChoicePending)
             {
-                _modalTitle.text = "전투 진화 선택";
+                _modalTitle.text = "기본기 선택";
                 _modalSubtitle.text =
                     "남은 선택 " + _arena.PendingSkillChoices
-                    + " · 한 계열을 집중하면 진화합니다.";
+                    + " · 신규 습득 또는 보유 기본기를 강화합니다.";
                 SetChoiceButtonsVisible(true);
                 for (int i = 0; i < 3; i++)
                 {

@@ -382,11 +382,11 @@ namespace KaiChe.Presentation
 
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 34f, panel.width - 60f, 86f),
-                "전투 진화 선택",
+                "기본기 선택",
                 _deathStyle);
             GUI.Label(
                 new Rect(panel.x + 30f, panel.y + 116f, panel.width - 60f, 58f),
-                $"남은 선택 {_arena.PendingSkillChoices} · 한 계열을 집중하면 진화합니다.",
+                $"남은 선택 {_arena.PendingSkillChoices} · 신규 습득 또는 보유 기본기를 강화합니다.",
                 _smallStyle);
 
             const float gap = 22f;
