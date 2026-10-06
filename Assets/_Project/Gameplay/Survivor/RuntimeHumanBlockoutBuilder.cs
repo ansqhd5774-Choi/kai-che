@@ -66,9 +66,9 @@ namespace KaiChe.Gameplay.Survivor
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.24f, 0.320f, 0.215f),
-                    new Ring(0.08f, 0.390f, 0.250f),
-                    new Ring(-0.10f, 0.440f, 0.280f),
+                    new Ring(0.24f, 0.332f, 0.220f),
+                    new Ring(0.08f, 0.405f, 0.256f),
+                    new Ring(-0.10f, 0.455f, 0.286f),
                     new Ring(-0.26f, 0.430f, 0.275f),
                     new Ring(-0.40f, 0.320f, 0.225f)
                 },
@@ -82,10 +82,10 @@ namespace KaiChe.Gameplay.Survivor
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.34f, 0.295f, 0.195f),
-                    new Ring(0.15f, 0.245f, 0.172f),
-                    new Ring(-0.10f, 0.225f, 0.165f),
-                    new Ring(-0.35f, 0.305f, 0.200f)
+                    new Ring(0.34f, 0.305f, 0.198f),
+                    new Ring(0.15f, 0.255f, 0.176f),
+                    new Ring(-0.10f, 0.235f, 0.169f),
+                    new Ring(-0.35f, 0.320f, 0.205f)
                 },
                 materialTemplate);
 
@@ -97,11 +97,11 @@ namespace KaiChe.Gameplay.Survivor
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.31f, 0.250f, 0.178f),
-                    new Ring(0.16f, 0.315f, 0.208f),
-                    new Ring(-0.02f, 0.330f, 0.220f),
-                    new Ring(-0.23f, 0.318f, 0.214f),
-                    new Ring(-0.43f, 0.285f, 0.194f)
+                    new Ring(0.31f, 0.240f, 0.175f),
+                    new Ring(0.16f, 0.302f, 0.204f),
+                    new Ring(-0.02f, 0.316f, 0.215f),
+                    new Ring(-0.23f, 0.305f, 0.210f),
+                    new Ring(-0.43f, 0.278f, 0.191f)
                 },
                 materialTemplate);
 
@@ -113,10 +113,10 @@ namespace KaiChe.Gameplay.Survivor
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.17f, 0.318f, 0.212f),
-                    new Ring(0.03f, 0.335f, 0.222f),
-                    new Ring(-0.12f, 0.326f, 0.220f),
-                    new Ring(-0.24f, 0.308f, 0.206f)
+                    new Ring(0.17f, 0.305f, 0.208f),
+                    new Ring(0.03f, 0.321f, 0.217f),
+                    new Ring(-0.12f, 0.313f, 0.215f),
+                    new Ring(-0.24f, 0.298f, 0.202f)
                 },
                 materialTemplate);
 
@@ -145,9 +145,9 @@ namespace KaiChe.Gameplay.Survivor
                 Quaternion.identity,
                 new[]
                 {
-                    new Ring(0.08f, 0.120f, 0.100f),
-                    new Ring(0.00f, 0.130f, 0.106f),
-                    new Ring(-0.08f, 0.145f, 0.118f)
+                    new Ring(0.08f, 0.132f, 0.106f),
+                    new Ring(0.00f, 0.142f, 0.112f),
+                    new Ring(-0.08f, 0.160f, 0.124f)
                 },
                 materialTemplate);
 
@@ -156,7 +156,7 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerHead3D",
                 skin,
                 new Vector3(0f, 1.70f, -0.010f),
-                new Vector3(0.245f, 0.250f, 0.205f),
+                new Vector3(0.250f, 0.285f, 0.210f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -164,7 +164,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerEarLeft3D",
                 skinShade,
-                new Vector3(-0.246f, 1.70f, 0f),
+                new Vector3(-0.251f, 1.70f, 0f),
                 new Vector3(0.025f, 0.052f, 0.021f),
                 Quaternion.identity,
                 materialTemplate);
@@ -172,7 +172,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerEarRight3D",
                 skinShade,
-                new Vector3(0.246f, 1.70f, 0f),
+                new Vector3(0.251f, 1.70f, 0f),
                 new Vector3(0.025f, 0.052f, 0.021f),
                 Quaternion.identity,
                 materialTemplate);
@@ -215,7 +215,7 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerHairCap3D",
                 hair,
                 new Vector3(0f, 1.790f, 0.055f),
-                new Vector3(0.245f, 0.180f, 0.210f),
+                new Vector3(0.232f, 0.170f, 0.205f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
@@ -223,7 +223,7 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerHairBack3D",
                 hair,
                 new Vector3(0f, 1.655f, 0.105f),
-                new Vector3(0.235f, 0.215f, 0.145f),
+                new Vector3(0.245f, 0.235f, 0.150f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -250,7 +250,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShoulderLeft3D",
                 skin,
-                new Vector3(-0.370f, 1.080f, 0f),
+                new Vector3(-0.355f, 1.080f, 0f),
                 new Vector3(0.105f, 0.120f, 0.110f),
                 Quaternion.identity,
                 materialTemplate);
@@ -258,7 +258,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShoulderRight3D",
                 skin,
-                new Vector3(0.370f, 1.080f, 0f),
+                new Vector3(0.355f, 1.080f, 0f),
                 new Vector3(0.105f, 0.120f, 0.110f),
                 Quaternion.identity,
                 materialTemplate);
@@ -267,16 +267,16 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerUpperArmLeft3D",
                 skin,
-                new Vector3(-0.380f, 1.045f, 0f),
-                Quaternion.Euler(0f, 0f, -8f),
+                new Vector3(-0.365f, 1.045f, 0f),
+                Quaternion.Euler(0f, 0f, -11f),
                 ArmUpperProfile(),
                 materialTemplate);
             CreateProfilePart(
                 modelRoot,
                 "PlayerUpperArmRight3D",
                 skin,
-                new Vector3(0.380f, 1.045f, 0f),
-                Quaternion.Euler(0f, 0f, 8f),
+                new Vector3(0.365f, 1.045f, 0f),
+                Quaternion.Euler(0f, 0f, 11f),
                 ArmUpperProfile(),
                 materialTemplate);
 
@@ -284,7 +284,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerElbowLeft3D",
                 skinShade,
-                new Vector3(-0.485f, 0.305f, 0f),
+                new Vector3(-0.505f, 0.305f, 0f),
                 new Vector3(0.085f, 0.090f, 0.086f),
                 Quaternion.identity,
                 materialTemplate);
@@ -292,7 +292,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerElbowRight3D",
                 skinShade,
-                new Vector3(0.485f, 0.305f, 0f),
+                new Vector3(0.505f, 0.305f, 0f),
                 new Vector3(0.085f, 0.090f, 0.086f),
                 Quaternion.identity,
                 materialTemplate);
@@ -318,7 +318,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerHandLeft3D",
                 skinShade,
-                new Vector3(-0.550f, -0.620f, -0.015f),
+                new Vector3(-0.575f, -0.620f, -0.015f),
                 new Vector3(0.080f, 0.165f, 0.060f),
                 Quaternion.Euler(0f, 0f, -3f),
                 materialTemplate);
@@ -326,7 +326,7 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerHandRight3D",
                 skinShade,
-                new Vector3(0.550f, -0.620f, -0.015f),
+                new Vector3(0.575f, -0.620f, -0.015f),
                 new Vector3(0.080f, 0.165f, 0.060f),
                 Quaternion.Euler(0f, 0f, 3f),
                 materialTemplate);
@@ -389,7 +389,7 @@ namespace KaiChe.Gameplay.Survivor
                 "PlayerFootLeft3D",
                 skinShade,
                 new Vector3(-0.235f, -3.450f, -0.320f),
-                new Vector3(0.220f, 0.135f, 0.500f),
+                new Vector3(0.238f, 0.140f, 0.525f),
                 Quaternion.identity,
                 materialTemplate);
             CreateEllipsoidPart(
@@ -409,6 +409,7 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V6_95_GATE_READY");
             Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V7_95_GATE_READY");
             Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V8_95_GATE_READY");
+            Debug.Log("KAI_CHE_R32_PROPORTION_UPGRADE_V9_95_GATE_READY");
         }
 
         private static Ring[] ArmUpperProfile()
@@ -453,8 +454,8 @@ namespace KaiChe.Gameplay.Survivor
                 new Ring(0f, 0.140f, 0.142f),
                 new Ring(-0.42f, 0.190f, 0.195f, 0f, 0.012f),
                 new Ring(-0.90f, 0.185f, 0.190f, 0f, 0.020f),
-                new Ring(-1.35f, 0.135f, 0.140f),
-                new Ring(-1.80f, 0.100f, 0.108f)
+                new Ring(-1.35f, 0.150f, 0.152f),
+                new Ring(-1.80f, 0.116f, 0.120f)
             };
         }
 
