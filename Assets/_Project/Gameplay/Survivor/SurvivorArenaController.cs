@@ -127,7 +127,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _bossDefeatLogged;
         private bool _eliteSpawnLogged;
         private bool _bossLineLogged;
-        private const float PlayerBaseScale = 0.66f;
+        private const float PlayerBaseScale = 0.72f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
         private const float AttackAnimationDuration = 0.18f;
