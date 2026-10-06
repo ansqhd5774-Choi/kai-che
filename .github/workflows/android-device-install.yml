@@ -233,28 +233,31 @@ jobs:
           )
           echo [PASS] Game scene loaded with R20 XZ battlefield.
 
-          rem Saved progression may open the level-up attribute modal and block movement.
-          rem Reuse the R16-verified first attribute touch point until all 3 points are consumed.
-          "%ADB_EXE%" shell input tap 300 1430
+          rem Saved progression may open repeated level-up modals while combat continues.
+          rem Resolve attribute/skill choices in a short burst, then move immediately before another level-up can reopen the modal.
+          for /L %%I in (1,1,6) do (
+            "%ADB_EXE%" shell input tap 300 1430
+          )
           ping -n 2 127.0.0.1 >nul
-          "%ADB_EXE%" shell input tap 300 1430
-          ping -n 2 127.0.0.1 >nul
-          "%ADB_EXE%" shell input tap 300 1430
-          ping -n 3 127.0.0.1 >nul
 
           "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-after-attributes.xml 2>&1
           findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r18-prefs-after-attributes.xml >nul
           if errorlevel 1 (
-            "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
-            echo [ERROR] R18 smoke could not resolve pending attribute points.
-            exit /b 63
+            for /L %%I in (1,1,6) do (
+              "%ADB_EXE%" shell input tap 300 1430
+            )
+            ping -n 2 127.0.0.1 >nul
+            "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r18-prefs-after-attributes.xml 2>&1
+            findstr /C:"UnspentAttributePoints\" value=\"0\"" Logs\r18-prefs-after-attributes.xml >nul
+            if errorlevel 1 (
+              "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
+              echo [ERROR] R20 smoke could not resolve pending attribute points.
+              exit /b 63
+            )
           )
 
-          rem If a skill-choice modal follows, this same tested point selects the first option.
-          "%ADB_EXE%" shell input tap 300 1430
-          ping -n 3 127.0.0.1 >nul
           "%ADB_EXE%" exec-out screencap -p > Logs\device-after-modal.png 2>nul
-          echo [PASS] Pending level-up modal resolved for R18 route test.
+          echo [PASS] Pending level-up modal cleared; starting town movement immediately.
 
           rem Portrait route: downward screen drag means negative Unity Y toward the town entrance.
           "%ADB_EXE%" shell input swipe 720 1500 720 2850 2800
