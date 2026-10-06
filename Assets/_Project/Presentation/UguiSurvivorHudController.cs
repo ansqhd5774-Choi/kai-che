@@ -10,7 +10,7 @@ namespace KaiChe.Presentation
 {
     public sealed class UguiSurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R28";
+        private const string BuildLabel = "R29";
         private static readonly Color PanelColor = new Color(0.045f, 0.040f, 0.034f, 0.94f);
         private static readonly Color GoldColor = new Color(0.94f, 0.72f, 0.22f, 1f);
         private static readonly Color ParchmentColor = new Color(0.93f, 0.88f, 0.75f, 1f);
@@ -34,6 +34,8 @@ namespace KaiChe.Presentation
         private Image _bossFill;
         private Text _bossText;
         private Button _exitButton;
+        private Button _potionButton;
+        private Text _potionButtonText;
 
         private GameObject _modalDim;
         private GameObject _modalPanel;
@@ -188,6 +190,22 @@ namespace KaiChe.Presentation
                 new Vector2(184f, 66f));
             _exitButton = CreateButton(exitRoot, "나가기", 28);
             _exitButton.onClick.AddListener(() => SceneManager.LoadScene("Main"));
+
+            RectTransform potionRoot = CreateRect(
+                "Potion",
+                _safeRoot,
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-34f, 34f),
+                new Vector2(300f, 112f));
+            _potionButton = CreateButton(
+                potionRoot,
+                "물약 x0\n회복 35%",
+                28);
+            _potionButtonText =
+                _potionButton.GetComponentInChildren<Text>();
+            _potionButton.onClick.AddListener(
+                () => _arena.TryUsePotion());
 
             RectTransform bossRoot = CreatePanel(
                 "BossPanel",
@@ -347,6 +365,18 @@ namespace KaiChe.Presentation
                 + (_arena.IsArcaneChainUnlocked ? "   비전연쇄" : string.Empty);
 
             _buildText.text = "BUILD " + BuildLabel;
+
+            if (_potionButton != null)
+            {
+                _potionButton.interactable = _arena.CanUsePotion;
+                if (_potionButtonText != null)
+                {
+                    _potionButtonText.text =
+                        "물약 x" + _arena.PotionCount
+                        + "\n회복 35%";
+                }
+            }
+
             _bossPanel.SetActive(_arena.HasBossAlive);
             if (_arena.HasBossAlive)
             {

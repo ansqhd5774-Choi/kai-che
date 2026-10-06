@@ -213,6 +213,7 @@ namespace KaiChe.Gameplay.Survivor
         private const float FrenzyCooldownMultiplier = 0.82f;
         private const float FrenzyMoveSpeedMultiplier = 1.12f;
         private const float FrenzyHealFraction = 0.08f;
+        private const float PotionHealFraction = 0.35f;
         private const int MaxActiveBaseSkills = 4;
         private const float PerspectiveCameraHeight = 12.5f;
         private const float PerspectiveCameraBackDistance = 13.5f;
@@ -244,7 +245,15 @@ namespace KaiChe.Gameplay.Survivor
             * 100f;
         public int Kills { get; private set; }
         public int Experience { get; private set; }
+        public int PotionCount => PrototypeAdventureState.PotionCount;
         public bool IsDead => PlayerHealth <= 0f;
+        public bool CanUsePotion =>
+            !IsDead
+            && !IsAttributeAllocationPending
+            && !IsSkillChoicePending
+            && !IsBossRewardPending
+            && PotionCount > 0
+            && PlayerHealth < MaxPlayerHealth - 0.01f;
         public int EnemyCount => _enemies.Count;
         public Vector2 PlayerWorldPosition => _playerWorldPosition;
         public string ActiveSkillId => RuntimeContentCatalog.StarterSkill.Id;
@@ -589,6 +598,10 @@ namespace KaiChe.Gameplay.Survivor
                     + Mathf.RoundToInt(MaxPlayerHealth));
             }
 
+            Debug.Log(
+                "KAI_CHE_R29_POTION_INVENTORY_ACTIVE_COUNT_"
+                + PrototypeAdventureState.PotionCount);
+
             PlayerHealth = Mathf.Min(
                 MaxPlayerHealth,
                 PrototypeAdventureState.Health);
@@ -743,6 +756,39 @@ namespace KaiChe.Gameplay.Survivor
                 return false;
 
             PrepareDefeatRecoveryCheckpoint("MANUAL");
+            return true;
+        }
+
+        public bool TryUsePotion()
+        {
+            if (!CanUsePotion)
+                return false;
+
+            float previousHealth = PlayerHealth;
+            float healedHealth = Mathf.Min(
+                MaxPlayerHealth,
+                PlayerHealth + MaxPlayerHealth * PotionHealFraction);
+
+            if (!PrototypeAdventureState.TryConsumePotionAndSetHealth(
+                    healedHealth,
+                    MaxPlayerHealth))
+                return false;
+
+            PlayerHealth = healedHealth;
+            _adventureHealthSaveDirty = false;
+            _adventureHealthSaveTimer = 0f;
+
+            CreateLevelUpPowerEffect(PlayerPosition);
+            TriggerImpactFeedback(0.08f, false);
+            Debug.Log(
+                "KAI_CHE_R29_POTION_USED_REMAINING_"
+                + PotionCount
+                + "_HEAL_"
+                + Mathf.RoundToInt(PlayerHealth - previousHealth)
+                + "_CURRENT_"
+                + Mathf.RoundToInt(PlayerHealth)
+                + "_MAX_"
+                + Mathf.RoundToInt(MaxPlayerHealth));
             return true;
         }
 

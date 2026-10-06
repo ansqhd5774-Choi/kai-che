@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R28";
+        private const string BuildLabel = "R29";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -187,7 +187,10 @@ namespace KaiChe.Presentation
                 }
 
                 if (!fallbackModalOpen)
+                {
                     DrawJoystick();
+                    DrawPotionButton();
+                }
                 return;
             }
 
@@ -275,7 +278,10 @@ namespace KaiChe.Presentation
                 || _arena.IsSkillChoicePending
                 || _arena.IsBossRewardPending;
             if (!modalOpen)
+            {
                 DrawJoystick();
+                DrawPotionButton();
+            }
 
             if (_arena.HasBossAlive)
             {
@@ -319,6 +325,31 @@ namespace KaiChe.Presentation
                 DrawBossRewardOverlay();
             else if (_arena.IsSkillChoicePending)
                 DrawSkillChoiceOverlay();
+        }
+
+        private void DrawPotionButton()
+        {
+            EnsureStyles();
+            if (_buttonStyle == null || _arena == null)
+                return;
+
+            Rect safe = SafeGuiRect;
+            Rect potionRect = new Rect(
+                safe.xMax - 310f,
+                safe.yMax - 138f,
+                270f,
+                96f);
+
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = _arena.CanUsePotion;
+            if (GUI.Button(
+                    potionRect,
+                    "물약 x" + _arena.PotionCount + "\n회복 35%",
+                    _buttonStyle))
+            {
+                _arena.TryUsePotion();
+            }
+            GUI.enabled = previousEnabled;
         }
 
         private void DrawBossRewardOverlay()

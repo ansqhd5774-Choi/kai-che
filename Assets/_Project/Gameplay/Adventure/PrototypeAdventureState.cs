@@ -6,6 +6,8 @@ namespace KaiChe.Gameplay.Adventure
     {
         private const string Prefix = "KaiChe.Adventure.";
         private const int HealthStateVersion = 1;
+        private const int InventoryStateVersion = 1;
+        public const int StarterPotionCount = 3;
         public const float BaseMaxHealth = 100f;
 
         private static bool _loaded;
@@ -18,7 +20,9 @@ namespace KaiChe.Gameplay.Adventure
         {
             if (_loaded) return;
 
-            PotionCount = PlayerPrefs.GetInt(Prefix + "PotionCount", 0);
+            PotionCount = Mathf.Max(
+                0,
+                PlayerPrefs.GetInt(Prefix + "PotionCount", 0));
             MaxHealth = Mathf.Max(
                 BaseMaxHealth,
                 PlayerPrefs.GetFloat(
@@ -36,6 +40,19 @@ namespace KaiChe.Gameplay.Adventure
             {
                 SaveHealthState();
                 Debug.Log("KAI_CHE_R27_HEALTH_STATE_MIGRATED");
+            }
+
+            if (PlayerPrefs.GetInt(
+                    Prefix + "InventoryState.Version",
+                    0) < InventoryStateVersion)
+            {
+                PotionCount = Mathf.Max(
+                    PotionCount,
+                    StarterPotionCount);
+                SaveInventory();
+                Debug.Log(
+                    "KAI_CHE_R29_POTION_INVENTORY_MIGRATED_COUNT_"
+                    + PotionCount);
             }
         }
 
@@ -72,6 +89,34 @@ namespace KaiChe.Gameplay.Adventure
             SaveInventory();
         }
 
+        public static int RefillStarterPotions()
+        {
+            EnsureLoaded();
+
+            int previous = PotionCount;
+            PotionCount = Mathf.Max(
+                PotionCount,
+                StarterPotionCount);
+            SaveInventory();
+            return PotionCount - previous;
+        }
+
+        public static bool TryConsumePotionAndSetHealth(
+            float health,
+            float maxHealth)
+        {
+            EnsureLoaded();
+            if (PotionCount <= 0)
+                return false;
+
+            PotionCount -= 1;
+            MaxHealth = Mathf.Max(BaseMaxHealth, maxHealth);
+            Health = Mathf.Clamp(health, 0f, MaxHealth);
+
+            SaveInventoryAndHealth();
+            return true;
+        }
+
         public static void Rest()
         {
             EnsureLoaded();
@@ -94,7 +139,32 @@ namespace KaiChe.Gameplay.Adventure
 
         private static void SaveInventory()
         {
-            PlayerPrefs.SetInt(Prefix + "PotionCount", PotionCount);
+            PlayerPrefs.SetInt(
+                Prefix + "InventoryState.Version",
+                InventoryStateVersion);
+            PlayerPrefs.SetInt(
+                Prefix + "PotionCount",
+                Mathf.Max(0, PotionCount));
+            PlayerPrefs.Save();
+        }
+
+        private static void SaveInventoryAndHealth()
+        {
+            PlayerPrefs.SetInt(
+                Prefix + "InventoryState.Version",
+                InventoryStateVersion);
+            PlayerPrefs.SetInt(
+                Prefix + "PotionCount",
+                Mathf.Max(0, PotionCount));
+            PlayerPrefs.SetInt(
+                Prefix + "HealthState.Version",
+                HealthStateVersion);
+            PlayerPrefs.SetFloat(
+                Prefix + "Health",
+                Health);
+            PlayerPrefs.SetFloat(
+                Prefix + "MaxHealth",
+                MaxHealth);
             PlayerPrefs.Save();
         }
     }
