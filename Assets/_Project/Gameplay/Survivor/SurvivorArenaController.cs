@@ -193,9 +193,9 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
         private const int MaxActiveProjectiles = 56;
-        private const float ComboWindow = 2.25f;
-        private const int FrenzyComboThreshold = 8;
-        private const float FrenzyDuration = 5.0f;
+        private const float ComboWindow = 3.0f;
+        private const int FrenzyComboThreshold = 5;
+        private const float FrenzyDuration = 5.5f;
         private const float FrenzyDamageMultiplier = 1.18f;
         private const float FrenzyCooldownMultiplier = 0.82f;
         private const float FrenzyMoveSpeedMultiplier = 1.12f;
@@ -528,6 +528,7 @@ namespace KaiChe.Gameplay.Survivor
             Debug.Log("KAI_CHE_R21_ROTATING_LOADOUT_ACTIVE");
             Debug.Log("KAI_CHE_R21_COMBAT_MOMENTUM_ACTIVE");
             Debug.Log("KAI_CHE_R21_FRENZY_REWARD_ACTIVE");
+            Debug.Log("KAI_CHE_R22_FRENZY_TEMPO_ACTIVE_5_3000_5500");
             Debug.Log("KAI_CHE_R22_BASE_SKILL_GROWTH_ACTIVE");
             LogActiveBaseSkillLoadout();
             _initialized = true;
