@@ -62,3 +62,24 @@ R32 passes only if the physical phone capture shows:
   https://anatomy4sculptors.com/blog/about-human-proportions-calculator/
 - Unity Mesh supports procedural runtime geometry through vertex and triangle data, with normals/bounds recalculation after creation:
   https://docs.unity3d.com/Manual/UsingtheMeshClass.html
+
+
+## R32 proportion upgrade V2
+
+The first deployed R32 candidate still read too short and childlike against the approved R31 reference sheet.
+
+V2 corrections:
+- smaller head mass to counter gameplay-camera perspective enlargement
+- longer, slimmer neck
+- longer chest/abdomen chain
+- narrower waist and wider pelvis transition
+- longer thighs and calves with a lower knee position
+- longer arms with larger hand silhouette
+- larger feet with a clearer forefoot/heel mass
+- visual player scale increased moderately for phone readability
+- model root raised so the longer legs retain the same ground-contact plane
+
+The goal is not to add anatomy detail. It is to make the gameplay silhouette belong to the same adult-body proportion family as the R31 reference before R33 begins.
+
+Additional runtime marker:
+- `KAI_CHE_R32_PROPORTION_UPGRADE_V2_READY`
