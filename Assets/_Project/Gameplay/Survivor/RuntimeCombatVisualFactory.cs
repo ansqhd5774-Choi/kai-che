@@ -26,6 +26,7 @@ namespace KaiChe.Gameplay.Survivor
             var modelObject = new GameObject("PlayerModelRoot");
             modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
+            modelRoot.localPosition = new Vector3(0f, 0.89f, 0f);
 
             Color skin = new Color(0.78f, 0.58f, 0.45f);
             Color skinShade = new Color(0.69f, 0.49f, 0.38f);
@@ -40,7 +41,7 @@ namespace KaiChe.Gameplay.Survivor
                 root.transform,
                 "PlayerShadow3D",
                 new Color(0.02f, 0.018f, 0.015f, 0.68f),
-                new Vector3(0f, -1.66f, 0.18f),
+                new Vector3(0f, -0.73f, 0.18f),
                 new Vector3(0.72f, 0.025f, 0.38f),
                 Quaternion.identity,
                 materialTemplate);
@@ -420,7 +421,10 @@ namespace KaiChe.Gameplay.Survivor
             GameObject playerPrefab =
                 RuntimeCombatVisualPrefabResolver.LoadPlayerPrefab();
             if (playerPrefab != null)
+            {
+                modelRoot.localPosition = Vector3.zero;
                 slot.ReplaceModel(playerPrefab);
+            }
 
             Debug.Log("KAI_CHE_R30_NOVICE_BASE_BODY_READY");
             return root;
