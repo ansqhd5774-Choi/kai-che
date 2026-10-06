@@ -1,5 +1,6 @@
 name: Install KaiChe APK to Android Device
 
+# workflow_run activation depends on this workflow also existing on the repository default branch.
 on:
   workflow_dispatch:
   workflow_run:
