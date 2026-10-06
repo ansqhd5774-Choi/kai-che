@@ -19,6 +19,7 @@ namespace KaiChe.Gameplay.Adventure
 
         private Material _materialTemplate;
         private GameObject _player;
+        private RuntimeNoviceBodyAnimator _playerNoviceBodyAnimator;
         private Vector2 _playerPosition = new Vector2(0f, -4.6f);
         private Vector2 _moveInput;
         private int _activeFingerId = -1;
@@ -46,6 +47,10 @@ namespace KaiChe.Gameplay.Adventure
                 HallPosition,
                 FieldGatePosition);
             _player = CreatePlayerView();
+            _playerNoviceBodyAnimator =
+                _player != null
+                    ? _player.GetComponent<RuntimeNoviceBodyAnimator>()
+                    : null;
             _player.transform.position =
                 RuntimeWorldSpace.ToWorld(
                     _playerPosition,
@@ -137,10 +142,15 @@ namespace KaiChe.Gameplay.Adventure
             _playerPosition.y = Mathf.Clamp(_playerPosition.y, -6.0f, 6.6f);
 
             if (_player != null)
+            {
                 _player.transform.position =
                     RuntimeWorldSpace.ToWorld(
                         _playerPosition,
                         RuntimeWorldSpace.PlayerRootHeight);
+                _playerNoviceBodyAnimator?.SetMovement(
+                    _moveInput,
+                    deltaTime);
+            }
         }
         private void UpdateFieldGate()
         {
@@ -314,7 +324,7 @@ namespace KaiChe.Gameplay.Adventure
             GameObject runtime3D = RuntimeCombatVisualFactory.CreateNoviceHuman(
                 transform,
                 _materialTemplate,
-                0.58f,
+                0.66f,
                 out _);
             if (runtime3D != null)
             {
@@ -324,7 +334,7 @@ namespace KaiChe.Gameplay.Adventure
 
             var root = new GameObject("TownPlayer");
             root.transform.SetParent(transform, false);
-            root.transform.localScale = Vector3.one * 0.58f;
+            root.transform.localScale = Vector3.one * 0.66f;
 
             GameObject body = CreateQuad("PlayerBody", new Color(0.22f, 0.24f, 0.25f), Vector3.zero, 0.9f);
             body.transform.SetParent(root.transform, false);

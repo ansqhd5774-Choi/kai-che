@@ -64,6 +64,7 @@ namespace KaiChe.Gameplay.Survivor
         private GameObject _player;
         private Transform _weaponRoot;
         private RuntimeCombatVisualAnimator _playerVisualAnimator;
+        private RuntimeNoviceBodyAnimator _playerNoviceBodyAnimator;
         private Vector2 _moveInput;
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
@@ -126,7 +127,7 @@ namespace KaiChe.Gameplay.Survivor
         private bool _bossDefeatLogged;
         private bool _eliteSpawnLogged;
         private bool _bossLineLogged;
-        private const float PlayerBaseScale = 0.58f;
+        private const float PlayerBaseScale = 0.66f;
         private const float IceSlowDuration = 2.0f;
         private const float IceSlowMultiplier = 0.60f;
         private const float AttackAnimationDuration = 0.18f;
@@ -1427,27 +1428,46 @@ namespace KaiChe.Gameplay.Survivor
             if (_playerVisualAnimator != null)
                 _playerVisualAnimator.SetMove(
                     moving ? Mathf.Clamp01(_moveInput.magnitude) : 0f);
-            if (moving)
-                _moveAnimationTime += deltaTime * 9f;
+
+            float bob = 0f;
+            if (_playerNoviceBodyAnimator != null)
+            {
+                _player.transform.position =
+                    RuntimeWorldSpace.ToWorld(
+                        _playerWorldPosition,
+                        RuntimeWorldSpace.PlayerRootHeight);
+                _player.transform.localScale =
+                    Vector3.one * PlayerBaseScale;
+                _playerNoviceBodyAnimator.SetMovement(
+                    _moveInput,
+                    deltaTime);
+            }
             else
-                _moveAnimationTime = Mathf.MoveTowards(
-                    _moveAnimationTime,
-                    0f,
-                    deltaTime * 12f);
+            {
+                if (moving)
+                    _moveAnimationTime += deltaTime * 9f;
+                else
+                    _moveAnimationTime = Mathf.MoveTowards(
+                        _moveAnimationTime,
+                        0f,
+                        deltaTime * 12f);
 
-            float stride = moving ? Mathf.Sin(_moveAnimationTime) : 0f;
-            float bob = moving ? Mathf.Abs(stride) * 0.028f : 0f;
-            float sway = moving ? stride * 1.8f : 0f;
-            float scalePulse = moving ? Mathf.Abs(stride) * 0.009f : 0f;
+                float stride =
+                    moving ? Mathf.Sin(_moveAnimationTime) : 0f;
+                bob = moving ? Mathf.Abs(stride) * 0.028f : 0f;
+                float sway = moving ? stride * 1.8f : 0f;
+                float scalePulse =
+                    moving ? Mathf.Abs(stride) * 0.009f : 0f;
 
-            _player.transform.position =
-                RuntimeWorldSpace.ToWorld(
-                    _playerWorldPosition,
-                    RuntimeWorldSpace.PlayerRootHeight + bob);
-            _player.transform.localScale =
-                Vector3.one * (PlayerBaseScale + scalePulse);
-            _player.transform.rotation =
-                Quaternion.Euler(0f, 0f, sway);
+                _player.transform.position =
+                    RuntimeWorldSpace.ToWorld(
+                        _playerWorldPosition,
+                        RuntimeWorldSpace.PlayerRootHeight + bob);
+                _player.transform.localScale =
+                    Vector3.one * (PlayerBaseScale + scalePulse);
+                _player.transform.rotation =
+                    Quaternion.Euler(0f, 0f, sway);
+            }
 
             _attackAnimationTime = Mathf.Max(
                 0f,
@@ -3954,6 +3974,8 @@ namespace KaiChe.Gameplay.Survivor
                     visualSlot != null
                         ? visualSlot.AnimatorBridge
                         : null;
+                _playerNoviceBodyAnimator =
+                    runtime3D.GetComponent<RuntimeNoviceBodyAnimator>();
                 return runtime3D;
             }
 
