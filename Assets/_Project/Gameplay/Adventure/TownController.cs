@@ -11,6 +11,9 @@ namespace KaiChe.Gameplay.Adventure
         private static readonly Vector2 WorkshopPosition = new Vector2(-3.2f, -2.2f);
         private static readonly Vector2 HallPosition = new Vector2(3.2f, -2.2f);
         private static readonly Vector2 FieldGatePosition = new Vector2(0f, 6.3f);
+        private const float PerspectiveCameraDistance = 17f;
+        private const float PerspectiveCameraSideOffset = -2.4f;
+        private const float PerspectiveCameraFieldOfView = 58f;
 
         private Material _materialTemplate;
         private GameObject _player;
@@ -49,11 +52,19 @@ namespace KaiChe.Gameplay.Adventure
             Camera camera = Camera.main;
             if (camera == null) return;
 
-            camera.orthographic = true;
-            camera.orthographicSize = 9.5f;
-            camera.transform.position = new Vector3(0f, 0f, -10f);
-            camera.transform.rotation = Quaternion.identity;
+            camera.orthographic = false;
+            camera.fieldOfView = PerspectiveCameraFieldOfView;
+            camera.nearClipPlane = 0.3f;
+            camera.farClipPlane = 100f;
+
+            Vector3 target = Vector3.zero;
+            camera.transform.position = new Vector3(
+                PerspectiveCameraSideOffset,
+                0f,
+                -PerspectiveCameraDistance);
+            camera.transform.LookAt(target, Vector3.up);
             camera.backgroundColor = new Color(0.055f, 0.070f, 0.050f);
+            Debug.Log("KAI_CHE_R19_TOWN_PERSPECTIVE_CAMERA_ACTIVE");
         }
 
         private void Update()

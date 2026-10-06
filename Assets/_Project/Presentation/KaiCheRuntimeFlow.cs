@@ -15,7 +15,7 @@ namespace KaiChe.Presentation
         private GUIStyle _smallStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _buildStyle;
-        private const string BuildLabel = "R18";
+        private const string BuildLabel = "R19";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()

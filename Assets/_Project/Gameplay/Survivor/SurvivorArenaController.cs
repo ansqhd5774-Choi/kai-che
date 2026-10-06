@@ -180,6 +180,9 @@ namespace KaiChe.Gameplay.Survivor
         private const float BossRewardHealthPerRank = 28f;
         private const float BossRewardCooldownPerRank = 0.08f;
         private const int MaxVisibleEnemies = 100;
+        private const float PerspectiveCameraDistance = 19f;
+        private const float PerspectiveCameraSideOffset = -2.8f;
+        private const float PerspectiveCameraFieldOfView = 60f;
         private static readonly Vector2 TownEntrancePosition =
             new Vector2(0f, -8.5f);
         private const float TownEntranceRadius = 0.72f;
@@ -596,11 +599,28 @@ namespace KaiChe.Gameplay.Survivor
             Camera camera = Camera.main;
             if (camera == null) return;
 
-            camera.orthographic = true;
-            camera.orthographicSize = 11f;
-            camera.transform.position = new Vector3(0f, 0f, -10f);
-            camera.transform.rotation = Quaternion.identity;
+            camera.orthographic = false;
+            camera.fieldOfView = PerspectiveCameraFieldOfView;
+            camera.nearClipPlane = 0.3f;
+            camera.farClipPlane = 120f;
+            PositionPerspectiveCamera(camera, Vector2.zero);
             camera.backgroundColor = new Color(0.018f, 0.022f, 0.018f);
+            Debug.Log("KAI_CHE_R19_PERSPECTIVE_CAMERA_ACTIVE");
+        }
+
+        private static void PositionPerspectiveCamera(
+            Camera camera,
+            Vector2 focus)
+        {
+            if (camera == null)
+                return;
+
+            Vector3 target = new Vector3(focus.x, focus.y, 0f);
+            camera.transform.position = new Vector3(
+                focus.x + PerspectiveCameraSideOffset,
+                focus.y,
+                -PerspectiveCameraDistance);
+            camera.transform.LookAt(target, Vector3.up);
         }
 
         private void UpdateSurvivalWave(float deltaTime)
@@ -652,10 +672,9 @@ namespace KaiChe.Gameplay.Survivor
                         * fade;
                 }
 
-                camera.transform.position = new Vector3(
-                    _playerWorldPosition.x + shakeOffset.x,
-                    _playerWorldPosition.y + shakeOffset.y,
-                    -10f);
+                PositionPerspectiveCamera(
+                    camera,
+                    _playerWorldPosition + shakeOffset);
             }
         }
 
@@ -825,8 +844,29 @@ namespace KaiChe.Gameplay.Survivor
             Camera camera = Camera.main;
             if (camera == null) return;
 
-            float halfHeight = camera.orthographicSize + 0.8f;
-            float halfWidth = camera.orthographicSize * camera.aspect + 0.8f;            Vector2 center = PlayerPosition;
+            Vector2 center = PlayerPosition;
+            float halfHeight;
+            float halfWidth;
+            if (camera.orthographic)
+            {
+                halfHeight = camera.orthographicSize + 0.8f;
+                halfWidth = camera.orthographicSize * camera.aspect + 0.8f;
+            }
+            else
+            {
+                Vector3 focus = new Vector3(center.x, center.y, 0f);
+                float distance = Vector3.Distance(
+                    camera.transform.position,
+                    focus);
+                halfHeight =
+                    distance
+                    * Mathf.Tan(
+                        camera.fieldOfView
+                        * 0.5f
+                        * Mathf.Deg2Rad)
+                    + 0.8f;
+                halfWidth = halfHeight * camera.aspect + 0.8f;
+            }
             Vector2 spawn;
             int edge = Random.Range(0, 4);
             if (edge == 0)
