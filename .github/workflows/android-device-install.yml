@@ -191,7 +191,7 @@ jobs:
           )
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
-      - name: Verify R24-R27 progression and health persistence restart
+      - name: Verify R24-R28 progression, health, and defeat recovery restart
         shell: cmd
         run: |
           @echo off
@@ -400,6 +400,56 @@ jobs:
           copy /Y Logs\r24-skill-restart-logcat.txt Logs\r27-health-restart-logcat.txt >nul
           echo [PASS] R27 dynamic health state restored after app restart.
 
+          rem R28: simulate an app restart from a persisted defeated (0 HP) checkpoint.
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          >Logs\r28-force-zero-health.sh echo sed -i 's/name="KaiChe.Adventure.Health" value="[^"]*"/name="KaiChe.Adventure.Health" value="0"/' %PREFS_FILE%
+          type Logs\r28-force-zero-health.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
+          if errorlevel 1 (
+            echo [ERROR] R28 could not seed a zero-health persisted state.
+            exit /b 107
+          )
+
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r28-zero-health-seeded.xml 2>&1
+          findstr /C:"KaiChe.Adventure.Health\" value=\"0\"" Logs\r28-zero-health-seeded.xml >nul
+          if errorlevel 1 (
+            echo [ERROR] R28 zero-health seed was not written.
+            exit /b 108
+          )
+
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul 2>&1
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\r28-defeat-recovery-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R28_DEFEAT_RECOVERY_BOOTSTRAP_MAX_" Logs\r28-defeat-recovery-logcat.txt >nul
+          if not errorlevel 1 goto r28_recovery_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\r28-defeat-recovery-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R28_DEFEAT_RECOVERY_BOOTSTRAP_MAX_" Logs\r28-defeat-recovery-logcat.txt >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\r28-defeat-recovery-failure.png 2>nul
+            echo [ERROR] R28 zero-health restart did not create a recovery checkpoint.
+            exit /b 109
+          )
+
+          :r28_recovery_ready
+          findstr /C:"KAI_CHE_R27_HEALTH_RESTORE_PASS_CURRENT_" Logs\r28-defeat-recovery-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R28 recovery did not finish with a valid health restore.
+            exit /b 110
+          )
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r28-defeat-recovery-after.xml 2>&1
+          findstr /C:"KaiChe.Adventure.Health\" value=\"0\"" Logs\r28-defeat-recovery-after.xml >nul
+          if not errorlevel 1 (
+            echo [ERROR] R28 persisted health remained zero after recovery.
+            exit /b 111
+          )
+          copy /Y Logs\r28-defeat-recovery-logcat.txt Logs\r28-defeat-recovery-pass-logcat.txt >nul
+          echo [PASS] R28 persisted zero-health state recovered into a playable retry.
+
           rem Return to Main so the existing R20 route smoke starts from its expected state.
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
           "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul 2>&1
@@ -602,5 +652,11 @@ jobs:
             Logs/r27-health-restart-logcat.txt
             Logs/r27-health-first-launch-failure.png
             Logs/r27-health-restart-failure.png
+            Logs/r28-force-zero-health.sh
+            Logs/r28-zero-health-seeded.xml
+            Logs/r28-defeat-recovery-logcat.txt
+            Logs/r28-defeat-recovery-pass-logcat.txt
+            Logs/r28-defeat-recovery-after.xml
+            Logs/r28-defeat-recovery-failure.png
           if-no-files-found: warn
           retention-days: 7

@@ -7,7 +7,7 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R27";
+        private const string BuildLabel = "R28";
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -566,6 +566,7 @@ namespace KaiChe.Presentation
                 "다시 시작",
                 _buttonStyle))
             {
+                _arena.PrepareRetryAfterDefeat();
                 SceneManager.LoadScene("Game");
             }
         }

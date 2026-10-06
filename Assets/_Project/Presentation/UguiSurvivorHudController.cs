@@ -10,7 +10,7 @@ namespace KaiChe.Presentation
 {
     public sealed class UguiSurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R27";
+        private const string BuildLabel = "R28";
         private static readonly Color PanelColor = new Color(0.045f, 0.040f, 0.034f, 0.94f);
         private static readonly Color GoldColor = new Color(0.94f, 0.72f, 0.22f, 1f);
         private static readonly Color ParchmentColor = new Color(0.93f, 0.88f, 0.75f, 1f);
@@ -380,8 +380,22 @@ namespace KaiChe.Presentation
                     + "초 · 처치 " + _arena.Kills;
 
                 SetChoiceButtonsVisible(true);
-                ConfigureChoiceButton(0, "다시 도전", () => SceneManager.LoadScene("Game"));
-                ConfigureChoiceButton(1, "메인으로", () => SceneManager.LoadScene("Main"));
+                ConfigureChoiceButton(
+                    0,
+                    "다시 도전",
+                    () =>
+                    {
+                        _arena.PrepareRetryAfterDefeat();
+                        SceneManager.LoadScene("Game");
+                    });
+                ConfigureChoiceButton(
+                    1,
+                    "메인으로",
+                    () =>
+                    {
+                        _arena.PrepareRetryAfterDefeat();
+                        SceneManager.LoadScene("Main");
+                    });
                 _choiceButtons[2].gameObject.SetActive(false);
                 return;
             }
