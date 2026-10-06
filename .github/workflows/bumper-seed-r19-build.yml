@@ -125,3 +125,133 @@ jobs:
           path: Logs/bumper-seed-r19-build.log
           if-no-files-found: warn
           retention-days: 14
+
+  device-smoke:
+    name: Install and launch Bumper Seed R19
+    needs: build-android
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 20
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      APK_PATH: C:\actions-runner-kaise\local-builds\BumperSeed-R19.apk
+      APK_SHA_PATH: C:\actions-runner-kaise\local-builds\BumperSeed-R19.sha
+      PACKAGE_ID: com.kaiche.bumperseed
+      ADB_MDNS: 1
+      ADB_MDNS_OPENSCREEN: 0
+
+    steps:
+      - name: Verify local R19 APK
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" (
+            echo [ERROR] adb.exe not found: %ADB_EXE%
+            exit /b 20
+          )
+          if not exist "%APK_PATH%" (
+            echo [ERROR] R19 APK not found: %APK_PATH%
+            exit /b 21
+          )
+          if not exist "%APK_SHA_PATH%" (
+            echo [ERROR] R19 APK SHA file not found: %APK_SHA_PATH%
+            exit /b 22
+          )
+          set /p APK_SHA=<"%APK_SHA_PATH%"
+          if /I not "%APK_SHA%"=="%GITHUB_SHA%" (
+            echo [ERROR] R19 APK source SHA mismatch. expected=%GITHUB_SHA% actual=%APK_SHA%
+            exit /b 23
+          )
+          for %%A in ("%APK_PATH%") do echo [PASS] R19 APK: %%~fA (%%~zA bytes)
+
+      - name: Recover paired Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          del /q Logs\bumper-r19-adb*.txt 2>nul
+
+          "%ADB_EXE%" devices -l > Logs\bumper-r19-adb-before.txt 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" mdns services > Logs\bumper-r19-adb-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\bumper-r19-adb-mdns.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              echo [INFO] Trying !ENDPOINT!
+              "%ADB_EXE%" connect !ENDPOINT! > Logs\bumper-r19-adb-connect.txt 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 goto device_ready
+            )
+          )
+
+          "%ADB_EXE%" reconnect > Logs\bumper-r19-adb-reconnect.txt 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if errorlevel 1 (
+            "%ADB_EXE%" devices -l > Logs\bumper-r19-adb-after.txt 2>&1
+            echo [ERROR] No paired Android device is online.
+            exit /b 30
+          )
+
+          :device_ready
+          "%ADB_EXE%" devices -l > Logs\bumper-r19-adb-after.txt 2>&1
+          echo [PASS] Android device online.
+
+      - name: Install isolated Bumper Seed package
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" install -r "%APK_PATH%"
+          if errorlevel 1 exit /b 40
+          "%ADB_EXE%" shell pm path %PACKAGE_ID% > Logs\bumper-r19-package-path.txt 2>&1
+          if errorlevel 1 exit /b 41
+          echo [PASS] Bumper Seed R19 installed without replacing KaiChe RPG.
+
+      - name: Launch and verify R19 runtime
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 > Logs\bumper-r19-launch.txt 2>&1
+          if errorlevel 1 exit /b 50
+
+          ping -n 7 127.0.0.1 >nul
+
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\bumper-r19-pid.txt 2>&1
+          set /p APP_PID=<Logs\bumper-r19-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] Bumper Seed process is not running after launch.
+            exit /b 51
+          )
+
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\bumper-r19-logcat.txt 2>&1
+          findstr /C:"BUMPER_SEED_R19_CORE_ACTIVE" Logs\bumper-r19-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R19 core activation marker missing.
+            exit /b 52
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\bumper-r19-screen.png 2>nul
+          if not exist Logs\bumper-r19-screen.png exit /b 53
+
+          echo [PASS] Bumper Seed R19 launched. PID=%APP_PID%
+          echo [PASS] BUMPER_SEED_R19_CORE_ACTIVE found.
+
+      - name: Upload device smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BumperSeed-R19-Device-Smoke-${{ github.sha }}
+          path: |
+            Logs/bumper-r19-*.txt
+            Logs/bumper-r19-*.png
+          if-no-files-found: warn
+          retention-days: 14
+
