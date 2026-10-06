@@ -43,6 +43,7 @@ namespace KaiChe.Gameplay.Survivor
             public Vector2 Direction;
             public float Life;
             public SkillDefinition Skill;
+            public bool IsFireball;
             public bool IsIceBall;
         }
 
@@ -67,8 +68,8 @@ namespace KaiChe.Gameplay.Survivor
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
         private int _spawnSequence;
-        private float _shotTimer;
-        private float _iceShotTimer;
+        private readonly Dictionary<string, float> _skillShotTimers =
+            new Dictionary<string, float>();
         private float _moveAnimationTime;
         private float _attackAnimationTime;
         private float _playerHitFlashTimer;
@@ -468,8 +469,16 @@ namespace KaiChe.Gameplay.Survivor
             _player = CreateWarriorView();
 
             _spawnTimer = 0.2f;
-            _shotTimer = 0.1f;
-            _iceShotTimer = 0.45f;
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                _skillShotTimers[skill.Id] = 0.08f + i * 0.09f;
+            }
+
+            Debug.Log(
+                "KAI_CHE_R21_BASE_SKILLS_READY_"
+                + RuntimeContentCatalog.BaseSkills.Length);
+            Debug.Log("KAI_CHE_R21_TEN_BASE_SKILLS_ACTIVE");
             _initialized = true;
         }
 
@@ -1346,75 +1355,46 @@ namespace KaiChe.Gameplay.Survivor
 
         private void UpdateShooting(float deltaTime)
         {
-            _shotTimer -= deltaTime;
-            _iceShotTimer -= deltaTime;
+            for (int i = 0; i < RuntimeContentCatalog.BaseSkills.Length; i++)
+            {
+                SkillDefinition skill = RuntimeContentCatalog.BaseSkills[i];
+                float timer = _skillShotTimers.TryGetValue(
+                    skill.Id,
+                    out float currentTimer)
+                    ? currentTimer - deltaTime
+                    : 0f;
 
-            UpdateFireballShooting();
-            UpdateIceballShooting();
+                _skillShotTimers[skill.Id] = timer;
+                if (timer > 0f)
+                    continue;
+
+                EnemyState target = FindNearestEnemy(GetSkillRange(skill));
+                if (target == null)
+                {
+                    _skillShotTimers[skill.Id] = 0.08f;
+                    continue;
+                }
+
+                FireBaseSkill(skill, target);
+            }
         }
 
-        private void UpdateFireballShooting()
+        private void FireBaseSkill(
+            SkillDefinition skill,
+            EnemyState target)
         {
-            if (_shotTimer > 0f) return;
-
-            SkillDefinition skill = RuntimeContentCatalog.StarterSkill;
-            EnemyState target = FindNearestEnemy(GetSkillRange(skill));
-
-            if (target == null)
-            {
-                _shotTimer = 0.08f;
-                return;
-            }
-
             Vector2 origin = PlayerPosition;
-            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(target.View.transform.position);
+            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(
+                target.View.transform.position);
             Vector2 direction = (targetPosition - origin).normalized;
 
-            GameObject projectileView =
-                CreateFireballProjectile(origin, direction, skill.Id);
+            bool isFireball = skill.Id == ContentIds.StarterSkill;
+            bool isIceBall = skill.Id == ContentIds.IceBall;
 
-            _projectiles.Add(new ProjectileState
-            {
-                View = projectileView,
-                Target = target,
-                Direction = direction,
-                Life = 2.2f,
-                Skill = skill,
-                IsIceBall = false
-            });
-
-            if (!_fireballFirstShotLogged)
-            {
-                _fireballFirstShotLogged = true;
-                Debug.Log("KAI_CHE_FIREBALL_FIRST_SHOT");
-            }
-
-            _attackAnimationTime = AttackAnimationDuration;
-            if (_playerVisualAnimator != null)
-                _playerVisualAnimator.TriggerAttack();
-            CreateFireballCastEffect(origin, direction);
-            _shotTimer = GetSkillCooldown(skill, false);
-        }
-
-        private void UpdateIceballShooting()
-        {
-            if (_iceShotTimer > 0f) return;
-
-            SkillDefinition skill = RuntimeContentCatalog.IceBall;
-            EnemyState target = FindNearestEnemy(GetSkillRange(skill));
-
-            if (target == null)
-            {
-                _iceShotTimer = 0.10f;
-                return;
-            }
-
-            Vector2 origin = PlayerPosition;
-            Vector2 targetPosition = RuntimeWorldSpace.ToLogical(target.View.transform.position);
-            Vector2 direction = (targetPosition - origin).normalized;
-
-            GameObject projectileView =
-                CreateIceballProjectile(origin, direction, skill.Id);
+            GameObject projectileView = CreateBaseSkillProjectile(
+                origin,
+                direction,
+                skill);
 
             _projectiles.Add(new ProjectileState
             {
@@ -1423,10 +1403,17 @@ namespace KaiChe.Gameplay.Survivor
                 Direction = direction,
                 Life = 2.4f,
                 Skill = skill,
-                IsIceBall = true
+                IsFireball = isFireball,
+                IsIceBall = isIceBall
             });
 
-            if (!_iceballFirstShotLogged)
+            if (isFireball && !_fireballFirstShotLogged)
+            {
+                _fireballFirstShotLogged = true;
+                Debug.Log("KAI_CHE_FIREBALL_FIRST_SHOT");
+            }
+
+            if (isIceBall && !_iceballFirstShotLogged)
             {
                 _iceballFirstShotLogged = true;
                 Debug.Log("KAI_CHE_ICEBALL_FIRST_SHOT");
@@ -1435,18 +1422,23 @@ namespace KaiChe.Gameplay.Survivor
             _attackAnimationTime = AttackAnimationDuration;
             if (_playerVisualAnimator != null)
                 _playerVisualAnimator.TriggerAttack();
-            CreateIceballCastEffect(origin, direction);
-            _iceShotTimer = GetSkillCooldown(skill, true);
+
+            CreateBaseSkillCastEffect(origin, direction, skill);
+            _skillShotTimers[skill.Id] =
+                GetSkillCooldown(skill, isIceBall, isFireball);
         }
 
-        private float GetSkillCooldown(SkillDefinition skill, bool isIceBall)
+        private float GetSkillCooldown(
+            SkillDefinition skill,
+            bool isIceBall,
+            bool isFireball)
         {
             float reduction =
                 _arcaneUpgradeRank * ArcaneCooldownPerRank
                 + GetAttributeValue(CharacterAttribute.Wisdom)
                     * WisdomCooldownPerPoint
                 + _bossTempoRewardRank * BossRewardCooldownPerRank;
-            if (!isIceBall)
+            if (isFireball)
                 reduction += _fireUpgradeRank * FireCooldownPerRank;
 
             return Mathf.Max(
@@ -1476,11 +1468,16 @@ namespace KaiChe.Gameplay.Survivor
                 * arcaneMultiplier;
         }
 
-        private float GetProjectileDamage(SkillDefinition skill, bool isIceBall)
+        private float GetProjectileDamage(
+            SkillDefinition skill,
+            bool isIceBall,
+            bool isFireball)
         {
             float buildMultiplier = isIceBall
                 ? 1f + _iceUpgradeRank * IceDamagePerRank
-                : 1f + _fireUpgradeRank * FireDamagePerRank;
+                : isFireball
+                    ? 1f + _fireUpgradeRank * FireDamagePerRank
+                    : 1f;
 
             float levelMultiplier =
                 1f
@@ -1496,9 +1493,11 @@ namespace KaiChe.Gameplay.Survivor
                 ? 1f
                     + GetAttributeValue(CharacterAttribute.Good)
                         * GoodIceDamagePerPoint
-                : 1f
-                    + GetAttributeValue(CharacterAttribute.Evil)
-                        * EvilFireDamagePerPoint;
+                : isFireball
+                    ? 1f
+                        + GetAttributeValue(CharacterAttribute.Evil)
+                            * EvilFireDamagePerPoint
+                    : 1f;
 
             float bossRewardMultiplier =
                 1f + _bossAttackRewardRank * BossRewardDamagePerRank;
@@ -1509,6 +1508,119 @@ namespace KaiChe.Gameplay.Survivor
                 * intelligenceMultiplier
                 * elementMultiplier
                 * bossRewardMultiplier;
+        }
+
+        private GameObject CreateBaseSkillProjectile(
+            Vector2 origin,
+            Vector2 direction,
+            SkillDefinition skill)
+        {
+            if (skill.Id == ContentIds.StarterSkill)
+                return CreateFireballProjectile(origin, direction, skill.Id);
+
+            if (skill.Id == ContentIds.IceBall)
+                return CreateIceballProjectile(origin, direction, skill.Id);
+
+            Color mainColor = GetBaseSkillColor(skill.Id);
+            var root = new GameObject("BaseSkill_" + skill.Id);
+            root.transform.SetParent(transform, false);
+            root.transform.position = RuntimeWorldSpace.ToWorld(
+                origin,
+                RuntimeWorldSpace.ProjectileHeight);
+            root.transform.rotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+
+            GameObject glow = CreateQuad(
+                "SkillGlow",
+                new Color(mainColor.r, mainColor.g, mainColor.b, 0.36f),
+                Vector3.zero,
+                1f);
+            glow.transform.SetParent(root.transform, false);
+            glow.transform.localScale = new Vector3(0.70f, 0.70f, 1f);
+
+            GameObject core = CreateQuad(
+                "SkillCore",
+                mainColor,
+                Vector3.zero,
+                1f);
+            core.transform.SetParent(root.transform, false);
+            core.transform.localScale = new Vector3(0.42f, 0.30f, 1f);
+
+            GameObject trail = CreateQuad(
+                "SkillTrail",
+                new Color(mainColor.r, mainColor.g, mainColor.b, 0.58f),
+                new Vector3(-0.34f, 0f, 0.02f),
+                1f);
+            trail.transform.SetParent(root.transform, false);
+            trail.transform.localScale = new Vector3(0.50f, 0.10f, 1f);
+
+            return root;
+        }
+
+        private void CreateBaseSkillCastEffect(
+            Vector2 origin,
+            Vector2 direction,
+            SkillDefinition skill)
+        {
+            if (skill.Id == ContentIds.StarterSkill)
+            {
+                CreateFireballCastEffect(origin, direction);
+                return;
+            }
+
+            if (skill.Id == ContentIds.IceBall)
+            {
+                CreateIceballCastEffect(origin, direction);
+                return;
+            }
+
+            Color color = GetBaseSkillColor(skill.Id);
+            var root = new GameObject("BaseSkillCast_" + skill.Id);
+            root.transform.SetParent(transform, false);
+            root.transform.position = RuntimeWorldSpace.ToWorld(
+                origin + direction * 0.38f,
+                RuntimeWorldSpace.EffectHeight);
+
+            GameObject flash = CreateQuad(
+                "BaseSkillCastFlash",
+                new Color(color.r, color.g, color.b, 0.88f),
+                Vector3.zero,
+                1f);
+            flash.transform.SetParent(root.transform, false);
+            flash.transform.localScale = new Vector3(0.34f, 0.34f, 1f);
+
+            _effects.Add(new EffectState
+            {
+                View = root,
+                Life = 0.16f,
+                MaxLife = 0.16f,
+                StartScale = Vector3.one,
+                SpinSpeed = 180f
+            });
+        }
+
+        private static Color GetBaseSkillColor(string skillId)
+        {
+            if (skillId == ContentIds.WindBlade)
+                return new Color(0.38f, 1f, 0.72f, 0.96f);
+            if (skillId == ContentIds.ArcSpark)
+                return new Color(0.74f, 0.48f, 1f, 0.98f);
+            if (skillId == ContentIds.PoisonOrb)
+                return new Color(0.46f, 0.92f, 0.18f, 0.96f);
+            if (skillId == ContentIds.StoneShot)
+                return new Color(0.64f, 0.52f, 0.34f, 0.98f);
+            if (skillId == ContentIds.LightOrb)
+                return new Color(1f, 0.92f, 0.46f, 0.98f);
+            if (skillId == ContentIds.DarkOrb)
+                return new Color(0.46f, 0.12f, 0.66f, 0.98f);
+            if (skillId == ContentIds.WaterOrb)
+                return new Color(0.12f, 0.62f, 1f, 0.96f);
+            if (skillId == ContentIds.MagicArrow)
+                return new Color(0.92f, 0.92f, 1f, 0.98f);
+
+            return Color.white;
         }
 
         private GameObject CreateFireballProjectile(
@@ -1733,7 +1845,8 @@ namespace KaiChe.Gameplay.Survivor
 
                     float hitDamage = GetProjectileDamage(
                         skill,
-                        projectile.IsIceBall);
+                        projectile.IsIceBall,
+                        projectile.IsFireball);
 
                     _projectileHitSequence += 1;
                     bool arcaneChain =
@@ -1741,7 +1854,7 @@ namespace KaiChe.Gameplay.Survivor
                         && _projectileHitSequence % ArcaneChainHitInterval == 0;
 
                     bool thermalShock =
-                        !projectile.IsIceBall
+                        projectile.IsFireball
                         && IsThermalShockUnlocked
                         && projectile.Target.SlowTimer > 0f;
 
@@ -1768,7 +1881,7 @@ namespace KaiChe.Gameplay.Survivor
                             projectile.IsIceBall);
                     }
 
-                    if (!projectile.IsIceBall
+                    if (projectile.IsFireball
                         && _fireUpgradeRank >= FireEvolutionRank)
                     {
                         ApplyFireEvolutionSplash(
