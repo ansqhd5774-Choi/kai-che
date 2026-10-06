@@ -191,7 +191,7 @@ jobs:
           )
           echo [PASS] KaiChe launched. PID=%APP_PID%
 
-      - name: Verify R24 skill persistence restart
+      - name: Verify R24 skill and R25 boss reward persistence restart
         shell: cmd
         run: |
           @echo off
@@ -238,6 +238,21 @@ jobs:
           if errorlevel 1 exit /b 76
           echo [PASS] R24 skill state persisted to PlayerPrefs.
 
+          findstr /C:"BossRewardState.Version\" value=\"1\"" Logs\r24-skill-prefs-before-restart.xml >nul
+          if errorlevel 1 (
+            echo [ERROR] R25 boss reward save version was not persisted.
+            exit /b 80
+          )
+          findstr /C:"PendingBossRewards" Logs\r24-skill-prefs-before-restart.xml >nul
+          if errorlevel 1 exit /b 81
+          findstr /C:"BossReward.AttackRank" Logs\r24-skill-prefs-before-restart.xml >nul
+          if errorlevel 1 exit /b 82
+          findstr /C:"BossReward.VitalityRank" Logs\r24-skill-prefs-before-restart.xml >nul
+          if errorlevel 1 exit /b 83
+          findstr /C:"BossReward.TempoRank" Logs\r24-skill-prefs-before-restart.xml >nul
+          if errorlevel 1 exit /b 84
+          echo [PASS] R25 boss reward state persisted to PlayerPrefs.
+
           rem Restart the app, enter Game again, and require runtime restore validation.
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
           "%ADB_EXE%" logcat -c
@@ -270,6 +285,28 @@ jobs:
           findstr /C:"SkillState.Version\" value=\"1\"" Logs\r24-skill-prefs-after-restart.xml >nul
           if errorlevel 1 exit /b 79
           echo [PASS] R24 skill state restored after app restart.
+
+          findstr /C:"KAI_CHE_R25_BOSS_REWARD_PERSISTENCE_ACTIVE" Logs\r24-skill-restart-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R25 boss reward persistence marker missing after restart.
+            exit /b 85
+          )
+          findstr /C:"KAI_CHE_R25_BOSS_REWARD_STATE_RESTORE_PASS_" Logs\r24-skill-restart-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R25 boss reward state did not restore after restart.
+            exit /b 86
+          )
+          findstr /C:"BossRewardState.Version\" value=\"1\"" Logs\r24-skill-prefs-after-restart.xml >nul
+          if errorlevel 1 exit /b 87
+          findstr /C:"PendingBossRewards" Logs\r24-skill-prefs-after-restart.xml >nul
+          if errorlevel 1 exit /b 88
+          findstr /C:"BossReward.AttackRank" Logs\r24-skill-prefs-after-restart.xml >nul
+          if errorlevel 1 exit /b 89
+          findstr /C:"BossReward.VitalityRank" Logs\r24-skill-prefs-after-restart.xml >nul
+          if errorlevel 1 exit /b 90
+          findstr /C:"BossReward.TempoRank" Logs\r24-skill-prefs-after-restart.xml >nul
+          if errorlevel 1 exit /b 91
+          echo [PASS] R25 boss reward state restored after app restart.
 
           rem Return to Main so the existing R20 route smoke starts from its expected state.
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
