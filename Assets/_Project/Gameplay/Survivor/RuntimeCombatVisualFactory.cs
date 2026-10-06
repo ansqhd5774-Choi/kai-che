@@ -26,15 +26,16 @@ namespace KaiChe.Gameplay.Survivor
             var modelObject = new GameObject("PlayerModelRoot");
             modelObject.transform.SetParent(root.transform, false);
             Transform modelRoot = modelObject.transform;
-            modelRoot.localPosition = new Vector3(0f, 0.89f, 0f);
+            modelRoot.localPosition = new Vector3(0f, 1.26f, 0f);
 
             Color skin = new Color(0.78f, 0.58f, 0.45f);
             Color skinShade = new Color(0.69f, 0.49f, 0.38f);
             Color underwear = new Color(0.16f, 0.19f, 0.23f);
             Color underwearTrim = new Color(0.32f, 0.37f, 0.43f);
             Color hair = new Color(0.075f, 0.045f, 0.032f);
+            Color eyeWhite = new Color(0.94f, 0.90f, 0.82f);
             Color eye = new Color(0.055f, 0.038f, 0.028f);
-            Color lip = new Color(0.43f, 0.16f, 0.16f);
+            Color lip = new Color(0.50f, 0.18f, 0.18f);
 
             CreatePart(
                 PrimitiveType.Cylinder,
@@ -52,8 +53,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerThighLeft3D",
                 skin,
-                new Vector3(-0.23f, -0.80f, 0f),
-                new Vector3(0.25f, 0.50f, 0.27f),
+                new Vector3(-0.24f, -0.82f, -0.04f),
+                new Vector3(0.26f, 0.62f, 0.28f),
                 Quaternion.Euler(0f, 0f, -2f),
                 materialTemplate);
             CreatePart(
@@ -61,8 +62,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerThighRight3D",
                 skin,
-                new Vector3(0.23f, -0.80f, 0f),
-                new Vector3(0.25f, 0.50f, 0.27f),
+                new Vector3(0.24f, -0.82f, -0.04f),
+                new Vector3(0.26f, 0.62f, 0.28f),
                 Quaternion.Euler(0f, 0f, 2f),
                 materialTemplate);
             CreatePart(
@@ -70,8 +71,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerKneeLeft3D",
                 skinShade,
-                new Vector3(-0.24f, -1.15f, -0.02f),
-                new Vector3(0.23f, 0.22f, 0.24f),
+                new Vector3(-0.24f, -1.24f, -0.07f),
+                new Vector3(0.24f, 0.24f, 0.25f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -79,8 +80,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerKneeRight3D",
                 skinShade,
-                new Vector3(0.24f, -1.15f, -0.02f),
-                new Vector3(0.23f, 0.22f, 0.24f),
+                new Vector3(0.24f, -1.24f, -0.07f),
+                new Vector3(0.24f, 0.24f, 0.25f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -88,8 +89,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShinLeft3D",
                 skin,
-                new Vector3(-0.24f, -1.37f, 0.02f),
-                new Vector3(0.20f, 0.38f, 0.21f),
+                new Vector3(-0.24f, -1.53f, -0.11f),
+                new Vector3(0.21f, 0.50f, 0.22f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -97,8 +98,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerShinRight3D",
                 skin,
-                new Vector3(0.24f, -1.37f, 0.02f),
-                new Vector3(0.20f, 0.38f, 0.21f),
+                new Vector3(0.24f, -1.53f, -0.11f),
+                new Vector3(0.21f, 0.50f, 0.22f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -106,8 +107,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerFootLeft3D",
                 skinShade,
-                new Vector3(-0.24f, -1.62f, -0.13f),
-                new Vector3(0.23f, 0.16f, 0.40f),
+                new Vector3(-0.24f, -1.86f, -0.27f),
+                new Vector3(0.24f, 0.17f, 0.43f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -115,8 +116,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerFootRight3D",
                 skinShade,
-                new Vector3(0.24f, -1.62f, -0.13f),
-                new Vector3(0.23f, 0.16f, 0.40f),
+                new Vector3(0.24f, -1.86f, -0.27f),
+                new Vector3(0.24f, 0.17f, 0.43f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -336,10 +337,28 @@ namespace KaiChe.Gameplay.Survivor
             CreatePart(
                 PrimitiveType.Sphere,
                 modelRoot,
+                "PlayerEyeWhiteLeft3D",
+                eyeWhite,
+                new Vector3(-0.105f, 1.39f, -0.447f),
+                new Vector3(0.090f, 0.058f, 0.030f),
+                Quaternion.identity,
+                materialTemplate);
+            CreatePart(
+                PrimitiveType.Sphere,
+                modelRoot,
+                "PlayerEyeWhiteRight3D",
+                eyeWhite,
+                new Vector3(0.105f, 1.39f, -0.447f),
+                new Vector3(0.090f, 0.058f, 0.030f),
+                Quaternion.identity,
+                materialTemplate);
+            CreatePart(
+                PrimitiveType.Sphere,
+                modelRoot,
                 "PlayerEyeLeft3D",
                 eye,
-                new Vector3(-0.105f, 1.39f, -0.435f),
-                new Vector3(0.052f, 0.038f, 0.025f),
+                new Vector3(-0.105f, 1.39f, -0.474f),
+                new Vector3(0.038f, 0.042f, 0.020f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -347,17 +366,35 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerEyeRight3D",
                 eye,
-                new Vector3(0.105f, 1.39f, -0.435f),
-                new Vector3(0.052f, 0.038f, 0.025f),
+                new Vector3(0.105f, 1.39f, -0.474f),
+                new Vector3(0.038f, 0.042f, 0.020f),
                 Quaternion.identity,
+                materialTemplate);
+            CreatePart(
+                PrimitiveType.Cube,
+                modelRoot,
+                "PlayerBrowLeft3D",
+                hair,
+                new Vector3(-0.11f, 1.48f, -0.452f),
+                new Vector3(0.15f, 0.025f, 0.025f),
+                Quaternion.Euler(0f, 0f, 5f),
+                materialTemplate);
+            CreatePart(
+                PrimitiveType.Cube,
+                modelRoot,
+                "PlayerBrowRight3D",
+                hair,
+                new Vector3(0.11f, 1.48f, -0.452f),
+                new Vector3(0.15f, 0.025f, 0.025f),
+                Quaternion.Euler(0f, 0f, -5f),
                 materialTemplate);
             CreatePart(
                 PrimitiveType.Sphere,
                 modelRoot,
                 "PlayerNose3D",
                 skinShade,
-                new Vector3(0f, 1.29f, -0.465f),
-                new Vector3(0.055f, 0.085f, 0.045f),
+                new Vector3(0f, 1.29f, -0.500f),
+                new Vector3(0.075f, 0.105f, 0.060f),
                 Quaternion.identity,
                 materialTemplate);
             CreatePart(
@@ -365,8 +402,8 @@ namespace KaiChe.Gameplay.Survivor
                 modelRoot,
                 "PlayerMouth3D",
                 lip,
-                new Vector3(0f, 1.18f, -0.462f),
-                new Vector3(0.15f, 0.025f, 0.018f),
+                new Vector3(0f, 1.17f, -0.490f),
+                new Vector3(0.19f, 0.035f, 0.022f),
                 Quaternion.identity,
                 materialTemplate);
 
@@ -407,6 +444,11 @@ namespace KaiChe.Gameplay.Survivor
                 new Vector3(0.43f, 0.50f, 0.18f),
                 Quaternion.identity,
                 materialTemplate);
+
+            RuntimeNoviceBodyAnimator bodyAnimator =
+                root.AddComponent<RuntimeNoviceBodyAnimator>();
+            bodyAnimator.Configure(modelRoot);
+            Debug.Log("KAI_CHE_R30_FACE_DETAIL_READY");
 
             weaponRoot = null;
 
