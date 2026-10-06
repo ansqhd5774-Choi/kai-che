@@ -9,7 +9,7 @@ namespace KaiChe.Gameplay.Survivor
 
         public static GameObject LoadPlayerPrefab()
         {
-            return Load("PlayerWarrior", "PLAYER_WARRIOR");
+            return Load("PlayerNovice", "PLAYER_NOVICE_BASE");
         }
 
         public static GameObject LoadMonsterPrefab(string contentId)
