@@ -54,6 +54,15 @@ namespace KaiChe.Gameplay.Adventure
             SaveHealthState();
         }
 
+        public static void PrepareCombatRetry(float maxHealth)
+        {
+            EnsureLoaded();
+
+            MaxHealth = Mathf.Max(BaseMaxHealth, maxHealth);
+            Health = MaxHealth;
+            SaveHealthState();
+        }
+
         public static void AddPotion(int amount = 1)
         {
             if (amount <= 0) return;
