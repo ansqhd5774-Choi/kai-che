@@ -90,6 +90,18 @@ jobs:
 
           echo [PASS] 48 directional sheets downloaded.
 
+      - name: Patch Unity 6 build API namespace
+        shell: cmd
+        run: |
+          @echo off
+          set "SRC=Kaise2D\Assets\Editor\Kaise2DBuild.cs"
+          findstr /C:"using UnityEditor.Build;" "%SRC%" >nul && goto PATCHED
+          >"%SRC%.tmp" echo using UnityEditor.Build;
+          type "%SRC%" >> "%SRC%.tmp"
+          move /Y "%SRC%.tmp" "%SRC%" >nul
+          :PATCHED
+          findstr /C:"using UnityEditor.Build;" "%SRC%" >nul || exit /b 27
+          echo [PASS] UnityEditor.Build namespace ready.
       - name: Build Android APK
         shell: cmd
         run: |
