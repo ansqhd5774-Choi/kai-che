@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,8 +12,11 @@ namespace KaiChe.Prototypes.BumperSeed
         private const float BallRadius = 0.28f;
         private const float BumperRadius = 0.52f;
         private const float BallSpeed = 7.0f;
-        private const float TapPreBufferSeconds = 0.10f;
-        private const float TapAfterCollisionSeconds = 0.18f;
+        private const float TapPreBufferSeconds = 0.12f;
+        private const float TapAfterCollisionSeconds = 0.28f;
+        private const float AimOffsetDegrees = 34f;
+        private const float AimGuideSeconds = 0.32f;
+        private const float BumperArmDelaySeconds = 0.16f;
         private const int MaxBumpers = 3;
 
         private readonly Queue<GameObject> _bumpers = new Queue<GameObject>();
@@ -36,6 +40,7 @@ namespace KaiChe.Prototypes.BumperSeed
         private PhysicsMaterial2D _bounceMaterial;
         private Camera _camera;
         private BumperSeedR20Feedback _feedback;
+        private BumperSeedR21TrajectoryGuide _trajectoryGuide;
 
         private Material _wallMaterial;
         private Material _ballMaterial;
@@ -44,9 +49,12 @@ namespace KaiChe.Prototypes.BumperSeed
         private Material _targetMaterial;
 
         private Vector2 _pendingImpactPoint;
+        private Vector2 _pendingImpactNormal = Vector2.up;
         private float _pendingImpactExpiresAt = -1f;
         private float _lastTapAt = -100f;
         private bool _pendingImpactConsumed = true;
+        private int _queuedDirectionChoice = 1;
+        private int _lastAppliedDirectionChoice = 1;
         private int _score;
         private int _combo;
         private int _targetIndex;
@@ -66,34 +74,42 @@ namespace KaiChe.Prototypes.BumperSeed
             CreateMaterials();
             CreateCamera();
             CreateFeedback();
+            CreateTrajectoryGuide();
             CreateArena();
             CreateBall();
             CreateTarget();
 
             Debug.Log("BUMPER_SEED_R19_CORE_ACTIVE");
             Debug.Log("BUMPER_SEED_R20_FEEDBACK_ACTIVE");
+            Debug.Log("BUMPER_SEED_R21_PLAYER_AGENCY_ACTIVE");
         }
 
         private void Update()
         {
-            if (ReadTap())
+            Vector2 tapPosition;
+            if (ReadTap(out tapPosition))
             {
                 _lastTapAt = Time.unscaledTime;
+                _queuedDirectionChoice = ChoiceFromScreenX(tapPosition.x);
+
                 if (!_pendingImpactConsumed &&
                     Time.unscaledTime <= _pendingImpactExpiresAt)
                 {
-                    SpawnBumperFromPendingImpact();
+                    ApplyDirectionChoiceAndSpawnBumper(
+                        _queuedDirectionChoice);
                 }
                 else
                 {
-                    SetStatus("WAIT FOR IMPACT", 0.35f);
+                    SetStatus(
+                        "QUEUED " + ChoiceLabel(_queuedDirectionChoice),
+                        0.35f);
                 }
             }
 
             if (_statusExpiresAt > 0f &&
                 Time.unscaledTime > _statusExpiresAt)
             {
-                _status = "TAP ON IMPACT";
+                _status = "CHOOSE REBOUND";
                 _statusExpiresAt = 0f;
             }
         }
@@ -120,12 +136,37 @@ namespace KaiChe.Prototypes.BumperSeed
 
             ContactPoint2D contact = collision.GetContact(0);
             _pendingImpactPoint = contact.point;
-            _pendingImpactExpiresAt = Time.unscaledTime + TapAfterCollisionSeconds;
+
+            Vector2 towardCenter = -contact.point;
+            if (towardCenter.sqrMagnitude < 0.001f)
+                towardCenter = Vector2.up;
+            towardCenter.Normalize();
+
+            _pendingImpactNormal = contact.normal.normalized;
+            if (Vector2.Dot(_pendingImpactNormal, towardCenter) < 0f)
+                _pendingImpactNormal = -_pendingImpactNormal;
+
+            _pendingImpactExpiresAt =
+                Time.unscaledTime + TapAfterCollisionSeconds;
             _pendingImpactConsumed = false;
+
             _feedback?.PlayWallImpact(contact.point);
 
+            Vector2[] choices = BuildDirectionChoices(
+                _pendingImpactNormal);
+
+            _trajectoryGuide?.ShowChoices(
+                _pendingImpactPoint,
+                choices,
+                AimGuideSeconds);
+
+            SetStatus("LEFT   CENTER   RIGHT", 0.28f);
+
             if (Time.unscaledTime - _lastTapAt <= TapPreBufferSeconds)
-                SpawnBumperFromPendingImpact();
+            {
+                ApplyDirectionChoiceAndSpawnBumper(
+                    _queuedDirectionChoice);
+            }
         }
 
         internal void RegisterTargetHit(Collider2D targetCollider)
@@ -143,14 +184,34 @@ namespace KaiChe.Prototypes.BumperSeed
             Debug.Log("BUMPER_SEED_R20_TARGET_HIT_SCORE_" + _score);
         }
 
-        private void SpawnBumperFromPendingImpact()
+        private void ApplyDirectionChoiceAndSpawnBumper(int choice)
         {
             if (_pendingImpactConsumed)
                 return;
 
             _pendingImpactConsumed = true;
+            _lastAppliedDirectionChoice = Mathf.Clamp(choice, 0, 2);
 
-            Vector2 towardCenter = -_pendingImpactPoint;
+            Vector2[] choices = BuildDirectionChoices(
+                _pendingImpactNormal);
+
+            Vector2 chosenDirection =
+                choices[_lastAppliedDirectionChoice];
+
+            if (_ball != null)
+            {
+                _ball.position =
+                    _pendingImpactPoint +
+                    _pendingImpactNormal * (BallRadius + 0.06f);
+                _ball.linearVelocity =
+                    chosenDirection * BallSpeed;
+            }
+
+            _trajectoryGuide?.HighlightChoice(
+                _lastAppliedDirectionChoice,
+                0.24f);
+
+            Vector2 towardCenter = _pendingImpactNormal;
             if (towardCenter.sqrMagnitude < 0.001f)
                 towardCenter = Vector2.up;
             towardCenter.Normalize();
@@ -174,6 +235,11 @@ namespace KaiChe.Prototypes.BumperSeed
             CircleCollider2D collider = bumper.AddComponent<CircleCollider2D>();
             collider.radius = BumperRadius;
             collider.sharedMaterial = _bounceMaterial;
+            collider.enabled = false;
+            StartCoroutine(
+                ArmBumperCollider(
+                    collider,
+                    BumperArmDelaySeconds));
 
             _bumpers.Enqueue(bumper);
             if (_bumpers.Count > MaxBumpers)
@@ -184,9 +250,32 @@ namespace KaiChe.Prototypes.BumperSeed
             }
 
             RefreshOldestBumperVisual();
-            SetStatus("BUMPER " + _bumpers.Count + "/3", 0.45f);
+            SetStatus(
+                ChoiceLabel(_lastAppliedDirectionChoice) +
+                "  •  BUMPER " + _bumpers.Count + "/3",
+                0.55f);
+
             _feedback?.PlayBumperCreated(bumper.transform);
-            Debug.Log("BUMPER_SEED_R20_BUMPER_CREATED_COUNT_" + _createdBumpers);
+
+            Debug.Log(
+                "BUMPER_SEED_R21_DIRECTION_" +
+                ChoiceLabel(_lastAppliedDirectionChoice));
+
+            Debug.Log(
+                "BUMPER_SEED_R21_BUMPER_CREATED_COUNT_" +
+                _createdBumpers);
+        }
+
+        private static IEnumerator ArmBumperCollider(
+            Collider2D collider,
+            float delay)
+        {
+            float until = Time.unscaledTime + delay;
+            while (Time.unscaledTime < until)
+                yield return null;
+
+            if (collider != null)
+                collider.enabled = true;
         }
 
         private void RefreshOldestBumperVisual()
@@ -231,6 +320,13 @@ namespace KaiChe.Prototypes.BumperSeed
         {
             _feedback = gameObject.AddComponent<BumperSeedR20Feedback>();
             _feedback.Initialize(_camera);
+        }
+
+        private void CreateTrajectoryGuide()
+        {
+            _trajectoryGuide =
+                gameObject.AddComponent<BumperSeedR21TrajectoryGuide>();
+            _trajectoryGuide.Initialize();
         }
 
         private void CreateArena()
@@ -389,15 +485,77 @@ namespace KaiChe.Prototypes.BumperSeed
             return material;
         }
 
-        private static bool ReadTap()
+        private static bool ReadTap(out Vector2 screenPosition)
         {
             if (Input.touchCount > 0 &&
                 Input.GetTouch(0).phase == TouchPhase.Began)
             {
+                screenPosition = Input.GetTouch(0).position;
                 return true;
             }
 
-            return Input.GetMouseButtonDown(0);
+            if (Input.GetMouseButtonDown(0))
+            {
+                screenPosition = Input.mousePosition;
+                return true;
+            }
+
+            screenPosition = Vector2.zero;
+            return false;
+        }
+
+        private static int ChoiceFromScreenX(float x)
+        {
+            if (Screen.width <= 0)
+                return 1;
+
+            float normalized = x / Screen.width;
+            if (normalized < 1f / 3f)
+                return 0;
+            if (normalized > 2f / 3f)
+                return 2;
+            return 1;
+        }
+
+        private static string ChoiceLabel(int choice)
+        {
+            switch (choice)
+            {
+                case 0:
+                    return "LEFT";
+                case 2:
+                    return "RIGHT";
+                default:
+                    return "CENTER";
+            }
+        }
+
+        private static Vector2[] BuildDirectionChoices(
+            Vector2 inwardNormal)
+        {
+            Vector2 normal = inwardNormal.sqrMagnitude < 0.001f
+                ? Vector2.up
+                : inwardNormal.normalized;
+
+            return new[]
+            {
+                Rotate(normal, -AimOffsetDegrees).normalized,
+                normal,
+                Rotate(normal, AimOffsetDegrees).normalized
+            };
+        }
+
+        private static Vector2 Rotate(
+            Vector2 value,
+            float degrees)
+        {
+            float radians = degrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+
+            return new Vector2(
+                value.x * cos - value.y * sin,
+                value.x * sin + value.y * cos);
         }
 
         private void SetStatus(string value, float duration)
@@ -413,7 +571,7 @@ namespace KaiChe.Prototypes.BumperSeed
             float margin = Mathf.Max(18f, Screen.width * 0.035f);
             GUI.Label(
                 new Rect(margin, margin, Screen.width - margin * 2f, 70f),
-                "BUMPER SEED  •  R20",
+                "BUMPER SEED  •  R21",
                 _titleStyle);
 
             GUI.Label(
@@ -428,7 +586,21 @@ namespace KaiChe.Prototypes.BumperSeed
 
             GUI.Label(
                 new Rect(margin, Screen.height - 92f, Screen.width - margin * 2f, 54f),
-                "Impact 때 탭  •  주황 범퍼 = 다음 삭제",
+                "왼쪽 / 가운데 / 오른쪽 화면을 탭해 반사 방향 선택",
+                _smallStyle);
+
+            float third = Screen.width / 3f;
+            GUI.Label(
+                new Rect(0f, Screen.height - 48f, third, 42f),
+                _lastAppliedDirectionChoice == 0 ? "◀  LEFT  ◀" : "LEFT",
+                _smallStyle);
+            GUI.Label(
+                new Rect(third, Screen.height - 48f, third, 42f),
+                _lastAppliedDirectionChoice == 1 ? "◆  CENTER  ◆" : "CENTER",
+                _smallStyle);
+            GUI.Label(
+                new Rect(third * 2f, Screen.height - 48f, third, 42f),
+                _lastAppliedDirectionChoice == 2 ? "▶  RIGHT  ▶" : "RIGHT",
                 _smallStyle);
         }
 
