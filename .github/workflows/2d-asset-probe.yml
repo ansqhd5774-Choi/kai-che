@@ -1,0 +1,83 @@
+name: 2D Asset Probe
+
+on:
+  push:
+    branches:
+      - feature/2d-reboot-r1
+    paths:
+      - ".github/workflows/2d-asset-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch public demo asset and inspect
+        shell: python
+        run: |
+          import io, re, sys, zipfile, requests
+
+          page = "https://demo.madeby2d.com/downloads/pico-heroes-sprite-pack.2/"
+          download = page + "download-check?version_id=5&file_id=5"
+          s = requests.Session()
+          s.headers["User-Agent"] = "Mozilla/5.0"
+
+          p = s.get(page, timeout=30)
+          p.raise_for_status()
+
+          user_match = re.search(r"Username\s*[:\-]?\s*([A-Za-z0-9_.-]+)", p.text, re.I)
+          pass_match = re.search(r"Password\s*[:\-]?\s*([A-Za-z0-9_.-]+)", p.text, re.I)
+          if not user_match or not pass_match:
+              print("[ERROR] public demo credentials not found on source page")
+              sys.exit(20)
+
+          login_page = s.get("https://demo.madeby2d.com/login/", timeout=30)
+          login_page.raise_for_status()
+          token_match = re.search(r'name="_xfToken"\s+value="([^"]*)"', login_page.text, re.I)
+          token = token_match.group(1) if token_match else ""
+
+          data = {
+              "login": user_match.group(1),
+              "password": pass_match.group(1),
+              "remember": "1",
+              "_xfRedirect": page,
+              "_xfToken": token,
+          }
+          r = s.post("https://demo.madeby2d.com/login/login", data=data, timeout=30)
+          r.raise_for_status()
+
+          d = s.get(download, timeout=60, allow_redirects=True)
+          d.raise_for_status()
+
+          print("[INFO] final_url", d.url)
+          print("[INFO] content_type", d.headers.get("content-type"))
+          print("[INFO] bytes", len(d.content))
+
+          open("pico-heroes-download.bin", "wb").write(d.content)
+
+          if not zipfile.is_zipfile(io.BytesIO(d.content)):
+              print("[ERROR] downloaded payload is not ZIP")
+              sys.exit(21)
+
+          z = zipfile.ZipFile(io.BytesIO(d.content))
+          names = z.namelist()
+          open("pico-heroes-filelist.txt","w",encoding="utf-8").write("\n".join(names))
+          mage = [n for n in names if "mage" in n.lower()]
+          open("pico-heroes-mage-filelist.txt","w",encoding="utf-8").write("\n".join(mage))
+          print("[PASS] zip_entries", len(names))
+          print("[PASS] mage_entries", len(mage))
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pico-heroes-probe
+          path: |
+            pico-heroes-download.bin
+            pico-heroes-filelist.txt
+            pico-heroes-mage-filelist.txt
+          if-no-files-found: warn
+          retention-days: 3
