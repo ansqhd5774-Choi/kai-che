@@ -65,6 +65,7 @@ namespace KaiChe.Gameplay.Survivor
         private Transform _weaponRoot;
         private RuntimeCombatVisualAnimator _playerVisualAnimator;
         private RuntimeNoviceBodyAnimator _playerNoviceBodyAnimator;
+        private RuntimeMageSpriteAnimator _playerMageSpriteAnimator;
         private Vector2 _moveInput;
         private Vector2 _playerWorldPosition;
         private float _spawnTimer;
@@ -1430,7 +1431,17 @@ namespace KaiChe.Gameplay.Survivor
                     moving ? Mathf.Clamp01(_moveInput.magnitude) : 0f);
 
             float bob = 0f;
-            if (_playerNoviceBodyAnimator != null)
+            if (_playerMageSpriteAnimator != null)
+            {
+                _player.transform.position =
+                    RuntimeWorldSpace.ToWorld(
+                        _playerWorldPosition,
+                        RuntimeWorldSpace.PlayerRootHeight);
+                _player.transform.localScale =
+                    Vector3.one * PlayerBaseScale;
+                _playerMageSpriteAnimator.SetMovement(_moveInput);
+            }
+            else if (_playerNoviceBodyAnimator != null)
             {
                 _player.transform.position =
                     RuntimeWorldSpace.ToWorld(
@@ -2086,6 +2097,12 @@ namespace KaiChe.Gameplay.Survivor
                 if (PlayerHealth <= 0f)
                     _playerVisualAnimator.SetDead(true);
             }
+            if (_playerMageSpriteAnimator != null)
+            {
+                _playerMageSpriteAnimator.TriggerHit();
+                if (PlayerHealth <= 0f)
+                    _playerMageSpriteAnimator.SetDead(true);
+            }
             CreatePlayerHitEffect(playerPosition);
 
             if (!_playerHitFirstLogged)
@@ -2173,6 +2190,8 @@ namespace KaiChe.Gameplay.Survivor
             _attackAnimationTime = AttackAnimationDuration;
             if (_playerVisualAnimator != null)
                 _playerVisualAnimator.TriggerAttack();
+            if (_playerMageSpriteAnimator != null)
+                _playerMageSpriteAnimator.TriggerAttack();
 
             CreateBaseSkillCastEffect(origin, direction, skill);
             _skillShotTimers[skill.Id] =
@@ -3960,6 +3979,19 @@ namespace KaiChe.Gameplay.Survivor
 
         private GameObject CreatePlayerView()
         {
+            GameObject runtimeMage = RuntimeMageSpriteAnimator.TryCreate(
+                transform,
+                out RuntimeMageSpriteAnimator mageAnimator);
+            if (runtimeMage != null)
+            {
+                _playerMageSpriteAnimator = mageAnimator;
+                _weaponRoot = null;
+                _playerVisualAnimator = null;
+                _playerNoviceBodyAnimator = null;
+                Debug.Log("KAI_CHE_R31_2D_MAGE_PLAYER_VIEW_READY");
+                return runtimeMage;
+            }
+
             GameObject runtime3D = RuntimeCombatVisualFactory.CreateNoviceHuman(
                 transform,
                 _materialTemplate,

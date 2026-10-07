@@ -1,0 +1,9 @@
+Mage and Sorcerer
+Author: CookieEfedu
+Source: https://opengameart.org/content/mage-and-sorcerer
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+License: https://creativecommons.org/licenses/by/4.0/
+
+Kai-Che uses mage_sheet.png from the original Mage and Sorcerer pack.
+Original asset description states 25x25 pixel sprites, 2 pixel separation,
+with Idle, Run, Damage, Attack and Dead animation rows.
