@@ -1,0 +1,42 @@
+name: KAISE Runner Control Plane Probe
+
+on:
+  push:
+    branches:
+      - diag/runner-smoke-20261007
+    paths:
+      - .github/workflows/runner-control-plane-probe.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect smoke job assignment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          echo "=== SMOKE RUN JOBS ==="
+          gh api "repos/$REPO/actions/runs/37556072390/jobs"             --jq '.jobs[] | {id,name,status,conclusion,runner_name,runner_group_name,labels,steps}'
+
+          echo "=== R19 RUN JOBS ==="
+          gh api "repos/$REPO/actions/runs/37550693269/jobs"             --jq '.jobs[] | {id,name,status,conclusion,runner_name,runner_group_name,labels,steps}'
+
+      - name: Probe repository runners endpoint
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set +e
+          gh api -i "repos/$REPO/actions/runners"
+          rc=$?
+          echo "RUNNERS_API_EXIT=$rc"
+          exit 0
