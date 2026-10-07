@@ -21,23 +21,43 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          set "FOUND="
-          if exist "C:\actions-runner-kaise\local-assets\PicoHeroes.zip" set "FOUND=C:\actions-runner-kaise\local-assets\PicoHeroes.zip"
-          if not defined FOUND (
-            for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\*Pico*.zip" 2^>nul') do if not defined FOUND set "FOUND=%%F"
+          del /q zip-candidates.txt 2>nul
+          for %%P in ("*Pico*.zip" "*Hero*.zip" "*Sprite*.zip" "*Mage*.zip" "*Wizard*.zip") do (
+            for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\local-assets\%%~P" 2^>nul') do echo %%F>>zip-candidates.txt
+            for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\%%~P" 2^>nul') do echo %%F>>zip-candidates.txt
           )
-          if not defined FOUND (
-            for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\*Pico*.zip" 2^>nul') do if not defined FOUND set "FOUND=%%F"
-          )
-          if not defined FOUND (
-            echo [ERROR] No Pico*.zip archive found under runner or user Downloads.
+          if not exist zip-candidates.txt (
+            echo [ERROR] No likely asset ZIP found in local-assets or Downloads.
             exit /b 20
           )
-          echo [PASS] Found archive: %FOUND%
-          echo %FOUND%>asset-path.txt
-          for %%A in ("%FOUND%") do echo [PASS] bytes=%%~zA
+          type zip-candidates.txt
 
-      - name: Inspect archive contents
+      - name: Find archive containing Mage files
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableDelayedExpansion
+          set "FOUND="
+          for /f "usebackq delims=" %%F in ("zip-candidates.txt") do (
+            if not defined FOUND (
+              if exist AssetProbe rmdir /s /q AssetProbe
+              mkdir AssetProbe
+              tar -xf "%%F" -C AssetProbe >nul 2>&1
+              if not errorlevel 1 (
+                dir /s /b AssetProbe > current-filelist.txt
+                findstr /I /C:"mage" current-filelist.txt >nul
+                if not errorlevel 1 set "FOUND=%%F"
+              )
+            )
+          )
+          if not defined FOUND (
+            echo [ERROR] Candidate ZIPs found, but none contains files with Mage in their path.
+            exit /b 22
+          )
+          echo !FOUND!>asset-path.txt
+          echo [PASS] Selected archive: !FOUND!
+
+      - name: Inspect selected archive
         shell: cmd
         run: |
           @echo off
@@ -48,10 +68,7 @@ jobs:
           if errorlevel 1 exit /b 21
           dir /s /b AssetProbe > asset-filelist.txt
           findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
-          if errorlevel 1 (
-            echo [ERROR] Mage files were not found in archive.
-            exit /b 22
-          )
+          if errorlevel 1 exit /b 22
           echo [PASS] Mage files found.
 
       - name: Upload inspection evidence
@@ -60,6 +77,7 @@ jobs:
         with:
           name: pico-heroes-local-inspection
           path: |
+            zip-candidates.txt
             asset-path.txt
             asset-filelist.txt
             mage-filelist.txt
