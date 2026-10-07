@@ -34,6 +34,8 @@ namespace KaiChe.Prototypes.BumperSeed
         private Rigidbody2D _ball;
         private GameObject _target;
         private PhysicsMaterial2D _bounceMaterial;
+        private Camera _camera;
+        private BumperSeedR20Feedback _feedback;
 
         private Material _wallMaterial;
         private Material _ballMaterial;
@@ -63,11 +65,13 @@ namespace KaiChe.Prototypes.BumperSeed
 
             CreateMaterials();
             CreateCamera();
+            CreateFeedback();
             CreateArena();
             CreateBall();
             CreateTarget();
 
             Debug.Log("BUMPER_SEED_R19_CORE_ACTIVE");
+            Debug.Log("BUMPER_SEED_R20_FEEDBACK_ACTIVE");
         }
 
         private void Update()
@@ -118,6 +122,7 @@ namespace KaiChe.Prototypes.BumperSeed
             _pendingImpactPoint = contact.point;
             _pendingImpactExpiresAt = Time.unscaledTime + TapAfterCollisionSeconds;
             _pendingImpactConsumed = false;
+            _feedback?.PlayWallImpact(contact.point);
 
             if (Time.unscaledTime - _lastTapAt <= TapPreBufferSeconds)
                 SpawnBumperFromPendingImpact();
@@ -134,7 +139,8 @@ namespace KaiChe.Prototypes.BumperSeed
             _targetIndex = (_targetIndex + 1) % _targetPattern.Length;
             _target.transform.position = ToWorld(_targetPattern[_targetIndex]);
             SetStatus("TARGET +" + reward, 0.55f);
-            Debug.Log("BUMPER_SEED_R19_TARGET_HIT_SCORE_" + _score);
+            _feedback?.PlayTargetSuccess(_target.transform);
+            Debug.Log("BUMPER_SEED_R20_TARGET_HIT_SCORE_" + _score);
         }
 
         private void SpawnBumperFromPendingImpact()
@@ -179,7 +185,8 @@ namespace KaiChe.Prototypes.BumperSeed
 
             RefreshOldestBumperVisual();
             SetStatus("BUMPER " + _bumpers.Count + "/3", 0.45f);
-            Debug.Log("BUMPER_SEED_R19_BUMPER_CREATED_COUNT_" + _createdBumpers);
+            _feedback?.PlayBumperCreated(bumper.transform);
+            Debug.Log("BUMPER_SEED_R20_BUMPER_CREATED_COUNT_" + _createdBumpers);
         }
 
         private void RefreshOldestBumperVisual()
@@ -211,12 +218,19 @@ namespace KaiChe.Prototypes.BumperSeed
             GameObject cameraObject = new GameObject("BumperSeedCamera");
             Camera camera = cameraObject.AddComponent<Camera>();
             cameraObject.AddComponent<AudioListener>();
+            _camera = camera;
             camera.orthographic = true;
             camera.orthographicSize = 8.1f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.025f, 0.03f, 0.05f);
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.transform.rotation = Quaternion.identity;
+        }
+
+        private void CreateFeedback()
+        {
+            _feedback = gameObject.AddComponent<BumperSeedR20Feedback>();
+            _feedback.Initialize(_camera);
         }
 
         private void CreateArena()
@@ -399,7 +413,7 @@ namespace KaiChe.Prototypes.BumperSeed
             float margin = Mathf.Max(18f, Screen.width * 0.035f);
             GUI.Label(
                 new Rect(margin, margin, Screen.width - margin * 2f, 70f),
-                "BUMPER SEED  •  R19",
+                "BUMPER SEED  •  R20",
                 _titleStyle);
 
             GUI.Label(
