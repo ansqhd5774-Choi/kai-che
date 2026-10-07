@@ -1,4 +1,4 @@
-name: 2D Asset Probe
+name: 2D Local Asset Import Probe
 
 on:
   push:
@@ -6,27 +6,52 @@ on:
       - feature/2d-reboot-r1
     paths:
       - ".github/workflows/2d-asset-probe.yml"
+      - "external-assets/2d/candidates-r6/**"
 
 permissions:
   contents: read
 
 jobs:
   probe:
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 10
+    env:
+      LOCAL_ASSET_ZIP: C:\actions-runner-kaise\local-assets\PicoHeroes.zip
+
     steps:
-      - name: Download public asset endpoint
+      - name: Verify local 8-direction mage archive
         shell: cmd
         run: |
           @echo off
-          curl.exe -L --fail --silent --show-error "https://demo.madeby2d.com/downloads/pico-heroes-sprite-pack.2/download-check?version_id=5&file_id=5" -o pico-heroes-download.bin
-          if errorlevel 1 exit /b 20
-          for %%A in (pico-heroes-download.bin) do echo [INFO] bytes=%%~zA
+          if not exist "%LOCAL_ASSET_ZIP%" (
+            echo [ERROR] Required local asset archive missing: %LOCAL_ASSET_ZIP%
+            exit /b 20
+          )
+          for %%A in ("%LOCAL_ASSET_ZIP%") do echo [PASS] archive=%%~fA bytes=%%~zA
 
-      - name: Upload payload
+      - name: Inspect archive contents
+        shell: cmd
+        run: |
+          @echo off
+          if exist AssetProbe rmdir /s /q AssetProbe
+          mkdir AssetProbe
+          tar -xf "%LOCAL_ASSET_ZIP%" -C AssetProbe
+          if errorlevel 1 exit /b 21
+          dir /s /b AssetProbe > asset-filelist.txt
+          findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
+          if errorlevel 1 (
+            echo [ERROR] Mage files were not found in archive.
+            exit /b 22
+          )
+          echo [PASS] Mage files found.
+
+      - name: Upload inspection evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pico-heroes-probe
-          path: pico-heroes-download.bin
-          if-no-files-found: error
+          name: pico-heroes-local-inspection
+          path: |
+            asset-filelist.txt
+            mage-filelist.txt
+          if-no-files-found: warn
           retention-days: 3
