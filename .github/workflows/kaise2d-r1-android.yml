@@ -1,0 +1,93 @@
+name: Kaise 2D R1 Android
+
+on:
+  push:
+    branches:
+      - feature/2d-reboot-hormelz-r1
+    paths:
+      - "Kaise2D/**"
+      - ".github/workflows/kaise2d-r1-android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-install:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Hormelz CC0 8-direction sheets
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableDelayedExpansion
+          set "ROOT=Kaise2D\Assets\Resources\Hormelz\GirlSample"
+          for %%S in (Idle Walk Run Fireball Damaged Death) do if not exist "%ROOT%\%%S" mkdir "%ROOT%\%%S"
+
+          set "SRC1=https://raw.githubusercontent.com/zcCarl/Demo/ef603896cbbdd891648de188b9f31559a84ac5a0"
+          set "SRC2=https://raw.githubusercontent.com/Merujas/Despiertame/dd781ad7827f5a8bd279138b7ac37aba7ba4689f"
+
+          for %%D in (Down DownLeft DownRight Left Right Up UpLeft UpRight) do (
+            curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSampleReadyIdle/GirlSample_ReadyIdle_%%D.png" -o "%ROOT%\Idle\GirlSample_ReadyIdle_%%D.png" || exit /b 20
+            curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSample_Walk_256Update/GirlSample_Walk_%%D.png" -o "%ROOT%\Walk\GirlSample_Walk_%%D.png" || exit /b 21
+            curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSampleFireball/GirlSample_Fireball_%%D.png" -o "%ROOT%\Fireball\GirlSample_Fireball_%%D.png" || exit /b 22
+            curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSample_Damaged/GirlSample_Damaged_%%D.png" -o "%ROOT%\Damaged\GirlSample_Damaged_%%D.png" || exit /b 23
+            curl.exe -fL --retry 3 "!SRC2!/Godot/supviv/player_assets/Death/GirlSample_Death_%%D.png" -o "%ROOT%\Death\GirlSample_Death_%%D.png" || exit /b 24
+          )
+
+          for %%D in (Down DownRight Left Right Up UpLeft UpRight) do (
+            curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSampleRun/GirlSample_Run_%%D.png" -o "%ROOT%\Run\GirlSample_Run_%%D.png" || exit /b 25
+          )
+          curl.exe -fL --retry 3 "!SRC1!/art/girl/GirlSampleRun/GirlSample_Run_DowlLeft.png" -o "%ROOT%\Run\GirlSample_Run_DownLeft.png" || exit /b 26
+
+          echo [PASS] 48 directional sheets downloaded.
+
+      - name: Build Android APK
+        shell: cmd
+        run: |
+          @echo off
+          set "UNITY=C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe"
+          if not exist "%UNITY%" (
+            echo [ERROR] Unity not found: %UNITY%
+            exit /b 30
+          )
+          "%UNITY%" -batchmode -quit -projectPath "%GITHUB_WORKSPACE%\Kaise2D" -executeMethod Kaise2DBuild.BuildAndroid -logFile "%GITHUB_WORKSPACE%\kaise2d-build.log"
+          set "RC=%ERRORLEVEL%"
+          type "%GITHUB_WORKSPACE%\kaise2d-build.log"
+          exit /b %RC%
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kaise2D-R1-APK
+          path: Kaise2D/Builds/Android/Kaise2D-R1.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Install APK on connected phone
+        shell: cmd
+        run: |
+          @echo off
+          set "APK=%GITHUB_WORKSPACE%\Kaise2D\Builds\Android\Kaise2D-R1.apk"
+          where adb.exe >nul 2>nul
+          if errorlevel 1 (
+            set "ADB=C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe"
+          ) else (
+            set "ADB=adb.exe"
+          )
+          if not exist "%ADB%" if /I not "%ADB%"=="adb.exe" (
+            echo [WARN] ADB not found. APK artifact is still valid.
+            exit /b 0
+          )
+          "%ADB%" devices
+          "%ADB%" get-state 1>nul 2>nul
+          if errorlevel 1 (
+            echo [WARN] No connected Android device. APK artifact uploaded; phone install skipped.
+            exit /b 0
+          )
+          "%ADB%" install -r "%APK%"
+          if errorlevel 1 exit /b 40
+          echo KAISE2D_PHONE_INSTALL_PASS
