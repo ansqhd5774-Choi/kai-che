@@ -2,6 +2,11 @@ name: KAISE Self-hosted Runner Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - diag/runner-smoke-20261007
+    paths:
+      - .github/workflows/self-hosted-runner-smoke.yml
 
 jobs:
   smoke:
