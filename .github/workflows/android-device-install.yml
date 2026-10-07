@@ -217,33 +217,19 @@ jobs:
 
           :r24_first_game_ready
 
-          "%ADB_EXE%" logcat -d -t 6000 > Logs\r31-character-logcat.txt 2>&1
-          findstr /C:"KAI_CHE_R31_2D_MAGE_ACTIVE" Logs\r31-character-logcat.txt >nul
-          if not errorlevel 1 (
-            findstr /C:"KAI_CHE_R31_2D_MAGE_ANIMATION_READY" Logs\r31-character-logcat.txt >nul
-            if errorlevel 1 (
-              echo [ERROR] R31 2D mage animation marker missing.
-              exit /b 123
-            )
-            "%ADB_EXE%" exec-out screencap -p > Logs\r31-mage-game-screen.png 2>nul
-            echo [PASS] R31 2D mage character active on device.
-            goto r31_character_ready
-          )
-
-          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_ACTIVE" Logs\r31-character-logcat.txt >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\r30-character-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_ACTIVE" Logs\r30-character-logcat.txt >nul
           if errorlevel 1 (
-            echo [ERROR] Neither R31 2D mage nor R30 novice character marker found.
+            echo [ERROR] R30 novice base body activation marker missing.
             exit /b 122
           )
-          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_READY" Logs\r31-character-logcat.txt >nul
+          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_READY" Logs\r30-character-logcat.txt >nul
           if errorlevel 1 (
             echo [ERROR] R30 novice base body ready marker missing.
             exit /b 123
           )
           "%ADB_EXE%" exec-out screencap -p > Logs\r30-character-game-screen.png 2>nul
           echo [PASS] R30 novice human base character active on device.
-
-          :r31_character_ready
 
           rem Clear any saved level-up/reward modal, then allow real projectile hits to advance mastery.
           for /L %%I in (1,1,8) do (
@@ -780,8 +766,7 @@ jobs:
             Logs/r29-potion-after-restart.xml
             Logs/r29-potion-game-entry-failure.png
             Logs/r29-potion-use-failure.png
-            Logs/r31-character-logcat.txt
-            Logs/r31-mage-game-screen.png
+            Logs/r30-character-logcat.txt
             Logs/r30-character-game-screen.png
           if-no-files-found: warn
           retention-days: 7
