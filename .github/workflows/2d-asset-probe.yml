@@ -14,20 +14,19 @@ permissions:
 jobs:
   probe:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
-      - name: Locate registered mage archive
+      - name: Locate registered archive by content
         shell: cmd
         run: |
           @echo off
           del /q zip-candidates.txt 2>nul
-          for %%P in ("*Pico*.zip" "*Hero*.zip" "*Sprite*.zip" "*Mage*.zip" "*Wizard*.zip") do (
-            for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\local-assets\%%~P" 2^>nul') do echo %%F>>zip-candidates.txt
-            for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\%%~P" 2^>nul') do echo %%F>>zip-candidates.txt
-          )
+          for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\local-assets\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
+          for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
+          for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Desktop\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
           if not exist zip-candidates.txt (
-            echo [ERROR] No likely asset ZIP found in local-assets or Downloads.
+            echo [ERROR] No ZIP archives found in local-assets, Downloads, or Desktop.
             exit /b 20
           )
           type zip-candidates.txt
@@ -51,7 +50,7 @@ jobs:
             )
           )
           if not defined FOUND (
-            echo [ERROR] Candidate ZIPs found, but none contains files with Mage in their path.
+            echo [ERROR] ZIP archives found, but none contains files with Mage in their path.
             exit /b 22
           )
           echo !FOUND!>asset-path.txt
