@@ -91,6 +91,9 @@ namespace KaiChe.Prototypes.BumperSeed
             {
                 _lastTapAt = Time.unscaledTime;
                 _queuedDirectionChoice = ChoiceFromScreenX(tapPosition.x);
+                Debug.Log(
+                    "BUMPER_SEED_R21_INPUT_" +
+                    ChoiceLabel(_queuedDirectionChoice));
 
                 if (!_pendingImpactConsumed &&
                     Time.unscaledTime <= _pendingImpactExpiresAt)
