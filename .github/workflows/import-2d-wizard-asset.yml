@@ -1,0 +1,86 @@
+name: Import 2D Wizard Asset
+
+on:
+  push:
+    branches:
+      - asset/r31-2d-wizard-import
+    paths:
+      - ".github/workflows/import-2d-wizard-asset.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-asset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: asset/r31-2d-wizard-import
+          fetch-depth: 0
+
+      - name: Download original Mage and Sorcerer pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="external-assets/2d/characters/mage_and_sorcerer"
+          mkdir -p "$ROOT/original" "$ROOT/extracted"
+          curl -L --fail --retry 3 --retry-delay 2             -A "Mozilla/5.0"             "https://opengameart.org/sites/default/files/mage_and_sorcerer.zip"             -o "$ROOT/original/mage_and_sorcerer.zip"
+
+          test -s "$ROOT/original/mage_and_sorcerer.zip"
+          unzip -t "$ROOT/original/mage_and_sorcerer.zip"
+          rm -rf "$ROOT/extracted"/*
+          unzip -o "$ROOT/original/mage_and_sorcerer.zip" -d "$ROOT/extracted"
+
+          sha256sum "$ROOT/original/mage_and_sorcerer.zip" > "$ROOT/SHA256SUMS.txt"
+
+      - name: Record source and license metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="external-assets/2d/characters/mage_and_sorcerer"
+          cat > "$ROOT/SOURCE.md" <<'EOF'
+          # Mage and Sorcerer — source record
+
+          - Source: https://opengameart.org/content/mage-and-sorcerer
+          - Original archive: https://opengameart.org/sites/default/files/mage_and_sorcerer.zip
+          - Author: CookieEfedu
+          - Published: 2025-06-14
+          - Asset type: 2D sprite sheets
+          - Declared license: CC BY 4.0
+          - License URL: https://creativecommons.org/licenses/by/4.0/
+          - Original description: Mage/Sorcerer sprite sheets with Idle, Attack, Run, Damage and Dead animations.
+          - Sprite size stated by author: 25 x 25 px with 2 px separation.
+
+          ## Attribution
+
+          "Mage and Sorcerer" by CookieEfedu, licensed under CC BY 4.0.
+          Source: https://opengameart.org/content/mage-and-sorcerer
+
+          ## Import policy
+
+          Keep this directory as the unmodified upstream source record.
+          Any Kai-Che edits must be stored separately so upstream and project modifications remain traceable.
+          EOF
+
+          {
+            echo "# Extracted files"
+            echo
+            find "$ROOT/extracted" -type f -printf '%P\n' | sort | sed 's/^/- /'
+          } > "$ROOT/CONTENTS.md"
+
+      - name: Commit imported asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "kai-che-asset-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add external-assets/2d/characters/mage_and_sorcerer
+          if git diff --cached --quiet; then
+            echo "No asset changes to commit."
+            exit 0
+          fi
+          git commit -m "asset(r31): import 2D mage and sorcerer source pack"
+          git push origin HEAD:asset/r31-2d-wizard-import
