@@ -15,27 +15,36 @@ jobs:
   probe:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 10
-    env:
-      LOCAL_ASSET_ZIP: C:\actions-runner-kaise\local-assets\PicoHeroes.zip
 
     steps:
-      - name: Verify local 8-direction mage archive
+      - name: Locate registered mage archive
         shell: cmd
         run: |
           @echo off
-          if not exist "%LOCAL_ASSET_ZIP%" (
-            echo [ERROR] Required local asset archive missing: %LOCAL_ASSET_ZIP%
+          set "FOUND="
+          if exist "C:\actions-runner-kaise\local-assets\PicoHeroes.zip" set "FOUND=C:\actions-runner-kaise\local-assets\PicoHeroes.zip"
+          if not defined FOUND (
+            for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\*Pico*.zip" 2^>nul') do if not defined FOUND set "FOUND=%%F"
+          )
+          if not defined FOUND (
+            for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\*Pico*.zip" 2^>nul') do if not defined FOUND set "FOUND=%%F"
+          )
+          if not defined FOUND (
+            echo [ERROR] No Pico*.zip archive found under runner or user Downloads.
             exit /b 20
           )
-          for %%A in ("%LOCAL_ASSET_ZIP%") do echo [PASS] archive=%%~fA bytes=%%~zA
+          echo [PASS] Found archive: %FOUND%
+          echo %FOUND%>asset-path.txt
+          for %%A in ("%FOUND%") do echo [PASS] bytes=%%~zA
 
       - name: Inspect archive contents
         shell: cmd
         run: |
           @echo off
+          set /p FOUND=<asset-path.txt
           if exist AssetProbe rmdir /s /q AssetProbe
           mkdir AssetProbe
-          tar -xf "%LOCAL_ASSET_ZIP%" -C AssetProbe
+          tar -xf "%FOUND%" -C AssetProbe
           if errorlevel 1 exit /b 21
           dir /s /b AssetProbe > asset-filelist.txt
           findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
@@ -51,6 +60,7 @@ jobs:
         with:
           name: pico-heroes-local-inspection
           path: |
+            asset-path.txt
             asset-filelist.txt
             mage-filelist.txt
           if-no-files-found: warn
