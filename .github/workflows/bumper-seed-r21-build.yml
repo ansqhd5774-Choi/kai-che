@@ -8,7 +8,7 @@ on:
     paths:
       - "Assets/_Project/Prototypes/BumperSeed/**"
       - "Assets/_Project/Editor/BumperSeedR21PrototypeBuild.cs"
-      - "docs/BUMPER_SEED_R20_FEEDBACK_GATE.md"
+      - "docs/BUMPER_SEED_R21_PLAYER_AGENCY_GATE.md"
       - ".github/workflows/bumper-seed-r21-build.yml"
 
 concurrency:
@@ -85,7 +85,7 @@ jobs:
           if exist "Logs\\bumper-seed-r21-exit.txt" goto finished
           if exist "Logs\\bumper-seed-r21-build.log" (
             for %%A in ("Logs\\bumper-seed-r21-build.log") do set "SIZE=%%~zA"
-            echo [HEARTBEAT] %TIME% bumper_seed_r20_log_bytes=!SIZE!
+            echo [HEARTBEAT] %TIME% bumper_seed_r21_log_bytes=!SIZE!
           ) else (
             echo [HEARTBEAT] %TIME% waiting_for_unity_log
           )
@@ -149,35 +149,35 @@ jobs:
         run: |
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
-          del /q Logs\bumper-r20-adb*.txt 2>nul
-          "%ADB_EXE%" devices -l > Logs\bumper-r20-adb-before.txt 2>&1
+          del /q Logs\bumper-r21-adb*.txt 2>nul
+          "%ADB_EXE%" devices -l > Logs\bumper-r21-adb-before.txt 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 goto device_ready
 
-          "%ADB_EXE%" mdns services > Logs\bumper-r20-adb-mdns.txt 2>&1
-          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\bumper-r20-adb-mdns.txt') do (
+          "%ADB_EXE%" mdns services > Logs\bumper-r21-adb-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\bumper-r21-adb-mdns.txt') do (
             set "ENDPOINT="
             if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
             if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
             if defined ENDPOINT (
-              "%ADB_EXE%" connect !ENDPOINT! > Logs\bumper-r20-adb-connect.txt 2>&1
+              "%ADB_EXE%" connect !ENDPOINT! > Logs\bumper-r21-adb-connect.txt 2>&1
               ping -n 3 127.0.0.1 >nul
               "%ADB_EXE%" get-state >nul 2>&1
               if not errorlevel 1 goto device_ready
             )
           )
 
-          "%ADB_EXE%" reconnect > Logs\bumper-r20-adb-reconnect.txt 2>&1
+          "%ADB_EXE%" reconnect > Logs\bumper-r21-adb-reconnect.txt 2>&1
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" get-state >nul 2>&1
           if errorlevel 1 (
-            "%ADB_EXE%" devices -l > Logs\bumper-r20-adb-after.txt 2>&1
+            "%ADB_EXE%" devices -l > Logs\bumper-r21-adb-after.txt 2>&1
             echo [ERROR] No paired Android device is online.
             exit /b 30
           )
 
           :device_ready
-          "%ADB_EXE%" devices -l > Logs\bumper-r20-adb-after.txt 2>&1
+          "%ADB_EXE%" devices -l > Logs\bumper-r21-adb-after.txt 2>&1
           echo [PASS] Android device online.
 
       - name: Install isolated Bumper Seed package
@@ -187,7 +187,7 @@ jobs:
           @echo off
           "%ADB_EXE%" install -r "%APK_PATH%"
           if errorlevel 1 exit /b 40
-          "%ADB_EXE%" shell pm path %PACKAGE_ID% > Logs\bumper-r20-package-path.txt 2>&1
+          "%ADB_EXE%" shell pm path %PACKAGE_ID% > Logs\bumper-r21-package-path.txt 2>&1
           if errorlevel 1 exit /b 41
           echo [PASS] Bumper Seed R21 installed without replacing KaiChe RPG.
 
@@ -198,25 +198,27 @@ jobs:
           @echo off
           "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
           "%ADB_EXE%" logcat -c
-          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 > Logs\bumper-r20-launch.txt 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 > Logs\bumper-r21-launch.txt 2>&1
           if errorlevel 1 exit /b 50
           ping -n 7 127.0.0.1 >nul
 
-          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\bumper-r20-pid.txt 2>&1
-          set /p APP_PID=<Logs\bumper-r20-pid.txt
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\bumper-r21-pid.txt 2>&1
+          set /p APP_PID=<Logs\bumper-r21-pid.txt
           if "%APP_PID%"=="" exit /b 51
 
-          "%ADB_EXE%" logcat -d -t 4000 > Logs\bumper-r20-logcat.txt 2>&1
-          "%ADB_EXE%" exec-out screencap -p > Logs\bumper-r20-screen.png 2>nul
-          if not exist Logs\bumper-r20-screen.png exit /b 53
+          "%ADB_EXE%" logcat -d -t 4000 > Logs\bumper-r21-logcat.txt 2>&1
+          "%ADB_EXE%" exec-out screencap -p > Logs\bumper-r21-screen.png 2>nul
+          if not exist Logs\bumper-r21-screen.png exit /b 53
 
-          findstr /C:"BUMPER_SEED_R19_CORE_ACTIVE" Logs\bumper-r20-logcat.txt >nul
+          findstr /C:"BUMPER_SEED_R19_CORE_ACTIVE" Logs\bumper-r21-logcat.txt >nul
           if errorlevel 1 exit /b 52
-          findstr /C:"BUMPER_SEED_R20_FEEDBACK_ACTIVE" Logs\bumper-r20-logcat.txt >nul
+          findstr /C:"BUMPER_SEED_R20_FEEDBACK_ACTIVE" Logs\bumper-r21-logcat.txt >nul
           if errorlevel 1 exit /b 54
+          findstr /C:"BUMPER_SEED_R21_PLAYER_AGENCY_ACTIVE" Logs\bumper-r21-logcat.txt >nul
+          if errorlevel 1 exit /b 55
 
           echo [PASS] Bumper Seed R21 launched. PID=%APP_PID%
-          echo [PASS] R19 core + R21 player agency markers found.
+          echo [PASS] R19 core + R20 feedback + R21 agency markers found.
 
       - name: Exercise R21 directional input
         if: success()
@@ -258,8 +260,8 @@ jobs:
         with:
           name: BumperSeed-R21-Device-Smoke-${{ github.sha }}
           path: |
-            Logs/bumper-r20-*.txt
-            Logs/bumper-r20-*.png
+            Logs/bumper-r21-*.txt
+            Logs/bumper-r21-*.png
           if-no-files-found: warn
           retention-days: 14
 
