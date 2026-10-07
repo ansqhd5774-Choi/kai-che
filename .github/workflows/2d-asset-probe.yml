@@ -17,67 +17,66 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Locate registered archive by content
+      - name: Locate extracted Pico Heroes folder
         shell: cmd
         run: |
           @echo off
-          del /q zip-candidates.txt 2>nul
-          for /f "delims=" %%F in ('dir /s /b "C:\actions-runner-kaise\local-assets\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
-          for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Downloads\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
-          for /f "delims=" %%F in ('dir /s /b "C:\Users\*\Desktop\*.zip" 2^>nul') do echo %%F>>zip-candidates.txt
-          if not exist zip-candidates.txt (
-            echo [ERROR] No ZIP archives found in local-assets, Downloads, or Desktop.
+          set "ROOT=C:\actions-runner-kaise\local-assets\PicoHeroes"
+          if not exist "%ROOT%\" (
+            echo [ERROR] Folder not found: %ROOT%
             exit /b 20
           )
-          type zip-candidates.txt
+          echo %ROOT%>asset-root.txt
+          echo [PASS] Found extracted asset folder: %ROOT%
 
-      - name: Find archive containing Mage files
+      - name: Inspect Mage files and states
         shell: cmd
         run: |
           @echo off
-          setlocal EnableDelayedExpansion
-          set "FOUND="
-          for /f "usebackq delims=" %%F in ("zip-candidates.txt") do (
-            if not defined FOUND (
-              if exist AssetProbe rmdir /s /q AssetProbe
-              mkdir AssetProbe
-              tar -xf "%%F" -C AssetProbe >nul 2>&1
-              if not errorlevel 1 (
-                dir /s /b AssetProbe > current-filelist.txt
-                findstr /I /C:"mage" current-filelist.txt >nul
-                if not errorlevel 1 set "FOUND=%%F"
-              )
-            )
-          )
-          if not defined FOUND (
-            echo [ERROR] ZIP archives found, but none contains files with Mage in their path.
+          set /p ROOT=<asset-root.txt
+          dir /s /b "%ROOT%" > asset-filelist.txt
+          findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
+          if errorlevel 1 (
+            echo [ERROR] No Mage file/path found under %ROOT%
             exit /b 22
           )
-          echo !FOUND!>asset-path.txt
-          echo [PASS] Selected archive: !FOUND!
+          echo [PASS] Mage files found.
 
-      - name: Inspect selected archive
+          set "MISS=0"
+          for %%S in (idle walk attack hit death) do (
+            findstr /I /C:"%%S" mage-filelist.txt >nul
+            if errorlevel 1 (
+              echo [ERROR] Missing Mage state token: %%S
+              set "MISS=1"
+            ) else (
+              echo [PASS] Mage state token: %%S
+            )
+          )
+          if "%MISS%"=="1" exit /b 23
+
+      - name: Detect directional coverage
         shell: cmd
         run: |
           @echo off
-          set /p FOUND=<asset-path.txt
-          if exist AssetProbe rmdir /s /q AssetProbe
-          mkdir AssetProbe
-          tar -xf "%FOUND%" -C AssetProbe
-          if errorlevel 1 exit /b 21
-          dir /s /b AssetProbe > asset-filelist.txt
-          findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
-          if errorlevel 1 exit /b 22
-          echo [PASS] Mage files found.
+          set "DIRPASS=0"
+          for %%D in (north northeast east southeast south southwest west northwest) do (
+            findstr /I /C:"%%D" mage-filelist.txt >nul
+            if not errorlevel 1 set /a DIRPASS+=1
+          )
+          for %%D in (n ne e se s sw w nw) do (
+            findstr /R /I /C:"[\\/_ -]%%D[\\/_ .-]" mage-filelist.txt >nul
+            if not errorlevel 1 set /a DIRPASS+=1
+          )
+          echo [INFO] Direction-name matches=%DIRPASS%
+          echo [INFO] Exact 8-direction row/order still requires sheet inspection if filenames do not encode direction names.
 
       - name: Upload inspection evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pico-heroes-local-inspection
+          name: pico-heroes-folder-inspection
           path: |
-            zip-candidates.txt
-            asset-path.txt
+            asset-root.txt
             asset-filelist.txt
             mage-filelist.txt
           if-no-files-found: warn
