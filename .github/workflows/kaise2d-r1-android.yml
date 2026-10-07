@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: kaise2d-r1-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-install:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
