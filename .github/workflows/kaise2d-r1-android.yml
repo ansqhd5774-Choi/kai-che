@@ -14,10 +14,18 @@ permissions:
 jobs:
   build-install:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 35
+    timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout minimal 2D project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          clean: false
+          sparse-checkout: |
+            Kaise2D
+            .github/workflows/kaise2d-r1-android.yml
+          sparse-checkout-cone-mode: false
 
       - name: Download Hormelz CC0 8-direction sheets
         shell: cmd
