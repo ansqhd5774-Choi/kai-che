@@ -21,15 +21,48 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Checkout minimal 2D project
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          clean: false
-          sparse-checkout: |
-            Kaise2D
-            .github/workflows/kaise2d-r1-android.yml
-          sparse-checkout-cone-mode: false
+      - name: Materialize Kaise2D without checkout
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          @echo off
+          setlocal EnableDelayedExpansion
+          set "TMPROOT=%RUNNER_TEMP%\kaise2d-%GITHUB_RUN_ID%"
+          set "ZIP=%TMPROOT%\source.zip"
+          set "SRC=%TMPROOT%\src"
+
+          if exist "%TMPROOT%" rmdir /s /q "%TMPROOT%"
+          mkdir "%SRC%"
+          if exist "%GITHUB_WORKSPACE%\Kaise2D" rmdir /s /q "%GITHUB_WORKSPACE%\Kaise2D"
+
+          echo [INFO] Downloading repository snapshot for %GITHUB_SHA%
+          curl.exe -fL --retry 3 ^
+            -H "Accept: application/vnd.github+json" ^
+            -H "Authorization: Bearer %GH_TOKEN%" ^
+            -H "X-GitHub-Api-Version: 2022-11-28" ^
+            "https://api.github.com/repos/%GITHUB_REPOSITORY%/zipball/%GITHUB_SHA%" ^
+            -o "%ZIP%"
+          if errorlevel 1 exit /b 11
+
+          tar.exe -xf "%ZIP%" -C "%SRC%"
+          if errorlevel 1 exit /b 12
+
+          set "ROOT="
+          for /d %%D in ("%SRC%\*") do (
+            if exist "%%~fD\Kaise2D\ProjectSettings\ProjectVersion.txt" set "ROOT=%%~fD"
+          )
+          if not defined ROOT (
+            echo [ERROR] Kaise2D project not found in downloaded snapshot.
+            dir /s /b "%SRC%"
+            exit /b 13
+          )
+
+          xcopy "!ROOT!\Kaise2D" "%GITHUB_WORKSPACE%\Kaise2D\" /E /I /H /Y >nul
+          if errorlevel 1 exit /b 14
+
+          if not exist "%GITHUB_WORKSPACE%\Kaise2D\ProjectSettings\ProjectVersion.txt" exit /b 15
+          echo [PASS] Kaise2D materialized without actions/checkout.
 
       - name: Download Hormelz CC0 8-direction sheets
         shell: cmd
