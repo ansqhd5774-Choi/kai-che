@@ -1,0 +1,192 @@
+name: Top-Down Roguelike Build
+
+on:
+  push:
+    branches:
+      - feature/topdown-roguelike-r1
+    paths:
+      - "Assets/**"
+      - ".github/workflows/topdown-roguelike-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-topdown-roguelike-r1
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-install-smoke:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 60
+    env:
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+      LOCAL_APK: C:\actions-runner-kaise\local-builds\KaiChe-topdown-r1.apk
+
+    steps:
+      - name: Ensure Git is on PATH
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\Program Files\Git\cmd\git.exe" exit /b 22
+          echo C:\Program Files\Git\cmd>>"%GITHUB_PATH%"
+          echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
+          "C:\Program Files\Git\cmd\git.exe" --version
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          clean: false
+
+      - name: Verify Unity 6000.6.4f1
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
+          if errorlevel 1 exit /b 30
+          echo [PASS] Unity 6000.6.4f1 verified.
+
+      - name: Compile and build Android APK
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          del /q "Logs\topdown-r1-build.log" "Logs\topdown-r1-exit.txt" 2>nul
+          if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+
+          set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-topdown-r1-build.cmd"
+          >"%UNITY_RUNNER%" echo @echo off
+          >>"%UNITY_RUNNER%" echo "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\topdown-r1-build.log"
+          >>"%UNITY_RUNNER%" echo set "UNITY_RC=%%ERRORLEVEL%%"
+          >>"%UNITY_RUNNER%" echo ^>"%GITHUB_WORKSPACE%\Logs\topdown-r1-exit.txt" echo %%UNITY_RC%%
+          >>"%UNITY_RUNNER%" echo exit /b %%UNITY_RC%%
+          call "%UNITY_RUNNER%"
+
+          set "RC="
+          if exist "Logs\topdown-r1-exit.txt" set /p RC=<"Logs\topdown-r1-exit.txt"
+          if exist "Logs\topdown-r1-build.log" type "Logs\topdown-r1-build.log"
+          if not defined RC exit /b 43
+          if not "!RC!"=="0" exit /b !RC!
+          if not exist "Builds\Android\KaiChe-dev.apk" exit /b 40
+          echo [PASS] Top-down roguelike branch compiles and builds Android APK.
+
+      - name: Stage APK
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\actions-runner-kaise\local-builds" mkdir "C:\actions-runner-kaise\local-builds"
+          copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK%" >nul
+          if errorlevel 1 exit /b 44
+          for %%A in ("%LOCAL_APK%") do echo [PASS] Staged APK: %%~fA (%%~zA bytes)
+
+      - name: Verify Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist "%ADB_EXE%" exit /b 50
+          "%ADB_EXE%" start-server >nul 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+          "%ADB_EXE%" reconnect >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+          "%ADB_EXE%" mdns services > Logs\topdown-r1-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\topdown-r1-mdns.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              "%ADB_EXE%" connect !ENDPOINT! >nul 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 goto device_ready
+            )
+          )
+          echo [ERROR] No online Android device.
+          exit /b 51
+          :device_ready
+          "%ADB_EXE%" devices -l
+          echo [PASS] Android device online.
+
+      - name: Install and launch APK
+        shell: cmd
+        run: |
+          @echo off
+          "%ADB_EXE%" install -r "%LOCAL_APK%"
+          if errorlevel 1 exit /b 60
+          "%ADB_EXE%" shell pm path %PACKAGE_ID%
+          if errorlevel 1 exit /b 61
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 62
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\topdown-r1-pid.txt
+          set /p APP_PID=<Logs\topdown-r1-pid.txt
+          if "%APP_PID%"=="" exit /b 63
+          echo [PASS] App launched. PID=%APP_PID%
+
+      - name: Enter Game and verify core loop
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 10 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-r1-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_READY" Logs\topdown-r1-logcat.txt >nul
+          if not errorlevel 1 goto core_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 10 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-r1-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_READY" Logs\topdown-r1-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Top-down roguelike runtime did not reach Game scene.
+            exit /b 70
+          )
+
+          :core_ready
+          findstr /C:"KAI_CHE_TOPDOWN_8DIR_LOGIC_PASS count=8" Logs\topdown-r1-logcat.txt >nul
+          if errorlevel 1 exit /b 71
+          findstr /C:"KAI_CHE_TOPDOWN_ENEMY_SPAWNED" Logs\topdown-r1-logcat.txt >nul
+          if errorlevel 1 exit /b 72
+          findstr /C:"KAI_CHE_TOPDOWN_AUTO_SHOT" Logs\topdown-r1-logcat.txt >nul
+          if errorlevel 1 exit /b 73
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_LOOP_ACTIVE" Logs\topdown-r1-logcat.txt >nul
+          if errorlevel 1 exit /b 74
+
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\topdown-r1-pid-after.txt
+          set /p APP_PID=<Logs\topdown-r1-pid-after.txt
+          if "!APP_PID!"=="" exit /b 75
+          "%ADB_EXE%" exec-out screencap -p > Logs\topdown-r1-device.png 2>nul
+          echo ===== TOPDOWN R1 MARKERS =====
+          findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-r1-logcat.txt
+          echo [PASS] Core loop verified on Android device. PID=!APP_PID!
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-topdown-r1-${{ github.sha }}
+          path: |
+            Logs/topdown-r1-build.log
+            Logs/topdown-r1-logcat.txt
+            Logs/topdown-r1-device.png
+            Logs/topdown-r1-pid.txt
+            Logs/topdown-r1-pid-after.txt
+          if-no-files-found: warn
+          retention-days: 7
