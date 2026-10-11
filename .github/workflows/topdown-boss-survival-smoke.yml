@@ -1,0 +1,104 @@
+name: Top-Down Boss Survival Smoke
+
+on:
+  push:
+    branches:
+      - feature/topdown-roguelike-r1
+    paths:
+      - ".github/workflows/topdown-boss-survival-smoke.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-topdown-boss-survival-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  boss-survival:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 8
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+      LOCAL_APK: C:\actions-runner-kaise\local-builds\KaiChe-topdown-r1.apk
+
+    steps:
+      - name: Reinstall and enter fresh run
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          if not exist "%LOCAL_APK%" exit /b 40
+          if not exist "%ADB_EXE%" exit /b 50
+          "%ADB_EXE%" start-server >nul 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if errorlevel 1 exit /b 51
+          "%ADB_EXE%" install -r "%LOCAL_APK%"
+          if errorlevel 1 exit /b 60
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul 2>&1
+          if errorlevel 1 exit /b 61
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" shell input tap 720 1840 >nul 2>&1
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-boss-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_READY R1" Logs\topdown-boss-logcat.txt >nul
+          if errorlevel 1 exit /b 62
+          echo [PASS] Fresh top-down run entered.
+
+      - name: Survive naturally until boss
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set /a TRY=0
+          :loop
+          set /a TRY+=1
+
+          rem Large clockwise square: each touch begins inside portrait joystick zone.
+          "%ADB_EXE%" shell input swipe 260 1700 760 1700 1200 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 2050 540 1450 1200 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 760 1700 260 1700 1200 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 1450 540 2050 1200 >nul 2>&1
+
+          rem If a level-up modal appeared, choose its middle option and immediately continue.
+          "%ADB_EXE%" shell input tap 720 1090 >nul 2>&1
+          ping -n 2 127.0.0.1 >nul
+
+          "%ADB_EXE%" logcat -d -t 30000 > Logs\topdown-boss-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" Logs\topdown-boss-logcat.txt >nul
+          if not errorlevel 1 goto boss_ready
+          findstr /C:"KAI_CHE_TOPDOWN_RUN_GAME_OVER" Logs\topdown-boss-logcat.txt >nul
+          if not errorlevel 1 (
+            echo [ERROR] Natural run died before boss despite continuous dodge.
+            findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-boss-logcat.txt
+            exit /b 70
+          )
+          if !TRY! LSS 22 goto loop
+          echo [ERROR] Natural 75-second boss marker not observed.
+          findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-boss-logcat.txt
+          exit /b 71
+
+          :boss_ready
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\topdown-boss-pid.txt
+          set /p APP_PID=<Logs\topdown-boss-pid.txt
+          if "!APP_PID!"=="" exit /b 72
+          "%ADB_EXE%" exec-out screencap -p > Logs\topdown-boss-device.png 2>nul
+          findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-boss-logcat.txt
+          echo [PASS] Natural boss spawned while process stayed alive. PID=!APP_PID!
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-topdown-boss-survival-${{ github.sha }}
+          path: |
+            Logs/topdown-boss-logcat.txt
+            Logs/topdown-boss-pid.txt
+            Logs/topdown-boss-device.png
+          if-no-files-found: warn
+          retention-days: 7
