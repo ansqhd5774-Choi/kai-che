@@ -10,6 +10,7 @@ on:
       - 'Packages/**'
       - 'ProjectSettings/**'
       - '.github/workflows/unity-preflight.yml'
+      - '.github/workflows/unity-android-build.yml'
   pull_request:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - 'Packages/**'
       - 'ProjectSettings/**'
       - '.github/workflows/unity-preflight.yml'
+      - '.github/workflows/unity-android-build.yml'
 
 jobs:
   validate-unity-project:

@@ -1,6 +1,7 @@
 name: Unity Android Build (GitHub-hosted)
 
 # Distinct name avoids triggering legacy PC-only workflow_run device jobs.
+# Repository Actions must be enabled after restoring a deleted repository.
 on:
   workflow_dispatch:
   push:
