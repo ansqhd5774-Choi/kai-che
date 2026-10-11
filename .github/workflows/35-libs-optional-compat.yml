@@ -20,7 +20,7 @@ jobs:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       COMPAT_PROJECT: ${{ github.workspace }}\Tools\OptionalCompatProject
       NUGET_TOOL_DIR: ${{ github.workspace }}\Tools\.nugetforunity-cli
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}\dotnet9
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}\Tools\.dotnet9
 
     steps:
       - name: Checkout branch
