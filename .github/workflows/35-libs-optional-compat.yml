@@ -1,0 +1,59 @@
+name: 35 Libraries Optional Compatibility
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r3-memorypack:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 30
+    env:
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      COMPAT_PROJECT: ${{ github.workspace }}\Tools\OptionalCompatProject
+      NUGET_TOOL_DIR: ${{ github.workspace }}\Tools\.nugetforunity-cli
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Verify Unity host
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+
+      - name: Install pinned NuGetForUnity CLI
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%NUGET_TOOL_DIR%" mkdir "%NUGET_TOOL_DIR%"
+          dotnet tool install NuGetForUnity.Cli --tool-path "%NUGET_TOOL_DIR%" --version 4.5.0
+          if errorlevel 1 (
+            dotnet tool update NuGetForUnity.Cli --tool-path "%NUGET_TOOL_DIR%" --version 4.5.0
+            if errorlevel 1 exit /b 30
+          )
+
+      - name: Restore R3 and MemoryPack
+        shell: cmd
+        run: |
+          @echo off
+          "%NUGET_TOOL_DIR%\nugetforunity.exe" restore "%COMPAT_PROJECT%"
+          if errorlevel 1 exit /b 31
+
+      - name: Compile optional Unity compatibility project
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%COMPAT_PROJECT%" -logFile "%GITHUB_WORKSPACE%\Logs\35-libs-optional-compat.log"
+          set "RC=%ERRORLEVEL%"
+          if exist "Logs\35-libs-optional-compat.log" type "Logs\35-libs-optional-compat.log"
+          if not "%RC%"=="0" exit /b %RC%
+          echo [PASS] R3 + MemoryPack optional Unity compatibility compile succeeded.
