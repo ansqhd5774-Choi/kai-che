@@ -2,7 +2,11 @@
   "name": "KaiChe.Infrastructure",
   "rootNamespace": "KaiChe.Infrastructure",
   "references": [
-    "KaiChe.Core"
+    "KaiChe.Core",
+    "uPools",
+    "MessagePipe",
+    "VContainer",
+    "MessagePipe.VContainer"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
