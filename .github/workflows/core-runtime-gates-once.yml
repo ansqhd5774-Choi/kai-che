@@ -63,13 +63,14 @@ jobs:
         run: |
           @echo off
           >Logs\r35-gates-seed.sh echo sed -i 's/name="KaiChe.PrototypeProgression.Level" value="[^"]*"/name="KaiChe.PrototypeProgression.Level" value="132"/' %PREFS_FILE%
-          >>Logs\r35-gates-seed.sh echo sed -i 's#^ *^<string name="KaiChe.PrototypeProgression.LevelExperience"^>[^<]*^</string^>#    ^<string name="KaiChe.PrototypeProgression.LevelExperience"^>397^</string^>#' %PREFS_FILE%
           >>Logs\r35-gates-seed.sh echo sed -i 's/name="KaiChe.PrototypeProgression.UnspentAttributePoints" value="[^"]*"/name="KaiChe.PrototypeProgression.UnspentAttributePoints" value="0"/' %PREFS_FILE%
           >>Logs\r35-gates-seed.sh echo sed -i 's/name="KaiChe.PrototypeProgression.PendingSkillChoices" value="[^"]*"/name="KaiChe.PrototypeProgression.PendingSkillChoices" value="0"/' %PREFS_FILE%
           >>Logs\r35-gates-seed.sh echo sed -i 's/name="KaiChe.PrototypeProgression.PendingBossRewards" value="[^"]*"/name="KaiChe.PrototypeProgression.PendingBossRewards" value="0"/' %PREFS_FILE%
           >>Logs\r35-gates-seed.sh echo sed -i 's/name="KaiChe.Adventure.Health" value="[^"]*"/name="KaiChe.Adventure.Health" value="999999"/' %PREFS_FILE%
           type Logs\r35-gates-seed.sh | "%ADB_EXE%" shell run-as %PACKAGE_ID% sh
           if errorlevel 1 exit /b 40
+          "%ADB_EXE%" shell run-as %PACKAGE_ID% sed -i "/KaiChe.PrototypeProgression.LevelExperience/s/>[0-9][0-9]*</>397</" %PREFS_FILE%
+          if errorlevel 1 exit /b 42
           "%ADB_EXE%" shell run-as %PACKAGE_ID% cat %PREFS_FILE% > Logs\r35-gates-prefs-seeded.xml 2>&1
           findstr /R /C:"LevelExperience.*397" Logs\r35-gates-prefs-seeded.xml >nul 2>&1
           if errorlevel 1 (
