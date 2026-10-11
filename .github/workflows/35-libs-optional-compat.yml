@@ -1,6 +1,12 @@
 name: 35 Libraries Optional Compatibility
 
 on:
+  push:
+    branches:
+      - feature/35-libs-integration-r1
+    paths:
+      - "Tools/OptionalCompatProject/**"
+      - ".github/workflows/35-libs-optional-compat.yml"
   workflow_dispatch:
 
 permissions:
