@@ -27,6 +27,19 @@ jobs:
         with:
           clean: false
 
+      - name: Setup .NET 9 for NuGetForUnity
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Verify .NET 9 runtime
+        shell: cmd
+        run: |
+          @echo off
+          dotnet --info
+          dotnet --list-runtimes | findstr /R /C:"Microsoft.NETCore.App 9\." >nul
+          if errorlevel 1 exit /b 22
+
       - name: Verify Unity host
         shell: cmd
         run: |
