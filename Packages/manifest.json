@@ -1,9 +1,11 @@
 {
   "dependencies": {
+    "com.annulusgames.lit-motion": "https://github.com/AnnulusGames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#422eb124051c81a9bc3f422ebf190703c5053514",
     "com.annulusgames.u-pools": "https://github.com/AnnulusGames/uPools.git?path=/Assets/uPools#e11ce9c12c65c12f3bc35ae2ef7cacde6826e503",
     "com.cysharp.messagepipe": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe#47f036c55c378a3f0ba9f89c4380a500e32a7379",
     "com.cysharp.messagepipe.vcontainer": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe.VContainer#47f036c55c378a3f0ba9f89c4380a500e32a7379",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#a77a1b4a89824fb6df293099de3060daf2a432c1",
+    "com.inspiaaa.unityhfsm": "https://github.com/Inspiaaa/UnityHFSM.git#f8fdc2efb862522acd26fab6cd940886c84cde37",
     "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#fb24d752968c5cabe0cfb4fcf8861c74772c5b14",
     "com.unity.modules.animation": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
