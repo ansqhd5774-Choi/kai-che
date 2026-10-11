@@ -1,6 +1,5 @@
 using System;
 using MessagePipe;
-using UnityEngine;
 using VContainer;
 using uPools;
 
@@ -11,7 +10,7 @@ namespace KaiChe.Infrastructure
     /// Gameplay code stays coupled to Kai-Che contracts instead of package APIs.
     /// </summary>
     public sealed class UPoolsGamePoolAdapter<T> : IGamePoolAdapter<T>
-        where T : UnityEngine.Object
+        where T : class
     {
         private readonly ObjectPool<T> _pool;
 
@@ -19,15 +18,12 @@ namespace KaiChe.Infrastructure
             Func<T> factory,
             Action<T> onRent = null,
             Action<T> onReturn = null,
-            Action<T> onDestroy = null,
-            int maxCapacity = 10000)
+            Action<T> onDestroy = null)
         {
-            _pool = new ObjectPool<T>(factory, onRent, onReturn, onDestroy, maxCapacity);
+            _pool = new ObjectPool<T>(factory, onRent, onReturn, onDestroy);
         }
 
         public int Count => _pool.Count;
-        public int RentCount => _pool.RentCount;
-        public int CacheCount => _pool.CacheCount;
 
         public T Rent()
         {
@@ -47,7 +43,7 @@ namespace KaiChe.Infrastructure
             if (count <= 0)
                 return;
 
-            _pool.Preload(count);
+            _pool.Prewarm(count);
         }
 
         public void Clear()
