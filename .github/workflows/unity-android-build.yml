@@ -1,11 +1,12 @@
-name: Unity Android Build (GitHub-hosted)
+name: Unity Android Build
 
-# Distinct name avoids triggering legacy PC-only workflow_run device jobs.
-# Repository Actions must be enabled after restoring a deleted repository.
+# The self-hosted PC runner executes only trusted develop builds or manual runs
+# explicitly selected on develop. No pull_request trigger is configured.
 on:
   workflow_dispatch:
   push:
-    branches: [develop]
+    branches:
+      - develop
     paths:
       - "Assets/**"
       - "Packages/**"
@@ -13,7 +14,7 @@ on:
       - ".github/workflows/unity-android-build.yml"
 
 concurrency:
-  group: kaise-android-hosted-${{ github.ref }}
+  group: kaise-unity-android-selfhosted
   cancel-in-progress: true
 
 permissions:
@@ -21,88 +22,123 @@ permissions:
 
 jobs:
   build-android:
-    name: Build Android APK on GitHub
-    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/develop'
+    name: Build Android APK on PC
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 60
     env:
-      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
 
     steps:
-      - name: Check Unity activation configuration
-        shell: bash
+      - name: Ensure Git is on PATH
+        shell: cmd
         run: |
-          set -euo pipefail
-          missing=()
-          [[ -n "$UNITY_EMAIL" ]] || missing+=(UNITY_EMAIL)
-          [[ -n "$UNITY_PASSWORD" ]] || missing+=(UNITY_PASSWORD)
-          if [[ -z "$UNITY_LICENSE" && -z "$UNITY_SERIAL" ]]; then
-            missing+=("UNITY_LICENSE (Personal) or UNITY_SERIAL (Pro)")
-          fi
-          if (( ${#missing[@]} )); then
-            printf '::error::Missing Unity Actions secrets: %s\n' "${missing[*]}"
-            printf 'Unity activation is required. See docs/GITHUB_ACTIONS.md.\n' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+          @echo off
+          if not exist "C:\Program Files\Git\cmd\git.exe" (
+            echo [ERROR] Git executable not found.
+            exit /b 22
+          )
+          echo C:\Program Files\Git\cmd>>"%GITHUB_PATH%"
+          echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
+          "C:\Program Files\Git\cmd\git.exe" --version
 
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           lfs: true
+          clean: false
 
-      - name: Read project Unity version
-        id: unity
-        shell: bash
+      - name: Verify Unity host and project version
+        shell: cmd
         run: |
-          set -euo pipefail
-          version=$(sed -n 's/^m_EditorVersion: //p' ProjectSettings/ProjectVersion.txt | tr -d '\r')
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[abfp][0-9]+$ ]]
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Android Library
-        uses: actions/cache@v4
-        with:
-          path: Library
-          key: Unity-Android-${{ runner.os }}-${{ steps.unity.outputs.version }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
-          restore-keys: |
-            Unity-Android-${{ runner.os }}-${{ steps.unity.outputs.version }}-
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
+          if errorlevel 1 exit /b 30
+          echo [PASS] Unity host and project version verified.
 
       - name: Build Android APK
-        uses: game-ci/unity-builder@4423ee75828dff56037d1d1cfdac6b68e3a6ba00 # v4
-        with:
-          unityVersion: ${{ steps.unity.outputs.version }}
-          targetPlatform: Android
-          buildMethod: KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk
-          versioning: None
-
-      - name: Verify APK and record source commit
-        shell: bash
+        shell: cmd
         run: |
-          set -euo pipefail
-          test -s Builds/Android/KaiChe-dev.apk
-          printf '%s\n' "$GITHUB_SHA" > Builds/Android/KaiChe-dev.sha
-          sha256sum Builds/Android/KaiChe-dev.apk > Builds/Android/KaiChe-dev.apk.sha256
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
+          if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
+
+          set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-unity-build.cmd"
+          >"%UNITY_RUNNER%" echo @echo off
+          >>"%UNITY_RUNNER%" echo "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          >>"%UNITY_RUNNER%" echo set "UNITY_RC=%%ERRORLEVEL%%"
+          >>"%UNITY_RUNNER%" echo ^>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt" echo %%UNITY_RC%%
+          >>"%UNITY_RUNNER%" echo exit /b %%UNITY_RC%%
+          start "" /b cmd /d /c call "%UNITY_RUNNER%"
+
+          :monitor
+          if exist "Logs\unity-exit.txt" goto finished
+          if exist "Logs\android-build.log" (
+            for %%A in ("Logs\android-build.log") do set "SIZE=%%~zA"
+            echo [HEARTBEAT] %TIME% log_bytes=!SIZE!
+          ) else (
+            echo [HEARTBEAT] %TIME% waiting_for_log
+          )
+          ping -n 31 127.0.0.1 >nul
+          goto monitor
+
+          :finished
+          set "RC="
+          set /p RC=<"Logs\unity-exit.txt"
+          if exist "Logs\android-build.log" type "Logs\android-build.log"
+          if not defined RC (
+            echo [ERROR] Unity exit code was not captured.
+            exit /b 43
+          )
+          if not "!RC!"=="0" (
+            echo [ERROR] Unity exited with code !RC!.
+            exit /b !RC!
+          )
+          if not exist "Builds\Android\KaiChe-dev.apk" (
+            echo [ERROR] Unity exited successfully but APK is missing.
+            exit /b 40
+          )
+          echo [PASS] Android APK created.
+
+      - name: Persist APK on runner
+        if: success()
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%LOCAL_APK_DIR%" mkdir "%LOCAL_APK_DIR%"
+          copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK_DIR%\KaiChe-dev.apk"
+          if errorlevel 1 exit /b 41
+          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" exit /b 42
+          >"%LOCAL_APK_DIR%\KaiChe-dev.sha" echo %GITHUB_SHA%
+          if not exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" exit /b 43
+          set /p LOCAL_APK_SHA=<"%LOCAL_APK_DIR%\KaiChe-dev.sha"
+          if /I not "%LOCAL_APK_SHA%"=="%GITHUB_SHA%" exit /b 44
+          for %%A in ("%LOCAL_APK_DIR%\KaiChe-dev.apk") do echo [PASS] Local APK persisted: %%~fA (%%~zA bytes)
+          echo [PASS] Local APK source SHA persisted: %GITHUB_SHA%
 
       - name: Upload Android APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: KaiChe-Android-${{ github.sha }}
-          path: |
-            Builds/Android/KaiChe-dev.apk
-            Builds/Android/KaiChe-dev.sha
-            Builds/Android/KaiChe-dev.apk.sha256
+          path: Builds/Android/KaiChe-dev.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Unity build logs
+      - name: Upload Unity build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: KaiChe-Android-Log-${{ github.sha }}
-          path: |
-            build/**/*.log
-            Logs/**/*.log
-          if-no-files-found: ignore
+          path: Logs/android-build.log
+          if-no-files-found: warn
           retention-days: 14

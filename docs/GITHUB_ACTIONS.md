@@ -1,40 +1,34 @@
-# GitHub-hosted Android builds
+# GitHub Actions and PC runner
 
-The Unity Android Build (GitHub-hosted) workflow uses a standard Ubuntu 24.04
-GitHub runner. No runner registration or always-on developer PC is required.
-Unity's exact version comes from ProjectSettings/ProjectVersion.txt.
+The project uses two kinds of runners:
 
-## Unity activation
+- `Unity Project Preflight` runs lightweight project checks on GitHub-hosted
+  Ubuntu runners. Standard hosted runners are free for this public repository.
+- `Unity Android Build` runs the Unity 6000.6.4f1 Android build on the Windows
+  PC runner, where Unity Personal is already activated in Unity Hub. No Unity
+  account password, serial, or license file is stored in GitHub Actions secrets.
 
-GitHub runner availability does not include a Unity license. Set these repository
-Actions secrets under Settings > Secrets and variables > Actions:
+## PC runner requirements
 
-- UNITY_EMAIL: Unity account email.
-- UNITY_PASSWORD: Unity account password.
-- Personal license: UNITY_LICENSE, containing the activated .ulf license file.
-- Pro license: UNITY_SERIAL instead of UNITY_LICENSE.
+Register the repository runner at **Settings > Actions > Runners > New
+self-hosted runner** with the `kaise-unity` label. Configure it in
+`C:\actions-runner-kaise` and run `run.cmd` while the PC is on and connected to
+the internet. The project also needs Unity 6000.6.4f1 with Android Build Support,
+SDK, NDK, and OpenJDK, plus Git and Git LFS.
 
-Follow https://game.ci/docs/github/activation/ for your license type. Never commit
-credentials or license files, and do not send account passwords through chat.
-Enter credentials directly in GitHub's encrypted Actions settings.
-The workflow stops before downloading Unity if required secrets are missing.
+The APK is uploaded to the workflow run as `KaiChe-Android-<commit>` and copied
+to `C:\actions-runner-kaise\local-builds\KaiChe-dev.apk`. The commit SHA is
+stored next to the APK so the device-install workflow can verify it.
 
-## Running and downloading
+## Triggers and security
 
-Push relevant project changes to develop to start a build. For manual runs,
-choose the workflow in Actions, select develop and Run workflow. Until this
-workflow exists on the default branch, the manual dispatch button may not appear;
-pushes to develop still trigger it.
+The APK build triggers only for relevant pushes to `develop`, or when manually
+dispatched on `develop`. It has no `pull_request` trigger, and the job itself
+rejects refs other than `develop`. Do not add public fork pull-request jobs to
+the self-hosted runner: workflow code runs directly on the PC. Keep the runner
+available only to this repository and shut it down when PC builds are not
+needed.
 
-Successful builds upload KaiChe-Android-<commit> for 14 days: the development APK,
-its source commit and a SHA-256 checksum. Download and extract the artifact for
-local installation. The existing custom build method preserves the package ID,
-scenes and development settings.
-
-## Local device workflows
-
-Legacy self-hosted workflows remain for explicit local device testing. The hosted
-build has a distinct workflow name so the old default-branch device installer is
-not automatically triggered: it expects APK files on the developer PC.
-No local runner is registered or started by this migration.
-Device tests require a separately configured local runner and paired device.
+The self-hosted runner itself has no GitHub Actions execution charge for this
+public repository; the PC's electricity, internet, and maintenance remain local
+costs. GitHub-hosted standard runner usage is also free for public repositories.
