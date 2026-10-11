@@ -17,11 +17,15 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-install-smoke:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 60
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      LOCAL_APK: C:\actions-runner-kaise\local-builds\KaiChe-2D-8Dir.apk
+      LOCAL_SHA: C:\actions-runner-kaise\local-builds\KaiChe-2D-8Dir.sha
+      PACKAGE_ID: com.kaiche.rpg
 
     steps:
       - name: Ensure Git is on PATH
@@ -76,20 +80,123 @@ jobs:
           if not exist "Builds\Android\KaiChe-dev.apk" exit /b 40
           echo [PASS] 2D 8-direction branch compiles and builds Android APK.
 
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: KaiChe-2D-8Dir-${{ github.sha }}
-          path: Builds/Android/KaiChe-dev.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Stage APK on self-hosted runner
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\actions-runner-kaise\local-builds" mkdir "C:\actions-runner-kaise\local-builds"
+          copy /Y "Builds\Android\KaiChe-dev.apk" "%LOCAL_APK%" >nul
+          if errorlevel 1 exit /b 44
+          >"%LOCAL_SHA%" echo %GITHUB_SHA%
+          if not exist "%LOCAL_APK%" exit /b 45
+          for %%A in ("%LOCAL_APK%") do echo [PASS] Staged APK: %%~fA (%%~zA bytes) SHA=%GITHUB_SHA%
 
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: KaiChe-2D-8Dir-Log-${{ github.sha }}
-          path: Logs/2d-8dir-build.log
-          if-no-files-found: warn
-          retention-days: 7
+      - name: Verify paired Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" (
+            echo [ERROR] adb.exe not found: %ADB_EXE%
+            exit /b 50
+          )
+
+          "%ADB_EXE%" start-server >nul 2>&1
+          "%ADB_EXE%" devices -l
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" reconnect >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" mdns services > Logs\2d-adb-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\2d-adb-mdns.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              echo [INFO] Trying !ENDPOINT!
+              "%ADB_EXE%" connect !ENDPOINT!
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 goto device_ready
+            )
+          )
+
+          echo [ERROR] No online Android device is available through ADB.
+          if exist Logs\2d-adb-mdns.txt type Logs\2d-adb-mdns.txt
+          exit /b 51
+
+          :device_ready
+          "%ADB_EXE%" devices -l
+          echo [PASS] Android device online.
+
+      - name: Install and launch branch APK
+        shell: cmd
+        run: |
+          @echo off
+          if not exist Logs mkdir Logs
+          "%ADB_EXE%" install -r "%LOCAL_APK%"
+          if errorlevel 1 exit /b 60
+          "%ADB_EXE%" shell pm path %PACKAGE_ID%
+          if errorlevel 1 exit /b 61
+
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 62
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\2d-device-pid.txt
+          set /p APP_PID=<Logs\2d-device-pid.txt
+          if "%APP_PID%"=="" (
+            echo [ERROR] KaiChe process is not running after launch.
+            exit /b 63
+          )
+          echo [PASS] KaiChe launched. PID=%APP_PID%
+
+      - name: Verify top-down shooter runtime on device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+
+          rem Existing SM_G998N test flow: first portrait start coordinate, then landscape fallback.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\2d-topdown-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_SHOOTER_CAMERA_ACTIVE" Logs\2d-topdown-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 6 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\2d-topdown-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_SHOOTER_CAMERA_ACTIVE" Logs\2d-topdown-logcat.txt >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\2d-topdown-failure.png 2>nul
+            echo [ERROR] Top-down shooter camera marker not found on device.
+            findstr /C:"KAI_CHE_TOPDOWN" /C:"KAI_CHE_2D_8DIR_MAGE" Logs\2d-topdown-logcat.txt
+            exit /b 70
+          )
+
+          :game_ready
+          findstr /C:"KAI_CHE_2D_8DIR_MAGE_ACTIVE" /C:"KAI_CHE_2D_8DIR_MAGE_RESOURCE_INCOMPLETE_FALLBACK_3D" Logs\2d-topdown-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] 8-direction Mage runtime path was not reached.
+            exit /b 71
+          )
+
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\2d-device-pid-after-game.txt
+          set /p APP_PID=<Logs\2d-device-pid-after-game.txt
+          if "!APP_PID!"=="" (
+            echo [ERROR] KaiChe process exited during Game smoke.
+            exit /b 72
+          )
+
+          "%ADB_EXE%" exec-out screencap -p > Logs\2d-topdown-device.png 2>nul
+          echo ===== 2D TOP-DOWN MARKERS =====
+          findstr /C:"KAI_CHE_TOPDOWN" /C:"KAI_CHE_2D_8DIR_MAGE" Logs\2d-topdown-logcat.txt
+          echo [PASS] Top-down shooter runtime reached on device. PID=!APP_PID!
