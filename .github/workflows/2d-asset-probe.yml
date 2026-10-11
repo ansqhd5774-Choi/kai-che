@@ -1,6 +1,7 @@
 name: 2D Local Asset Import Probe
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/2d-reboot-r1
@@ -29,10 +30,11 @@ jobs:
           echo %ROOT%>asset-root.txt
           echo [PASS] Found extracted asset folder: %ROOT%
 
-      - name: Inspect Mage files and states
+      - name: Inspect Mage files and required states
         shell: cmd
         run: |
           @echo off
+          setlocal EnableDelayedExpansion
           set /p ROOT=<asset-root.txt
           dir /s /b "%ROOT%" > asset-filelist.txt
           findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
@@ -43,32 +45,56 @@ jobs:
           echo [PASS] Mage files found.
 
           set "MISS=0"
+          >state-report.txt echo Pico Heroes Mage state probe
           for %%S in (idle walk attack hit death) do (
             findstr /I /C:"%%S" mage-filelist.txt >nul
             if errorlevel 1 (
               echo [ERROR] Missing Mage state token: %%S
+              >>state-report.txt echo FAIL %%S
               set "MISS=1"
             ) else (
               echo [PASS] Mage state token: %%S
+              >>state-report.txt echo PASS %%S
             )
           )
-          if "%MISS%"=="1" exit /b 23
+          if "!MISS!"=="1" exit /b 23
 
-      - name: Detect directional coverage
+      - name: Detect exact 8-direction coverage
         shell: cmd
         run: |
           @echo off
-          set "DIRPASS=0"
+          setlocal EnableDelayedExpansion
+          set "PASSCOUNT=0"
+          >direction-report.txt echo Pico Heroes Mage 8-direction probe
+
           for %%D in (north northeast east southeast south southwest west northwest) do (
             findstr /I /C:"%%D" mage-filelist.txt >nul
-            if not errorlevel 1 set /a DIRPASS+=1
+            if errorlevel 1 (
+              echo [WARN] Direction token not found: %%D
+              >>direction-report.txt echo MISS %%D
+            ) else (
+              echo [PASS] Direction token: %%D
+              >>direction-report.txt echo PASS %%D
+              set /a PASSCOUNT+=1
+            )
           )
-          for %%D in (n ne e se s sw w nw) do (
-            findstr /R /I /C:"[\\/_ -]%%D[\\/_ .-]" mage-filelist.txt >nul
-            if not errorlevel 1 set /a DIRPASS+=1
+
+          echo [INFO] Long-name direction matches=!PASSCOUNT!/8
+          >>direction-report.txt echo LONG_NAME_MATCHES !PASSCOUNT!/8
+
+          if !PASSCOUNT! LSS 8 (
+            echo [INFO] Long names are incomplete. Checking short direction tokens as secondary evidence.
+            set "SHORTCOUNT=0"
+            for %%D in (n ne e se s sw w nw) do (
+              findstr /R /I /C:"[\\/_ -]%%D[\\/_ .-]" mage-filelist.txt >nul
+              if not errorlevel 1 set /a SHORTCOUNT+=1
+            )
+            echo [INFO] Short-token direction matches=!SHORTCOUNT!/8
+            >>direction-report.txt echo SHORT_TOKEN_MATCHES !SHORTCOUNT!/8
           )
-          echo [INFO] Direction-name matches=%DIRPASS%
-          echo [INFO] Exact 8-direction row/order still requires sheet inspection if filenames do not encode direction names.
+
+          echo [INFO] File naming alone may not prove row order for atlas/sheet assets.
+          echo [INFO] Next stage will inspect manifest/metadata or generate a visual contact sheet when needed.
 
       - name: Upload inspection evidence
         if: always()
@@ -79,5 +105,7 @@ jobs:
             asset-root.txt
             asset-filelist.txt
             mage-filelist.txt
+            state-report.txt
+            direction-report.txt
           if-no-files-found: warn
           retention-days: 3
