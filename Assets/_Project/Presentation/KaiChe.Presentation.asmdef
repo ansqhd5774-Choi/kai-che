@@ -4,7 +4,9 @@
   "references": [
     "KaiChe.Core",
     "KaiChe.Gameplay",
-    "Unity.ugui"
+    "Unity.ugui",
+    "UnityScreenNavigator",
+    "ZString"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
