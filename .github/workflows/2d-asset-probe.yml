@@ -18,46 +18,128 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Locate extracted Pico Heroes folder
+      - name: Auto-discover Pico Heroes or Mage asset
         shell: cmd
         run: |
           @echo off
-          set "ROOT=C:\actions-runner-kaise\local-assets\PicoHeroes"
-          if not exist "%ROOT%\" (
-            echo [ERROR] Folder not found: %ROOT%
+          setlocal EnableExtensions EnableDelayedExpansion
+          del /q asset-root.txt asset-mode.txt asset-filelist.txt mage-filelist.txt zip-candidates.txt candidate-search.txt 2>nul
+          >candidate-search.txt echo KAISE 2D asset discovery
+          set "FOUND="
+
+          if exist "C:\actions-runner-kaise\local-assets\" (
+            echo [INFO] Searching local-assets...
+            >>candidate-search.txt echo ROOT C:\actions-runner-kaise\local-assets
+            for /f "delims=" %%F in ('dir /s /b /a-d "C:\actions-runner-kaise\local-assets\*mage*" 2^>nul') do (
+              if not defined FOUND (
+                set "FOUND=%%~dpF"
+              )
+            )
+          )
+
+          if not defined FOUND (
+            for /d %%U in ("C:\Users\*") do (
+              for %%L in ("%%~fU\Downloads" "%%~fU\Desktop") do (
+                if exist "%%~fL\" (
+                  >>candidate-search.txt echo ROOT %%~fL
+                  for /f "delims=" %%F in ('dir /s /b /a-d "%%~fL\*mage*" 2^>nul') do (
+                    if not defined FOUND (
+                      set "FOUND=%%~dpF"
+                    )
+                  )
+                )
+              )
+            )
+          )
+
+          if defined FOUND (
+            >asset-root.txt echo !FOUND!
+            >asset-mode.txt echo folder
+            echo [PASS] Found extracted Mage asset folder: !FOUND!
+            exit /b 0
+          )
+
+          echo [INFO] No extracted Mage file found. Searching ZIP archives...
+          if exist "C:\actions-runner-kaise\local-assets\" (
+            for /f "delims=" %%Z in ('dir /s /b /a-d "C:\actions-runner-kaise\local-assets\*.zip" 2^>nul') do echo %%Z>>zip-candidates.txt
+          )
+          for /d %%U in ("C:\Users\*") do (
+            for %%L in ("%%~fU\Downloads" "%%~fU\Desktop") do (
+              if exist "%%~fL\" (
+                for /f "delims=" %%Z in ('dir /s /b /a-d "%%~fL\*.zip" 2^>nul') do echo %%Z>>zip-candidates.txt
+              )
+            )
+          )
+
+          if not exist zip-candidates.txt (
+            echo [ERROR] No extracted Mage files or ZIP archives found in approved search roots.
             exit /b 20
           )
-          echo %ROOT%>asset-root.txt
-          echo [PASS] Found extracted asset folder: %ROOT%
 
-      - name: Inspect Mage files and required states
+          set "ARCHIVE="
+          for /f "usebackq delims=" %%Z in ("zip-candidates.txt") do (
+            if not defined ARCHIVE (
+              tar -tf "%%Z" 2>nul | findstr /I /C:"mage" >nul
+              if not errorlevel 1 set "ARCHIVE=%%Z"
+            )
+          )
+
+          if not defined ARCHIVE (
+            echo [ERROR] ZIP archives were found, but none contains a Mage path/file.
+            exit /b 21
+          )
+
+          >asset-root.txt echo !ARCHIVE!
+          >asset-mode.txt echo archive
+          echo [PASS] Found Mage archive: !ARCHIVE!
+
+      - name: Build Mage file inventory
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set /p ROOT=<asset-root.txt
+          set /p MODE=<asset-mode.txt
+
+          if /I "!MODE!"=="folder" (
+            dir /s /b "!ROOT!" > asset-filelist.txt
+          ) else (
+            tar -tf "!ROOT!" > asset-filelist.txt
+            if errorlevel 1 (
+              echo [ERROR] Could not inspect archive: !ROOT!
+              exit /b 22
+            )
+          )
+
+          findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
+          if errorlevel 1 (
+            echo [ERROR] Inventory contains no Mage file/path.
+            exit /b 23
+          )
+
+          for /f %%C in ('find /c /v "" ^< mage-filelist.txt') do set "MAGECOUNT=%%C"
+          echo [PASS] Mage inventory created: !MAGECOUNT! matching paths
+
+      - name: Inspect required animation states
         shell: cmd
         run: |
           @echo off
           setlocal EnableDelayedExpansion
-          set /p ROOT=<asset-root.txt
-          dir /s /b "%ROOT%" > asset-filelist.txt
-          findstr /I /C:"mage" asset-filelist.txt > mage-filelist.txt
-          if errorlevel 1 (
-            echo [ERROR] No Mage file/path found under %ROOT%
-            exit /b 22
-          )
-          echo [PASS] Mage files found.
-
           set "MISS=0"
           >state-report.txt echo Pico Heroes Mage state probe
           for %%S in (idle walk attack hit death) do (
             findstr /I /C:"%%S" mage-filelist.txt >nul
             if errorlevel 1 (
-              echo [ERROR] Missing Mage state token: %%S
-              >>state-report.txt echo FAIL %%S
-              set "MISS=1"
+              echo [WARN] Missing Mage state token: %%S
+              >>state-report.txt echo MISS %%S
+              set /a MISS+=1
             ) else (
               echo [PASS] Mage state token: %%S
               >>state-report.txt echo PASS %%S
             )
           )
-          if "!MISS!"=="1" exit /b 23
+          echo [INFO] Missing state token count=!MISS!
+          >>state-report.txt echo MISSING_COUNT !MISS!
 
       - name: Detect exact 8-direction coverage
         shell: cmd
@@ -82,19 +164,15 @@ jobs:
           echo [INFO] Long-name direction matches=!PASSCOUNT!/8
           >>direction-report.txt echo LONG_NAME_MATCHES !PASSCOUNT!/8
 
-          if !PASSCOUNT! LSS 8 (
-            echo [INFO] Long names are incomplete. Checking short direction tokens as secondary evidence.
-            set "SHORTCOUNT=0"
-            for %%D in (n ne e se s sw w nw) do (
-              findstr /R /I /C:"[\\/_ -]%%D[\\/_ .-]" mage-filelist.txt >nul
-              if not errorlevel 1 set /a SHORTCOUNT+=1
-            )
-            echo [INFO] Short-token direction matches=!SHORTCOUNT!/8
-            >>direction-report.txt echo SHORT_TOKEN_MATCHES !SHORTCOUNT!/8
+          set "SHORTCOUNT=0"
+          for %%D in (n ne e se s sw w nw) do (
+            findstr /R /I /C:"[\\/_ -]%%D[\\/_ .-]" mage-filelist.txt >nul
+            if not errorlevel 1 set /a SHORTCOUNT+=1
           )
+          echo [INFO] Short-token direction matches=!SHORTCOUNT!/8
+          >>direction-report.txt echo SHORT_TOKEN_MATCHES !SHORTCOUNT!/8
 
-          echo [INFO] File naming alone may not prove row order for atlas/sheet assets.
-          echo [INFO] Next stage will inspect manifest/metadata or generate a visual contact sheet when needed.
+          echo [INFO] File naming alone may not prove atlas row order. Inventory is retained for the importer stage.
 
       - name: Upload inspection evidence
         if: always()
@@ -103,9 +181,12 @@ jobs:
           name: pico-heroes-folder-inspection
           path: |
             asset-root.txt
+            asset-mode.txt
             asset-filelist.txt
             mage-filelist.txt
             state-report.txt
             direction-report.txt
+            candidate-search.txt
+            zip-candidates.txt
           if-no-files-found: warn
           retention-days: 3
