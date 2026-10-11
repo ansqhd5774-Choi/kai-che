@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Scan local folders and ZIP indexes
+      - name: Scan local folders and ZIP image entries
         shell: cmd
         run: |
           @echo off
@@ -36,55 +36,58 @@ jobs:
           > Logs\2d-assets-roots.txt echo ROOT1=!ROOT1!
           >>Logs\2d-assets-roots.txt echo ROOT2=!ROOT2!
           >>Logs\2d-assets-roots.txt echo ROOT3=!ROOT3!
+          type nul > Logs\2d-assets-zips.txt
+          type nul > Logs\2d-assets-pngs.txt
+          type nul > Logs\2d-assets-zip-index.txt
+          type nul > Logs\2d-assets-candidates.txt
 
           for %%R in ("!ROOT1!" "!ROOT2!" "!ROOT3!") do (
             if exist "%%~R" (
               echo [SCAN] %%~R
               dir /s /b "%%~R\*.zip" 2>nul >> Logs\2d-assets-zips.txt
               dir /s /b "%%~R\*.png" 2>nul >> Logs\2d-assets-pngs.txt
-              dir /s /b "%%~R\*.jpg" 2>nul >> Logs\2d-assets-images.txt
-              dir /s /b "%%~R\*.jpeg" 2>nul >> Logs\2d-assets-images.txt
+              dir /s /b "%%~R\*.aseprite" 2>nul >> Logs\2d-assets-pngs.txt
+              dir /s /b "%%~R\*.psd" 2>nul >> Logs\2d-assets-pngs.txt
             )
           )
 
-          if not exist Logs\2d-assets-zips.txt type nul > Logs\2d-assets-zips.txt
-          if not exist Logs\2d-assets-pngs.txt type nul > Logs\2d-assets-pngs.txt
-          if not exist Logs\2d-assets-images.txt type nul > Logs\2d-assets-images.txt
+          rem Every loose sprite/image file is a real candidate regardless of its filename.
+          type Logs\2d-assets-pngs.txt >> Logs\2d-assets-candidates.txt
 
-          echo ===== LOOSE PNG CANDIDATES ===== > Logs\2d-assets-candidates.txt
-          findstr /I /C:"idle" /C:"walk" /C:"run" /C:"attack" /C:"shoot" /C:"fire" /C:"hit" /C:"hurt" /C:"death" /C:"die" /C:"character" /C:"hero" /C:"sprite" Logs\2d-assets-pngs.txt >> Logs\2d-assets-candidates.txt
-
+          set /a ZIP_IMAGE_COUNT=0
           where tar >nul 2>&1
           if errorlevel 1 (
-            echo [WARN] tar.exe unavailable; ZIP contents could not be indexed.>>Logs\2d-assets-candidates.txt
+            echo [WARN] tar.exe unavailable; ZIP contents could not be indexed.
           ) else (
             for /f "usebackq delims=" %%Z in ("Logs\2d-assets-zips.txt") do (
+              type nul > Logs\2d-assets-one-zip.txt
+              tar -tf "%%Z" > Logs\2d-assets-one-zip.txt 2>nul
               echo ===== ZIP: %%Z ===== >> Logs\2d-assets-zip-index.txt
-              tar -tf "%%Z" >> Logs\2d-assets-zip-index.txt 2>nul
-              echo ===== ZIP CANDIDATES: %%Z ===== >> Logs\2d-assets-candidates.txt
-              tar -tf "%%Z" 2>nul | findstr /I /C:"idle" /C:"walk" /C:"run" /C:"attack" /C:"shoot" /C:"fire" /C:"hit" /C:"hurt" /C:"death" /C:"die" /C:"character" /C:"hero" /C:"sprite" >> Logs\2d-assets-candidates.txt
+              type Logs\2d-assets-one-zip.txt >> Logs\2d-assets-zip-index.txt
+              for /f "delims=" %%E in ('findstr /I /C:".png" /C:".aseprite" /C:".psd" /C:".gif" /C:".jpg" /C:".jpeg" Logs\2d-assets-one-zip.txt') do (
+                echo ZIP=%%Z ^| ENTRY=%%E>>Logs\2d-assets-candidates.txt
+                set /a ZIP_IMAGE_COUNT+=1
+              )
             )
           )
-
-          if not exist Logs\2d-assets-zip-index.txt type nul > Logs\2d-assets-zip-index.txt
 
           set /a ZIP_COUNT=0
           for /f %%C in ('find /c /v "" ^< Logs\2d-assets-zips.txt') do set /a ZIP_COUNT=%%C
-          set /a PNG_COUNT=0
-          for /f %%C in ('find /c /v "" ^< Logs\2d-assets-pngs.txt') do set /a PNG_COUNT=%%C
-          set /a CANDIDATE_LINES=0
-          for /f %%C in ('find /c /v "" ^< Logs\2d-assets-candidates.txt') do set /a CANDIDATE_LINES=%%C
+          set /a LOOSE_IMAGE_COUNT=0
+          for /f %%C in ('find /c /v "" ^< Logs\2d-assets-pngs.txt') do set /a LOOSE_IMAGE_COUNT=%%C
+          set /a CANDIDATE_COUNT=LOOSE_IMAGE_COUNT+ZIP_IMAGE_COUNT
 
           > Logs\2d-assets-summary.txt echo ZIP_COUNT=!ZIP_COUNT!
-          >>Logs\2d-assets-summary.txt echo PNG_COUNT=!PNG_COUNT!
-          >>Logs\2d-assets-summary.txt echo CANDIDATE_LINES=!CANDIDATE_LINES!
+          >>Logs\2d-assets-summary.txt echo LOOSE_IMAGE_COUNT=!LOOSE_IMAGE_COUNT!
+          >>Logs\2d-assets-summary.txt echo ZIP_IMAGE_COUNT=!ZIP_IMAGE_COUNT!
+          >>Logs\2d-assets-summary.txt echo CANDIDATE_COUNT=!CANDIDATE_COUNT!
 
-          if !CANDIDATE_LINES! GTR 1 (
+          if !CANDIDATE_COUNT! GTR 0 (
             echo ASSET_RESULT=CANDIDATES_FOUND>>"%GITHUB_ENV%"
-            echo [PASS] Candidate sprite asset paths found. ZIP=!ZIP_COUNT! PNG=!PNG_COUNT! candidateLines=!CANDIDATE_LINES!
+            echo [PASS] Real image/sprite candidates found. ZIP=!ZIP_COUNT! loose=!LOOSE_IMAGE_COUNT! zipImages=!ZIP_IMAGE_COUNT!
           ) else (
             echo ASSET_RESULT=NO_CANDIDATES>>"%GITHUB_ENV%"
-            echo [WARN] No broad animation/sprite candidates found. ZIP=!ZIP_COUNT! PNG=!PNG_COUNT!
+            echo [WARN] No sprite/image assets found in scanned roots. ZIP=!ZIP_COUNT! loose=0 zipImages=0
           )
 
       - name: Publish discovery report
