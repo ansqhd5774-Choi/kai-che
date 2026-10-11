@@ -2,7 +2,12 @@
   "name": "KaiChe.Gameplay",
   "rootNamespace": "KaiChe.Gameplay",
   "references": [
-    "KaiChe.Core"
+    "KaiChe.Core",
+    "LitMotion",
+    "LitMotion.Extensions",
+    "UnityHFSM",
+    "MackySoft.SerializeReferenceExtensions",
+    "NaughtyAttributes.Core"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

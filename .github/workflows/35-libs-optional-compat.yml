@@ -1,0 +1,108 @@
+name: 35 Libraries Optional Compatibility
+
+on:
+  push:
+    branches:
+      - feature/35-libs-integration-r1
+    paths:
+      - "Tools/OptionalCompatProject/**"
+      - ".github/workflows/35-libs-optional-compat.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r3-memorypack:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 30
+    env:
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+      COMPAT_PROJECT: ${{ github.workspace }}\Tools\OptionalCompatProject
+      NUGET_TOOL_DIR: ${{ github.workspace }}\Tools\.nugetforunity-cli
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}\Tools\.dotnet9
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Setup .NET 9 for NuGetForUnity
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Verify .NET 9 runtime
+        shell: cmd
+        run: |
+          @echo off
+          dotnet --info
+          dotnet --list-runtimes | findstr /R /C:"Microsoft.NETCore.App 9\." >nul
+          if errorlevel 1 exit /b 22
+
+      - name: Verify Unity host
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+
+      - name: Install pinned NuGetForUnity CLI
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%NUGET_TOOL_DIR%" mkdir "%NUGET_TOOL_DIR%"
+          dotnet tool install NuGetForUnity.Cli --tool-path "%NUGET_TOOL_DIR%" --version 4.5.0
+          if errorlevel 1 (
+            dotnet tool update NuGetForUnity.Cli --tool-path "%NUGET_TOOL_DIR%" --version 4.5.0
+            if errorlevel 1 exit /b 30
+          )
+
+      - name: Prepare isolated Unity project settings
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%COMPAT_PROJECT%\ProjectSettings" mkdir "%COMPAT_PROJECT%\ProjectSettings"
+          copy /Y "%GITHUB_WORKSPACE%\ProjectSettings\ProjectSettings.asset" "%COMPAT_PROJECT%\ProjectSettings\ProjectSettings.asset" >nul
+          if errorlevel 1 exit /b 32
+
+      - name: Prepare NuGetForUnity package layout
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%COMPAT_PROJECT%\Assets" mkdir "%COMPAT_PROJECT%\Assets"
+          copy /Y "%COMPAT_PROJECT%\packages.config" "%COMPAT_PROJECT%\Assets\packages.config" >nul
+          if errorlevel 1 exit /b 35
+          if exist "%COMPAT_PROJECT%\Assets\Packages" rmdir /S /Q "%COMPAT_PROJECT%\Assets\Packages"
+          echo [INFO] NuGetForUnity config staged at Assets\packages.config.
+
+      - name: Restore R3 and MemoryPack
+        shell: cmd
+        run: |
+          @echo off
+          "%NUGET_TOOL_DIR%\nugetforunity.exe" restore "%COMPAT_PROJECT%"
+          if errorlevel 1 exit /b 31
+          echo ===== RESTORED NUGET PACKAGE TREE =====
+          dir /S /B "%COMPAT_PROJECT%\Assets\Packages" 2>nul
+          echo ===== REQUIRED CORE ASSEMBLIES =====
+          where /R "%COMPAT_PROJECT%\Assets\Packages" R3.dll
+          if errorlevel 1 exit /b 33
+          where /R "%COMPAT_PROJECT%\Assets\Packages" MemoryPack.Core.dll
+          if errorlevel 1 exit /b 34
+          echo ===== MEMORYPACK GENERATOR ASSEMBLIES =====
+          where /R "%COMPAT_PROJECT%\Assets\Packages" MemoryPack.Generator*.dll 2>nul
+          echo [PASS] R3 and MemoryPack.Core assemblies restored before Unity startup.
+
+      - name: Compile optional Unity compatibility project
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          echo [INFO] Unity optional compatibility compile starting.
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%COMPAT_PROJECT%" -logFile -
+          set "RC=%ERRORLEVEL%"
+          echo [INFO] Unity optional compatibility exit code: %RC%
+          if not "%RC%"=="0" exit /b %RC%
+          echo [PASS] R3 + MemoryPack optional Unity compatibility compile succeeded.

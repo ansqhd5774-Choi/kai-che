@@ -1,0 +1,106 @@
+name: 2D Local Asset Discovery
+
+on:
+  push:
+    branches:
+      - feature/2d-8dir-r1
+    paths:
+      - ".github/workflows/2d-asset-discovery.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-2d-asset-discovery
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  discover-assets:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+
+    steps:
+      - name: Scan local folders and ZIP image entries
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          del /q Logs\2d-assets-*.txt 2>nul
+
+          set "ROOT1=C:\actions-runner-kaise\local-assets"
+          set "ROOT2=%USERPROFILE%\Downloads"
+          set "ROOT3=%USERPROFILE%\Desktop"
+
+          > Logs\2d-assets-roots.txt echo ROOT1=!ROOT1!
+          >>Logs\2d-assets-roots.txt echo ROOT2=!ROOT2!
+          >>Logs\2d-assets-roots.txt echo ROOT3=!ROOT3!
+          type nul > Logs\2d-assets-zips.txt
+          type nul > Logs\2d-assets-pngs.txt
+          type nul > Logs\2d-assets-zip-index.txt
+          type nul > Logs\2d-assets-candidates.txt
+
+          for %%R in ("!ROOT1!" "!ROOT2!" "!ROOT3!") do (
+            if exist "%%~R" (
+              echo [SCAN] %%~R
+              dir /s /b "%%~R\*.zip" 2>nul >> Logs\2d-assets-zips.txt
+              dir /s /b "%%~R\*.png" 2>nul >> Logs\2d-assets-pngs.txt
+              dir /s /b "%%~R\*.aseprite" 2>nul >> Logs\2d-assets-pngs.txt
+              dir /s /b "%%~R\*.psd" 2>nul >> Logs\2d-assets-pngs.txt
+            )
+          )
+
+          rem Every loose sprite/image file is a real candidate regardless of its filename.
+          type Logs\2d-assets-pngs.txt >> Logs\2d-assets-candidates.txt
+
+          set /a ZIP_IMAGE_COUNT=0
+          where tar >nul 2>&1
+          if errorlevel 1 (
+            echo [WARN] tar.exe unavailable; ZIP contents could not be indexed.
+          ) else (
+            for /f "usebackq delims=" %%Z in ("Logs\2d-assets-zips.txt") do (
+              type nul > Logs\2d-assets-one-zip.txt
+              tar -tf "%%Z" > Logs\2d-assets-one-zip.txt 2>nul
+              echo ===== ZIP: %%Z ===== >> Logs\2d-assets-zip-index.txt
+              type Logs\2d-assets-one-zip.txt >> Logs\2d-assets-zip-index.txt
+              for /f "delims=" %%E in ('findstr /I /C:".png" /C:".aseprite" /C:".psd" /C:".gif" /C:".jpg" /C:".jpeg" Logs\2d-assets-one-zip.txt') do (
+                echo ZIP=%%Z ^| ENTRY=%%E>>Logs\2d-assets-candidates.txt
+                set /a ZIP_IMAGE_COUNT+=1
+              )
+            )
+          )
+
+          set /a ZIP_COUNT=0
+          for /f %%C in ('find /c /v "" ^< Logs\2d-assets-zips.txt') do set /a ZIP_COUNT=%%C
+          set /a LOOSE_IMAGE_COUNT=0
+          for /f %%C in ('find /c /v "" ^< Logs\2d-assets-pngs.txt') do set /a LOOSE_IMAGE_COUNT=%%C
+          set /a CANDIDATE_COUNT=LOOSE_IMAGE_COUNT+ZIP_IMAGE_COUNT
+
+          > Logs\2d-assets-summary.txt echo ZIP_COUNT=!ZIP_COUNT!
+          >>Logs\2d-assets-summary.txt echo LOOSE_IMAGE_COUNT=!LOOSE_IMAGE_COUNT!
+          >>Logs\2d-assets-summary.txt echo ZIP_IMAGE_COUNT=!ZIP_IMAGE_COUNT!
+          >>Logs\2d-assets-summary.txt echo CANDIDATE_COUNT=!CANDIDATE_COUNT!
+
+          if !CANDIDATE_COUNT! GTR 0 (
+            echo ASSET_RESULT=CANDIDATES_FOUND>>"%GITHUB_ENV%"
+            echo [PASS] Real image/sprite candidates found. ZIP=!ZIP_COUNT! loose=!LOOSE_IMAGE_COUNT! zipImages=!ZIP_IMAGE_COUNT!
+          ) else (
+            echo ASSET_RESULT=NO_CANDIDATES>>"%GITHUB_ENV%"
+            echo [WARN] No sprite/image assets found in scanned roots. ZIP=!ZIP_COUNT! loose=0 zipImages=0
+          )
+
+      - name: Publish discovery report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2d-assets-${{ env.ASSET_RESULT }}
+          path: |
+            Logs/2d-assets-roots.txt
+            Logs/2d-assets-summary.txt
+            Logs/2d-assets-zips.txt
+            Logs/2d-assets-pngs.txt
+            Logs/2d-assets-zip-index.txt
+            Logs/2d-assets-candidates.txt
+          if-no-files-found: warn
+          retention-days: 7

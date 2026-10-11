@@ -1,5 +1,16 @@
 {
   "dependencies": {
+    "com.annulusgames.lit-motion": "https://github.com/AnnulusGames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#422eb124051c81a9bc3f422ebf190703c5053514",
+    "com.annulusgames.u-pools": "https://github.com/AnnulusGames/uPools.git?path=/Assets/uPools#e11ce9c12c65c12f3bc35ae2ef7cacde6826e503",
+    "com.cysharp.messagepipe": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe#47f036c55c378a3f0ba9f89c4380a500e32a7379",
+    "com.cysharp.messagepipe.vcontainer": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe.VContainer#47f036c55c378a3f0ba9f89c4380a500e32a7379",
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#a77a1b4a89824fb6df293099de3060daf2a432c1",
+    "com.cysharp.zstring": "https://github.com/Cysharp/ZString.git?path=src/ZString.Unity/Assets/Scripts/ZString#b9c1d8a8a10d37f344b63384d3c44ed814fda1d7",
+    "com.dbrizov.naughtyattributes": "https://github.com/dbrizov/NaughtyAttributes.git#b11d62b28c5fcbe242988f9f8d451deb925cf23b",
+    "com.harumak.unityscreennavigator": "https://github.com/Haruma-K/UnityScreenNavigator.git?path=/Assets/UnityScreenNavigator#c7c0c367f82811f6077cc27bf7739c3c058a4a6b",
+    "com.inspiaaa.unityhfsm": "https://github.com/Inspiaaa/UnityHFSM.git#f8fdc2efb862522acd26fab6cd940886c84cde37",
+    "com.mackysoft.serializereference-extensions": "https://github.com/zuryansh/Demon-of-the-Dungeon-3.git?path=Assets/Packages/MackySoft/MackySoft.SerializeReferenceExtensions#ee8452dbc43373ef991707089b7d7e66ee5227fb",
+    "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#fb24d752968c5cabe0cfb4fcf8861c74772c5b14",
     "com.unity.modules.animation": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.physicscore2d": "1.0.0",

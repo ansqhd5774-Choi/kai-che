@@ -1,12 +1,13 @@
 name: Unity Android Build
 
-# The self-hosted PC runner executes only trusted develop builds or manual runs
-# explicitly selected on develop. No pull_request trigger is configured.
+# The self-hosted PC runner executes trusted develop builds and the dedicated
+# 35-library integration validation branch. No pull_request trigger is configured.
 on:
   workflow_dispatch:
   push:
     branches:
       - develop
+      - feature/35-libs-integration-r1
     paths:
       - "Assets/**"
       - "Packages/**"
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   build-android:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/35-libs-integration-r1'
     name: Build Android APK on PC
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 60

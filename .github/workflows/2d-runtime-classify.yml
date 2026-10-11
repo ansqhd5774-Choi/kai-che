@@ -1,0 +1,114 @@
+name: 2D Runtime Mode Classifier
+
+on:
+  push:
+    branches:
+      - feature/2d-8dir-r1
+    paths:
+      - ".github/workflows/2d-runtime-classify.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-2d-runtime-classifier
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  classify-runtime:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+
+    steps:
+      - name: Verify device and classify runtime
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          if not exist "%ADB_EXE%" exit /b 50
+
+          "%ADB_EXE%" start-server >nul 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if errorlevel 1 (
+            "%ADB_EXE%" reconnect >nul 2>&1
+            ping -n 3 127.0.0.1 >nul
+            "%ADB_EXE%" get-state >nul 2>&1
+          )
+          if errorlevel 1 (
+            echo [ERROR] No online Android device.
+            exit /b 51
+          )
+
+          "%ADB_EXE%" devices -l
+          "%ADB_EXE%" shell pm path %PACKAGE_ID% >nul 2>&1
+          if errorlevel 1 (
+            echo [ERROR] KaiChe is not installed on the device.
+            exit /b 52
+          )
+
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1 >nul
+          if errorlevel 1 exit /b 53
+          ping -n 6 127.0.0.1 >nul
+
+          rem Existing SM_G998N flow: portrait start tap first, landscape fallback second.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\2d-runtime-classify-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_SHOOTER_CAMERA_ACTIVE" Logs\2d-runtime-classify-logcat.txt >nul
+          if not errorlevel 1 goto classify_mage
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\2d-runtime-classify-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_SHOOTER_CAMERA_ACTIVE" Logs\2d-runtime-classify-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Top-down runtime marker not found.
+            echo MAGE_MODE=TOPDOWN_NOT_REACHED>>"%GITHUB_ENV%"
+            exit /b 70
+          )
+
+          :classify_mage
+          findstr /C:"KAI_CHE_2D_8DIR_MAGE_ACTIVE" Logs\2d-runtime-classify-logcat.txt >nul
+          if not errorlevel 1 (
+            echo MAGE_MODE=ACTIVE_8DIR>>"%GITHUB_ENV%"
+            > Logs\2d-runtime-mode.txt echo ACTIVE_8DIR
+            echo [PASS] Runtime mode: ACTIVE_8DIR
+            goto capture
+          )
+
+          findstr /C:"KAI_CHE_2D_8DIR_MAGE_RESOURCE_INCOMPLETE_FALLBACK_3D" Logs\2d-runtime-classify-logcat.txt >nul
+          if not errorlevel 1 (
+            echo MAGE_MODE=FALLBACK_3D>>"%GITHUB_ENV%"
+            > Logs\2d-runtime-mode.txt echo FALLBACK_3D
+            echo [WARN] Runtime mode: FALLBACK_3D
+            goto capture
+          )
+
+          echo MAGE_MODE=UNKNOWN>>"%GITHUB_ENV%"
+          > Logs\2d-runtime-mode.txt echo UNKNOWN
+          echo [ERROR] Neither ACTIVE nor explicit FALLBACK marker found.
+          exit /b 71
+
+          :capture
+          "%ADB_EXE%" exec-out screencap -p > Logs\2d-runtime-device.png 2>nul
+          echo ===== TOP-DOWN / 8DIR MARKERS =====
+          findstr /C:"KAI_CHE_TOPDOWN" /C:"KAI_CHE_2D_8DIR_MAGE" Logs\2d-runtime-classify-logcat.txt
+
+      - name: Publish explicit runtime result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2d-runtime-${{ env.MAGE_MODE }}
+          path: |
+            Logs/2d-runtime-mode.txt
+            Logs/2d-runtime-classify-logcat.txt
+            Logs/2d-runtime-device.png
+          if-no-files-found: warn
+          retention-days: 7
