@@ -4,7 +4,8 @@
   "references": [
     "KaiChe.Core",
     "LitMotion",
-    "LitMotion.Extensions"
+    "LitMotion.Extensions",
+    "UnityHFSM"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
