@@ -36,7 +36,6 @@ jobs:
             exit /b 40
           )
           if not exist "%ADB_EXE%" exit /b 50
-
           "%ADB_EXE%" start-server >nul 2>&1
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 goto device_ready
@@ -44,7 +43,6 @@ jobs:
           ping -n 4 127.0.0.1 >nul
           "%ADB_EXE%" get-state >nul 2>&1
           if not errorlevel 1 goto device_ready
-
           "%ADB_EXE%" mdns services > Logs\topdown-deep-mdns.txt 2>&1
           for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\topdown-deep-mdns.txt') do (
             set "ENDPOINT="
@@ -59,7 +57,6 @@ jobs:
           )
           echo [ERROR] No online Android device.
           exit /b 51
-
           :device_ready
           "%ADB_EXE%" devices -l
           for %%A in ("%LOCAL_APK%") do echo [PASS] APK ready: %%~fA size=%%~zA
@@ -76,23 +73,16 @@ jobs:
           "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
           if errorlevel 1 exit /b 61
           ping -n 7 127.0.0.1 >nul
-
-          rem Existing device supports both portrait and landscape start coordinates.
           "%ADB_EXE%" shell input tap 720 1840
           ping -n 7 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_CORE_READY R1" Logs\topdown-deep-logcat.txt >nul
           if not errorlevel 1 goto game_ready
-
           "%ADB_EXE%" shell input tap 1600 970
           ping -n 7 127.0.0.1 >nul
           "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_CORE_READY R1" Logs\topdown-deep-logcat.txt >nul
-          if errorlevel 1 (
-            echo [ERROR] Game scene not reached.
-            exit /b 62
-          )
-
+          if errorlevel 1 exit /b 62
           :game_ready
           "%ADB_EXE%" shell wm size > Logs\topdown-deep-screen.txt 2>&1
           "%ADB_EXE%" shell dumpsys input | findstr /I /C:"SurfaceOrientation" /C:"orientation" >> Logs\topdown-deep-screen.txt 2>&1
@@ -104,13 +94,8 @@ jobs:
         run: |
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
-
-          rem Inject valid left-side gestures for either current orientation.
-          "%ADB_EXE%" shell input swipe 260 1700 720 1700 1200 >nul 2>&1
-          ping -n 3 127.0.0.1 >nul
-          "%ADB_EXE%" shell input swipe 420 850 900 850 1200 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 360 1700 720 1700 1200 >nul 2>&1
           ping -n 4 127.0.0.1 >nul
-
           "%ADB_EXE%" logcat -d -t 12000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_DEVICE_MOVEMENT_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
           if errorlevel 1 (
@@ -127,29 +112,36 @@ jobs:
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
           set /a TRY=0
-
           :wait_level
           set /a TRY+=1
-          rem Keep the player moving in alternating directions while combat runs.
-          if !TRY! LSS 6 "%ADB_EXE%" shell input swipe 420 850 900 850 900 >nul 2>&1
-          if !TRY! GEQ 6 "%ADB_EXE%" shell input swipe 900 850 420 850 900 >nul 2>&1
-          ping -n 5 127.0.0.1 >nul
-          "%ADB_EXE%" logcat -d -t 18000 > Logs\topdown-deep-logcat.txt 2>&1
+          rem Portrait device: every gesture begins inside the left 62%% joystick zone.
+          rem Trace a square so the player dodges and physically collects XP orbs.
+          "%ADB_EXE%" shell input swipe 360 1700 720 1700 650 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 1900 540 1500 650 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 720 1700 360 1700 650 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 1500 540 1900 650 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 22000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_LEVELUP_CHOICE" Logs\topdown-deep-logcat.txt >nul
           if not errorlevel 1 goto level_ready
-          if !TRY! LSS 12 goto wait_level
-
-          echo [ERROR] Level-up choice did not occur within combat window.
-          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_KILL_CONFIRMED" /C:"KAI_CHE_TOPDOWN_DEVICE_XP_CONFIRMED" /C:"KAI_CHE_TOPDOWN_XP_PICKUP" Logs\topdown-deep-logcat.txt
-          exit /b 71
-
+          findstr /C:"KAI_CHE_TOPDOWN_RUN_GAME_OVER" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 (
+            echo [ERROR] Player died before first level-up.
+            findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-deep-logcat.txt
+            exit /b 71
+          )
+          if !TRY! LSS 20 goto wait_level
+          echo [ERROR] Level-up choice did not occur within extended combat window.
+          findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-deep-logcat.txt
+          exit /b 72
           :level_ready
           findstr /C:"KAI_CHE_TOPDOWN_DEVICE_KILL_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
-          if errorlevel 1 exit /b 72
-          findstr /C:"KAI_CHE_TOPDOWN_XP_PICKUP" Logs\topdown-deep-logcat.txt >nul
           if errorlevel 1 exit /b 73
-          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_LEVELUP_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
+          findstr /C:"KAI_CHE_TOPDOWN_XP_PICKUP" Logs\topdown-deep-logcat.txt >nul
           if errorlevel 1 exit /b 74
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_LEVELUP_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 exit /b 75
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_KILL_CONFIRMED" /C:"KAI_CHE_TOPDOWN_XP_PICKUP" /C:"KAI_CHE_TOPDOWN_DEVICE_LEVELUP_CONFIRMED" Logs\topdown-deep-logcat.txt
           echo [PASS] Kill, XP pickup and level-up confirmed.
 
       - name: Select one of three upgrades on device
@@ -157,24 +149,17 @@ jobs:
         run: |
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
-
-          rem Center option for common landscape resolution.
-          "%ADB_EXE%" shell input tap 1600 566 >nul 2>&1
-          ping -n 3 127.0.0.1 >nul
-          "%ADB_EXE%" logcat -d -t 20000 > Logs\topdown-deep-logcat.txt 2>&1
-          findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt >nul
-          if not errorlevel 1 goto upgrade_ready
-
-          rem Center option for portrait resolution.
+          rem Actual device is portrait 1440x3200; tap middle card first.
           "%ADB_EXE%" shell input tap 720 1090 >nul 2>&1
           ping -n 3 127.0.0.1 >nul
-          "%ADB_EXE%" logcat -d -t 20000 > Logs\topdown-deep-logcat.txt 2>&1
+          "%ADB_EXE%" logcat -d -t 24000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt >nul
-          if errorlevel 1 (
-            echo [ERROR] Three-choice upgrade could not be selected through device input.
-            exit /b 75
-          )
-
+          if not errorlevel 1 goto upgrade_ready
+          "%ADB_EXE%" shell input tap 1600 566 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 24000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 exit /b 76
           :upgrade_ready
           findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt
           echo [PASS] One-of-three upgrade selected and applied.
@@ -185,30 +170,30 @@ jobs:
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
           set /a TRY=0
-
           :wait_boss
           set /a TRY+=1
-          rem Continue dodge movement while waiting for the natural 75-second boss timer.
-          if !TRY! LSS 8 "%ADB_EXE%" shell input swipe 420 850 900 850 700 >nul 2>&1
-          if !TRY! GEQ 8 "%ADB_EXE%" shell input swipe 900 850 420 850 700 >nul 2>&1
-          ping -n 5 127.0.0.1 >nul
-          "%ADB_EXE%" logcat -d -t 26000 > Logs\topdown-deep-logcat.txt 2>&1
+          "%ADB_EXE%" shell input swipe 360 1700 720 1700 500 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 1900 540 1500 500 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 720 1700 360 1700 500 >nul 2>&1
+          "%ADB_EXE%" shell input swipe 540 1500 540 1900 500 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 30000 > Logs\topdown-deep-logcat.txt 2>&1
           findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" Logs\topdown-deep-logcat.txt >nul
           if not errorlevel 1 goto boss_ready
           findstr /C:"KAI_CHE_TOPDOWN_RUN_GAME_OVER" Logs\topdown-deep-logcat.txt >nul
           if not errorlevel 1 (
             echo [ERROR] Player died before natural boss spawn.
-            exit /b 76
+            findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-deep-logcat.txt
+            exit /b 77
           )
-          if !TRY! LSS 18 goto wait_boss
-
+          if !TRY! LSS 25 goto wait_boss
           echo [ERROR] Boss did not spawn in expected natural timer window.
-          exit /b 77
-
+          findstr /C:"KAI_CHE_TOPDOWN_" Logs\topdown-deep-logcat.txt
+          exit /b 78
           :boss_ready
           "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\topdown-deep-pid.txt
           set /p APP_PID=<Logs\topdown-deep-pid.txt
-          if "!APP_PID!"=="" exit /b 78
+          if "!APP_PID!"=="" exit /b 79
           "%ADB_EXE%" exec-out screencap -p > Logs\topdown-deep-final.png 2>nul
           findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" Logs\topdown-deep-logcat.txt
           echo [PASS] Natural boss spawn confirmed. PID=!APP_PID!
