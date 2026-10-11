@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "com.cysharp.r3": "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity#f6eed2dd4208dc4ae171c601e799e85f82aca25e",
+    "com.cysharp.memorypack": "https://github.com/Cysharp/MemoryPack.git?path=src/MemoryPack.Unity/Assets/MemoryPack.Unity#0f2fe0827907940768293b7bb81b9605a7d8cba8",
+    "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#a7c6b49a0141a5bff9b1983e38137522ef61977d",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  }
+}
