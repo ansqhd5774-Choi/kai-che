@@ -2,7 +2,9 @@
   "name": "KaiChe.Gameplay",
   "rootNamespace": "KaiChe.Gameplay",
   "references": [
-    "KaiChe.Core"
+    "KaiChe.Core",
+    "LitMotion",
+    "LitMotion.Extensions"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
