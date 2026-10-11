@@ -60,6 +60,14 @@ jobs:
             if errorlevel 1 exit /b 30
           )
 
+      - name: Prepare isolated Unity project settings
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%COMPAT_PROJECT%\ProjectSettings" mkdir "%COMPAT_PROJECT%\ProjectSettings"
+          copy /Y "%GITHUB_WORKSPACE%\ProjectSettings\ProjectSettings.asset" "%COMPAT_PROJECT%\ProjectSettings\ProjectSettings.asset" >nul
+          if errorlevel 1 exit /b 32
+
       - name: Restore R3 and MemoryPack
         shell: cmd
         run: |
