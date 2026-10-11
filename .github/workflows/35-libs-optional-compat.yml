@@ -79,9 +79,10 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          if not exist Logs mkdir Logs
-          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%COMPAT_PROJECT%" -logFile "%GITHUB_WORKSPACE%\Logs\35-libs-optional-compat.log"
+          setlocal EnableExtensions
+          echo [INFO] Unity optional compatibility compile starting.
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%COMPAT_PROJECT%" -logFile -
           set "RC=%ERRORLEVEL%"
-          if exist "Logs\35-libs-optional-compat.log" type "Logs\35-libs-optional-compat.log"
+          echo [INFO] Unity optional compatibility exit code: %RC%
           if not "%RC%"=="0" exit /b %RC%
           echo [PASS] R3 + MemoryPack optional Unity compatibility compile succeeded.
