@@ -7,6 +7,7 @@ namespace KaiChe.Gameplay.Survivor
     internal sealed class RuntimeTopDownShooterCamera : MonoBehaviour
     {
         private const string GameplaySceneName = "Game";
+        private const string RuntimeArenaObjectName = "KaiCheSurvivorPrototype";
         private const float CameraHeight = 18f;
         private const float BaseOrthographicSize = 7.25f;
         private const float MinimumHorizontalHalfExtent = 4.5f;
@@ -54,8 +55,7 @@ namespace KaiChe.Gameplay.Survivor
             if (camera == null)
                 return;
 
-            if (_arena == null)
-                _arena = GetComponent<SurvivorArenaController>();
+            ResolveArena();
 
             Vector2 focus = _arena != null
                 ? _arena.PlayerWorldPosition
@@ -76,7 +76,7 @@ namespace KaiChe.Gameplay.Survivor
                 focus.y);
             camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
-            if (!_loggedActive)
+            if (!_loggedActive && _arena != null)
             {
                 _loggedActive = true;
                 Debug.Log(
@@ -84,6 +84,16 @@ namespace KaiChe.Gameplay.Survivor
                     + " size=" + orthographicSize.ToString("0.00")
                     + " aspect=" + aspect.ToString("0.00"));
             }
+        }
+
+        private void ResolveArena()
+        {
+            if (_arena != null)
+                return;
+
+            GameObject arenaObject = GameObject.Find(RuntimeArenaObjectName);
+            if (arenaObject != null)
+                _arena = arenaObject.GetComponent<SurvivorArenaController>();
         }
     }
 }
