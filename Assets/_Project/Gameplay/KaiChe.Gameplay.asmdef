@@ -5,7 +5,9 @@
     "KaiChe.Core",
     "LitMotion",
     "LitMotion.Extensions",
-    "UnityHFSM"
+    "UnityHFSM",
+    "MackySoft.SerializeReferenceExtensions",
+    "NaughtyAttributes.Core"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
