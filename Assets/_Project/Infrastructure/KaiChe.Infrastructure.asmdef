@@ -6,7 +6,8 @@
     "uPools",
     "MessagePipe",
     "VContainer",
-    "MessagePipe.VContainer"
+    "MessagePipe.VContainer",
+    "UniTask"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
