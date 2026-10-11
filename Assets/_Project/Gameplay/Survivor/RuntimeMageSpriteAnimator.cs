@@ -231,14 +231,10 @@ namespace KaiChe.Gameplay.Survivor
             if (camera == null)
                 return;
 
-            Vector3 forward = transform.position - camera.transform.position;
-            forward.y = 0f;
-            if (forward.sqrMagnitude > 0.0001f)
-            {
-                transform.rotation = Quaternion.LookRotation(
-                    forward.normalized,
-                    Vector3.up);
-            }
+            // Keep the sprite plane parallel to the active camera plane.
+            // This works for the previous angled camera and for the new
+            // orthographic top-down shooter camera without mirroring frames.
+            transform.rotation = camera.transform.rotation;
         }
 
         private void SetClip(Clip clip, bool oneShot)
