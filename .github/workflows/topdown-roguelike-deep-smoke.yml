@@ -1,0 +1,228 @@
+name: Top-Down Roguelike Deep Smoke
+
+on:
+  push:
+    branches:
+      - feature/topdown-roguelike-r1
+    paths:
+      - ".github/workflows/topdown-roguelike-deep-smoke.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-topdown-roguelike-deep-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deep-device-smoke:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 12
+    env:
+      ADB_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe
+      PACKAGE_ID: com.kaiche.rpg
+      LOCAL_APK: C:\actions-runner-kaise\local-builds\KaiChe-topdown-r1.apk
+
+    steps:
+      - name: Verify staged APK and Android device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          if not exist "%LOCAL_APK%" (
+            echo [ERROR] Staged top-down APK is missing: %LOCAL_APK%
+            exit /b 40
+          )
+          if not exist "%ADB_EXE%" exit /b 50
+
+          "%ADB_EXE%" start-server >nul 2>&1
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+          "%ADB_EXE%" reconnect >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+          "%ADB_EXE%" get-state >nul 2>&1
+          if not errorlevel 1 goto device_ready
+
+          "%ADB_EXE%" mdns services > Logs\topdown-deep-mdns.txt 2>&1
+          for /f "tokens=1,2,3,4" %%A in ('findstr /C:"_adb-tls-connect._tcp" Logs\topdown-deep-mdns.txt') do (
+            set "ENDPOINT="
+            if "%%B"=="_adb-tls-connect._tcp" set "ENDPOINT=%%C"
+            if "%%C"=="_adb-tls-connect._tcp" set "ENDPOINT=%%D"
+            if defined ENDPOINT (
+              "%ADB_EXE%" connect !ENDPOINT! >nul 2>&1
+              ping -n 3 127.0.0.1 >nul
+              "%ADB_EXE%" get-state >nul 2>&1
+              if not errorlevel 1 goto device_ready
+            )
+          )
+          echo [ERROR] No online Android device.
+          exit /b 51
+
+          :device_ready
+          "%ADB_EXE%" devices -l
+          for %%A in ("%LOCAL_APK%") do echo [PASS] APK ready: %%~fA size=%%~zA
+
+      - name: Install launch and enter Game
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          "%ADB_EXE%" install -r "%LOCAL_APK%"
+          if errorlevel 1 exit /b 60
+          "%ADB_EXE%" logcat -c
+          "%ADB_EXE%" shell am force-stop %PACKAGE_ID% >nul 2>&1
+          "%ADB_EXE%" shell monkey -p %PACKAGE_ID% -c android.intent.category.LAUNCHER 1
+          if errorlevel 1 exit /b 61
+          ping -n 7 127.0.0.1 >nul
+
+          rem Existing device supports both portrait and landscape start coordinates.
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_READY R1" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 goto game_ready
+
+          "%ADB_EXE%" shell input tap 1600 970
+          ping -n 7 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 9000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_CORE_READY R1" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Game scene not reached.
+            exit /b 62
+          )
+
+          :game_ready
+          "%ADB_EXE%" shell wm size > Logs\topdown-deep-screen.txt 2>&1
+          "%ADB_EXE%" shell dumpsys input | findstr /I /C:"SurfaceOrientation" /C:"orientation" >> Logs\topdown-deep-screen.txt 2>&1
+          type Logs\topdown-deep-screen.txt
+          echo [PASS] Game scene reached.
+
+      - name: Verify actual touch movement
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+
+          rem Inject valid left-side gestures for either current orientation.
+          "%ADB_EXE%" shell input swipe 260 1700 720 1700 1200 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" shell input swipe 420 850 900 850 1200 >nul 2>&1
+          ping -n 4 127.0.0.1 >nul
+
+          "%ADB_EXE%" logcat -d -t 12000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_MOVEMENT_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Actual player movement was not observed after ADB touch swipe.
+            findstr /C:"KAI_CHE_TOPDOWN_DEVICE_" Logs\topdown-deep-logcat.txt
+            exit /b 70
+          )
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_MOVEMENT_CONFIRMED" Logs\topdown-deep-logcat.txt
+          echo [PASS] Actual touch movement confirmed.
+
+      - name: Verify kill XP and level-up choice
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set /a TRY=0
+
+          :wait_level
+          set /a TRY+=1
+          rem Keep the player moving in alternating directions while combat runs.
+          if !TRY! LSS 6 "%ADB_EXE%" shell input swipe 420 850 900 850 900 >nul 2>&1
+          if !TRY! GEQ 6 "%ADB_EXE%" shell input swipe 900 850 420 850 900 >nul 2>&1
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 18000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_LEVELUP_CHOICE" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 goto level_ready
+          if !TRY! LSS 12 goto wait_level
+
+          echo [ERROR] Level-up choice did not occur within combat window.
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_KILL_CONFIRMED" /C:"KAI_CHE_TOPDOWN_DEVICE_XP_CONFIRMED" /C:"KAI_CHE_TOPDOWN_XP_PICKUP" Logs\topdown-deep-logcat.txt
+          exit /b 71
+
+          :level_ready
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_KILL_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 exit /b 72
+          findstr /C:"KAI_CHE_TOPDOWN_XP_PICKUP" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 exit /b 73
+          findstr /C:"KAI_CHE_TOPDOWN_DEVICE_LEVELUP_CONFIRMED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 exit /b 74
+          echo [PASS] Kill, XP pickup and level-up confirmed.
+
+      - name: Select one of three upgrades on device
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+
+          rem Center option for common landscape resolution.
+          "%ADB_EXE%" shell input tap 1600 566 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 20000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 goto upgrade_ready
+
+          rem Center option for portrait resolution.
+          "%ADB_EXE%" shell input tap 720 1090 >nul 2>&1
+          ping -n 3 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 20000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Three-choice upgrade could not be selected through device input.
+            exit /b 75
+          )
+
+          :upgrade_ready
+          findstr /C:"KAI_CHE_TOPDOWN_UPGRADE_APPLIED" Logs\topdown-deep-logcat.txt
+          echo [PASS] One-of-three upgrade selected and applied.
+
+      - name: Verify boss spawn and process stability
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set /a TRY=0
+
+          :wait_boss
+          set /a TRY+=1
+          rem Continue dodge movement while waiting for the natural 75-second boss timer.
+          if !TRY! LSS 8 "%ADB_EXE%" shell input swipe 420 850 900 850 700 >nul 2>&1
+          if !TRY! GEQ 8 "%ADB_EXE%" shell input swipe 900 850 420 850 700 >nul 2>&1
+          ping -n 5 127.0.0.1 >nul
+          "%ADB_EXE%" logcat -d -t 26000 > Logs\topdown-deep-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 goto boss_ready
+          findstr /C:"KAI_CHE_TOPDOWN_RUN_GAME_OVER" Logs\topdown-deep-logcat.txt >nul
+          if not errorlevel 1 (
+            echo [ERROR] Player died before natural boss spawn.
+            exit /b 76
+          )
+          if !TRY! LSS 18 goto wait_boss
+
+          echo [ERROR] Boss did not spawn in expected natural timer window.
+          exit /b 77
+
+          :boss_ready
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\topdown-deep-pid.txt
+          set /p APP_PID=<Logs\topdown-deep-pid.txt
+          if "!APP_PID!"=="" exit /b 78
+          "%ADB_EXE%" exec-out screencap -p > Logs\topdown-deep-final.png 2>nul
+          findstr /C:"KAI_CHE_TOPDOWN_BOSS_SPAWNED" Logs\topdown-deep-logcat.txt
+          echo [PASS] Natural boss spawn confirmed. PID=!APP_PID!
+
+      - name: Publish deep-smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-topdown-deep-smoke-${{ github.sha }}
+          path: |
+            Logs/topdown-deep-logcat.txt
+            Logs/topdown-deep-screen.txt
+            Logs/topdown-deep-pid.txt
+            Logs/topdown-deep-final.png
+            Logs/topdown-deep-mdns.txt
+          if-no-files-found: warn
+          retention-days: 7
