@@ -1,0 +1,95 @@
+name: 2D 8-Direction Branch Build
+
+on:
+  push:
+    branches:
+      - feature/2d-8dir-r1
+    paths:
+      - "Assets/**"
+      - ".github/workflows/2d-8dir-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-2d-8dir-branch
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 60
+    env:
+      UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
+
+    steps:
+      - name: Ensure Git is on PATH
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "C:\Program Files\Git\cmd\git.exe" exit /b 22
+          echo C:\Program Files\Git\cmd>>"%GITHUB_PATH%"
+          echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
+          "C:\Program Files\Git\cmd\git.exe" --version
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          clean: false
+
+      - name: Verify Unity 6.6 host
+        shell: cmd
+        run: |
+          @echo off
+          if not exist "%UNITY_EXE%" exit /b 20
+          "%UNITY_EXE%" -version
+          if errorlevel 1 exit /b 21
+          findstr /C:"m_EditorVersion: 6000.6.4f1" ProjectSettings\ProjectVersion.txt >nul
+          if errorlevel 1 exit /b 30
+          echo [PASS] Unity 6000.6.4f1 verified.
+
+      - name: Compile and build Android APK
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if not exist Logs mkdir Logs
+          del /q "Logs\2d-8dir-build.log" "Logs\2d-8dir-exit.txt" 2>nul
+          if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
+
+          set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-2d-8dir-build.cmd"
+          >"%UNITY_RUNNER%" echo @echo off
+          >>"%UNITY_RUNNER%" echo "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\2d-8dir-build.log"
+          >>"%UNITY_RUNNER%" echo set "UNITY_RC=%%ERRORLEVEL%%"
+          >>"%UNITY_RUNNER%" echo ^>"%GITHUB_WORKSPACE%\Logs\2d-8dir-exit.txt" echo %%UNITY_RC%%
+          >>"%UNITY_RUNNER%" echo exit /b %%UNITY_RC%%
+          call "%UNITY_RUNNER%"
+
+          set "RC="
+          if exist "Logs\2d-8dir-exit.txt" set /p RC=<"Logs\2d-8dir-exit.txt"
+          if exist "Logs\2d-8dir-build.log" type "Logs\2d-8dir-build.log"
+          if not defined RC exit /b 43
+          if not "!RC!"=="0" exit /b !RC!
+          if not exist "Builds\Android\KaiChe-dev.apk" exit /b 40
+          echo [PASS] 2D 8-direction branch compiles and builds Android APK.
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-2D-8Dir-${{ github.sha }}
+          path: Builds/Android/KaiChe-dev.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-2D-8Dir-Log-${{ github.sha }}
+          path: Logs/2d-8dir-build.log
+          if-no-files-found: warn
+          retention-days: 7
