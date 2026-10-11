@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - feature/2d-8dir-r1
+      - feature/35-libs-integration-r1
     paths:
       - "Assets/**"
+      - "Packages/**"
       - ".github/workflows/2d-8dir-build.yml"
   workflow_dispatch:
 
