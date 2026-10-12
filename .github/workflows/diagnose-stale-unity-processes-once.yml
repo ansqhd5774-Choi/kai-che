@@ -1,4 +1,4 @@
-name: Diagnose stalled Unity Android build once
+name: Collect Unity Bee stall diagnostics once
 
 on:
   push:
@@ -11,48 +11,33 @@ permissions:
   contents: read
 
 jobs:
-  diagnose-runner:
+  collect-bee:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 10
     steps:
-      - name: Inspect build processes and outputs
+      - name: Inventory Bee stall files
         shell: cmd
         run: |
           @echo off
-          echo ==== Unity processes ====
-          tasklist /FI "IMAGENAME eq Unity.exe"
-          echo ==== Bee backend processes ====
-          tasklist /FI "IMAGENAME eq bee_backend.exe"
-          echo ==== dotnet processes ====
-          tasklist /FI "IMAGENAME eq dotnet.exe"
-          echo ==== Java processes ====
-          tasklist /FI "IMAGENAME eq java.exe"
-          echo ==== Gradle processes ====
-          tasklist /FI "IMAGENAME eq gradle*"
-          echo ==== APK outputs ====
-          if exist "Builds\Android\KaiChe-dev.apk" (
-            for %%A in ("Builds\Android\KaiChe-dev.apk") do echo APK_WORKSPACE_FOUND %%~zA bytes
-          ) else (
-            echo APK_WORKSPACE_MISSING
-          )
-          if exist "C:\actions-runner-kaise\local-builds\KaiChe-dev.apk" (
-            for %%A in ("C:\actions-runner-kaise\local-builds\KaiChe-dev.apk") do echo APK_LOCAL_FOUND %%~zA bytes
-          ) else (
-            echo APK_LOCAL_MISSING
-          )
-          echo ==== Unity build log ====
-          if exist "Logs\android-build.log" (
-            for %%A in ("Logs\android-build.log") do echo LOG_FOUND %%~zA bytes
-            type "Logs\android-build.log"
-          ) else (
-            echo LOG_MISSING
+          echo ==== Bee trace files ====
+          dir /S /B "Library\Bee\*.traceevents" 2>nul
+          echo ==== Player DAG files ====
+          dir /B "Library\Bee\Player4f25db9e*" 2>nul
+          echo ==== Key file details ====
+          for %%F in ("Library\Bee\backend1.traceevents" "Library\Bee\backend2.traceevents" "Library\Bee\backend3.traceevents" "Library\Bee\backend4.traceevents" "Library\Bee\Player4f25db9e.dag" "Library\Bee\Player4f25db9e.dag.json" "Library\Bee\Player4f25db9e-inputdata.json") do (
+            if exist %%F dir %%F
           )
 
-      - name: Upload stalled Unity log
+      - name: Upload Bee diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KaiChe-Stalled-Unity-Diagnostic-${{ github.sha }}
-          path: Logs/android-build.log
+          name: KaiChe-Bee-Stall-Diagnostic-${{ github.sha }}
+          path: |
+            Logs/android-build.log
+            Library/Bee/backend*.traceevents
+            Library/Bee/Player4f25db9e.dag
+            Library/Bee/Player4f25db9e.dag.json
+            Library/Bee/Player4f25db9e-inputdata.json
           if-no-files-found: warn
           retention-days: 7
