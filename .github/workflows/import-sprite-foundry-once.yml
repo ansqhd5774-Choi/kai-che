@@ -71,16 +71,21 @@ jobs:
           setlocal EnableExtensions EnableDelayedExpansion
           for %%P in (fantasy-heroes-48 townsfolk-48) do (
             if not exist "%IMPORT_ROOT%\%%P\assets" exit /b 31
-            set /A PNG_COUNT=0
-            for /R "%IMPORT_ROOT%\%%P\assets" %%F in (*.png) do set /A PNG_COUNT+=1
+            set "PNG_COUNT=0"
+            for /F %%C in ('dir /S /B "%IMPORT_ROOT%\%%P\assets\*.png" 2^>nul ^| find /C /V ""') do set "PNG_COUNT=%%C"
             echo %%P PNG_COUNT=!PNG_COUNT!
             if !PNG_COUNT! LSS 384 exit /b 32
-          )
-          for %%D in (front front_left left back_left back back_right right front_right) do (
-            dir /S /B "%IMPORT_ROOT%\fantasy-heroes-48\assets\*\albedo\%%D.png" >nul 2>&1
-            if errorlevel 1 exit /b 33
-            dir /S /B "%IMPORT_ROOT%\townsfolk-48\assets\*\albedo\%%D.png" >nul 2>&1
-            if errorlevel 1 exit /b 34
+            set "VARIANT_COUNT=0"
+            for /D %%V in ("%IMPORT_ROOT%\%%P\assets\*") do (
+              set /A VARIANT_COUNT+=1
+              for %%D in (front front_left left back_left back back_right right front_right) do (
+                if not exist "%%~fV\albedo\%%D.png" exit /b 33
+                if not exist "%%~fV\normal\%%D.png" exit /b 34
+                if not exist "%%~fV\depth\%%D.png" exit /b 35
+              )
+            )
+            echo %%P VARIANT_COUNT=!VARIANT_COUNT!
+            if !VARIANT_COUNT! LSS 16 exit /b 36
           )
 
       - name: Commit vendored assets to develop
