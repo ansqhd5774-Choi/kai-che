@@ -1,0 +1,98 @@
+name: Import Sprite Foundry Character Assets Once
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/import-sprite-foundry-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import-assets:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 15
+    env:
+      UPSTREAM_REPO: https://github.com/mcp-tool-shop-org/sprite-foundry-packs.git
+      UPSTREAM_SHA: 116e02a036396404dc16a8ccd39bb01fc3f2ea65
+      IMPORT_ROOT: Assets\ThirdParty\SpriteFoundry
+
+    steps:
+      - name: Checkout KaiChe develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Sparse checkout pinned Sprite Foundry packs
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          if exist "%RUNNER_TEMP%\sprite-foundry-packs" rmdir /S /Q "%RUNNER_TEMP%\sprite-foundry-packs"
+          git clone --filter=blob:none --no-checkout "%UPSTREAM_REPO%" "%RUNNER_TEMP%\sprite-foundry-packs"
+          if errorlevel 1 exit /b 11
+          cd /D "%RUNNER_TEMP%\sprite-foundry-packs"
+          git sparse-checkout init --cone
+          git sparse-checkout set packages/fantasy-heroes-48 packages/townsfolk-48 LICENSE README.md
+          if errorlevel 1 exit /b 12
+          git checkout "%UPSTREAM_SHA%"
+          if errorlevel 1 exit /b 13
+          for /F %%S in ('git rev-parse HEAD') do set "CHECKED_SHA=%%S"
+          if /I not "!CHECKED_SHA!"=="%UPSTREAM_SHA%" exit /b 14
+
+      - name: Vendor selected packs into Unity project
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          if exist "%IMPORT_ROOT%" rmdir /S /Q "%IMPORT_ROOT%"
+          mkdir "%IMPORT_ROOT%"
+          xcopy /E /I /Y "%RUNNER_TEMP%\sprite-foundry-packs\packages\fantasy-heroes-48" "%IMPORT_ROOT%\fantasy-heroes-48" >nul
+          if errorlevel 1 exit /b 21
+          xcopy /E /I /Y "%RUNNER_TEMP%\sprite-foundry-packs\packages\townsfolk-48" "%IMPORT_ROOT%\townsfolk-48" >nul
+          if errorlevel 1 exit /b 22
+          copy /Y "%RUNNER_TEMP%\sprite-foundry-packs\LICENSE" "%IMPORT_ROOT%\LICENSE.upstream.txt" >nul
+          if errorlevel 1 exit /b 23
+          > "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo # Sprite Foundry assets vendored for Kai-Che
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo.
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo - Upstream: mcp-tool-shop-org/sprite-foundry-packs
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo - Pinned commit: %UPSTREAM_SHA%
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo - Imported packs: fantasy-heroes-48, townsfolk-48
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo - Upstream license: MIT
+          >> "%IMPORT_ROOT%\KAI-CHE-NOTICE.md" echo - Import policy: vendored source assets; do not include unused variants/layers in player builds without profiling.
+
+      - name: Verify asset counts and required directions
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          for %%P in (fantasy-heroes-48 townsfolk-48) do (
+            if not exist "%IMPORT_ROOT%\%%P\assets" exit /b 31
+            set /A PNG_COUNT=0
+            for /R "%IMPORT_ROOT%\%%P\assets" %%F in (*.png) do set /A PNG_COUNT+=1
+            echo %%P PNG_COUNT=!PNG_COUNT!
+            if !PNG_COUNT! LSS 384 exit /b 32
+          )
+          for %%D in (front front_left left back_left back back_right right front_right) do (
+            dir /S /B "%IMPORT_ROOT%\fantasy-heroes-48\assets\*\albedo\%%D.png" >nul 2>&1
+            if errorlevel 1 exit /b 33
+            dir /S /B "%IMPORT_ROOT%\townsfolk-48\assets\*\albedo\%%D.png" >nul 2>&1
+            if errorlevel 1 exit /b 34
+          )
+
+      - name: Commit vendored assets to develop
+        shell: cmd
+        run: |
+          @echo off
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "%IMPORT_ROOT%"
+          git diff --cached --quiet
+          if not errorlevel 1 exit /b 41
+          git commit -m "assets: vendor Sprite Foundry fantasy heroes and townsfolk"
+          if errorlevel 1 exit /b 42
+          git push origin HEAD:develop
+          if errorlevel 1 exit /b 43
