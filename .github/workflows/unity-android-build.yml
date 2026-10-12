@@ -26,7 +26,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/35-libs-integration-r1'
     name: Build Android APK on PC
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 40
+    timeout-minutes: 75
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
@@ -55,14 +55,22 @@ jobs:
         shell: cmd
         run: |
           @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          set "NEEDS_BEE_RESET=0"
           if exist "Assets\ThirdParty\SpriteFoundry" (
             echo [INFO] Removing obsolete Sprite Foundry source tree left by older runner workspaces.
             rmdir /S /Q "Assets\ThirdParty\SpriteFoundry"
             if exist "Assets\ThirdParty\SpriteFoundry" exit /b 32
+            set "NEEDS_BEE_RESET=1"
           ) else (
             echo [INFO] No obsolete Sprite Foundry Unity source tree found.
           )
-          if exist "Assets\ThirdParty\SpriteFoundry.meta" del /Q "Assets\ThirdParty\SpriteFoundry.meta"
+          if exist "Assets\ThirdParty\SpriteFoundry.meta" (
+            del /Q "Assets\ThirdParty\SpriteFoundry.meta"
+            if exist "Assets\ThirdParty\SpriteFoundry.meta" exit /b 33
+            set "NEEDS_BEE_RESET=1"
+          )
+          echo NEEDS_BEE_RESET=!NEEDS_BEE_RESET!>>"%GITHUB_ENV%"
           echo [PASS] Stale Sprite Foundry Unity remnants removed.
 
       - name: Verify Unity host and project version
@@ -76,21 +84,25 @@ jobs:
           if errorlevel 1 exit /b 30
           echo [PASS] Unity host and project version verified.
 
-      - name: Rebuild Unity Bee cache
+      - name: Reset Unity Bee cache when stale assets were purged
         shell: cmd
         run: |
           @echo off
-          if exist "Library\Bee" (
-            echo [INFO] Removing stale Library\Bee cache before Android build.
-            rmdir /S /Q "Library\Bee"
-            if exist "Library\Bee" exit /b 31
+          if /I "%NEEDS_BEE_RESET%"=="1" (
+            if exist "Library\Bee" (
+              echo [INFO] Removing stale Library\Bee cache because obsolete Sprite Foundry remnants were found.
+              rmdir /S /Q "Library\Bee"
+              if exist "Library\Bee" exit /b 31
+            ) else (
+              echo [INFO] Library\Bee cache is already absent.
+            )
+            echo [PASS] Unity Bee cache reset complete.
           ) else (
-            echo [INFO] Library\Bee cache is already absent.
+            echo [PASS] No stale Sprite Foundry remnants detected; preserving current Unity Bee cache.
           )
-          echo [PASS] Unity Bee cache reset complete.
 
       - name: Build Android APK
-        timeout-minutes: 30
+        timeout-minutes: 60
         shell: cmd
         run: |
           @echo off
@@ -101,7 +113,7 @@ jobs:
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
 
-          echo [INFO] Starting Unity Android build in foreground with non-Bee Library cache preserved.
+          echo [INFO] Starting Unity Android build in foreground with reusable Bee cache when safe.
           "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
           set "RC=!ERRORLEVEL!"
 
