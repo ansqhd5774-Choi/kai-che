@@ -1,0 +1,80 @@
+name: Update Sprite Foundry device gate once
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/update-foundry-device-gate-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-device-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+      - name: Patch device validation and remove one-shot workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/android-device-install.yml')
+          s = p.read_text(encoding='utf-8')
+          s2 = s.replace(
+              'name: Verify R24-R30 progression, persistence, and novice base character',
+              'name: Verify R24-R30 progression, persistence, and Sprite Foundry character',
+              1)
+          old = '''          "%ADB_EXE%" logcat -d -t 6000 > Logs\\r30-character-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_ACTIVE" Logs\\r30-character-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R30 novice base body activation marker missing.
+            exit /b 122
+          )
+          findstr /C:"KAI_CHE_R30_NOVICE_BASE_BODY_READY" Logs\\r30-character-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] R30 novice base body ready marker missing.
+            exit /b 123
+          )
+          "%ADB_EXE%" exec-out screencap -p > Logs\\r30-character-game-screen.png 2>nul
+          echo [PASS] R30 novice human base character active on device.
+'''
+          new = '''          "%ADB_EXE%" logcat -d -t 6000 > Logs\\sprite-foundry-character-logcat.txt 2>&1
+          findstr /C:"KAI_CHE_SPRITE_FOUNDRY_MAGE_READY_8DIR" Logs\\sprite-foundry-character-logcat.txt >nul
+          if errorlevel 1 (
+            "%ADB_EXE%" exec-out screencap -p > Logs\\sprite-foundry-character-failure.png 2>nul
+            echo [ERROR] Sprite Foundry 8-direction ready marker missing.
+            exit /b 122
+          )
+          findstr /C:"KAI_CHE_SPRITE_FOUNDRY_MAGE_ACTIVE" Logs\\sprite-foundry-character-logcat.txt >nul
+          if errorlevel 1 (
+            echo [ERROR] Sprite Foundry active marker missing.
+            exit /b 123
+          )
+          "%ADB_EXE%" exec-out screencap -p > Logs\\sprite-foundry-character-game-screen.png 2>nul
+          echo [PASS] Sprite Foundry mage active with 8-direction runtime on device.
+'''
+          if old not in s2:
+              raise SystemExit('R30 validation block not found exactly once')
+          s2 = s2.replace(old, new, 1)
+          s2 = s2.replace(
+              '            Logs/r30-character-logcat.txt\n            Logs/r30-character-game-screen.png',
+              '            Logs/sprite-foundry-character-logcat.txt\n            Logs/sprite-foundry-character-game-screen.png\n            Logs/sprite-foundry-character-failure.png',
+              1)
+          if s2 == s:
+              raise SystemExit('No changes produced')
+          p.write_text(s2, encoding='utf-8')
+          PY
+          git rm -f .github/workflows/update-foundry-device-gate-once.yml
+          git rm -f .github/workflows/cancel-stale-spritefoundry-build-once.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/android-device-install.yml
+          git diff --cached --check
+          git commit -m "ci(device): validate Sprite Foundry 8-direction player"
+          git push origin HEAD:develop
