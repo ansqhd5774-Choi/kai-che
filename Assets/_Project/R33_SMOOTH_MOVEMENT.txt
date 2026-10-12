@@ -1,0 +1,12 @@
+Kai-Che R33 Smooth Movement
+
+Purpose: Android build marker for the R33 touch movement smoothing change.
+Gameplay code commit: 169ce0b8e4498237dc27cb02890306adf601113f
+
+Changes under verification:
+- joystick inner dead zone: 0.14
+- touch acceleration smoothing: 12 units/s
+- touch deceleration smoothing: 18 units/s
+- 8-direction hysteresis: 6 degrees
+- reduced Sprite Foundry walk bob/rotation
+- visible build label: R33
