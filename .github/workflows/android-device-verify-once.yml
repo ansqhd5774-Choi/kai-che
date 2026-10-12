@@ -152,7 +152,27 @@ jobs:
           if not exist Logs\device-screen.png exit /b 53
           for %%A in (Logs\device-screen.png) do if %%~zA LSS 1000 exit /b 54
           echo [PASS] KaiChe launched and remained alive. PID=!APP_PID_STABLE!
-          echo [PASS] Device screenshot captured.
+          echo [PASS] Device title screenshot captured.
+
+      - name: Enter game and capture runtime screen
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          "%ADB_EXE%" shell input tap 720 1840
+          ping -n 9 127.0.0.1 >nul
+          "%ADB_EXE%" shell pidof %PACKAGE_ID% > Logs\device-game-pid.txt 2>&1
+          set /p GAME_PID=<Logs\device-game-pid.txt
+          if "!GAME_PID!"=="" (
+            echo [ERROR] KaiChe process stopped after entering the game.
+            exit /b 60
+          )
+          "%ADB_EXE%" logcat -d -t 6000 > Logs\device-game-logcat.txt 2>&1
+          "%ADB_EXE%" exec-out screencap -p > Logs\device-game-screen.png 2>nul
+          if not exist Logs\device-game-screen.png exit /b 61
+          for %%A in (Logs\device-game-screen.png) do if %%~zA LSS 1000 exit /b 62
+          echo [PASS] KaiChe entered the game and remained alive. PID=!GAME_PID!
+          echo [PASS] In-game screenshot captured.
 
       - name: Upload device verification evidence
         if: always()
@@ -168,5 +188,8 @@ jobs:
             Logs/device-pid-stable.txt
             Logs/device-logcat.txt
             Logs/device-screen.png
+            Logs/device-game-pid.txt
+            Logs/device-game-logcat.txt
+            Logs/device-game-screen.png
           if-no-files-found: warn
           retention-days: 14
