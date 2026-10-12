@@ -26,7 +26,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/35-libs-integration-r1'
     name: Build Android APK on PC
     runs-on: [self-hosted, Windows, X64, kaise-unity]
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
       UNITY_EXE: C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Unity.exe
       LOCAL_APK_DIR: C:\actions-runner-kaise\local-builds
@@ -85,52 +85,32 @@ jobs:
           echo [PASS] Unity Bee/Burst build state reset.
 
       - name: Build Android APK
+        timeout-minutes: 15
         shell: cmd
         run: |
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
           if not exist Logs mkdir Logs
-          del /q "Logs\android-build.log" "Logs\unity-exit.txt" 2>nul
+          del /q "Logs\android-build.log" 2>nul
           if exist "Builds\Android\KaiChe-dev.apk" del /q "Builds\Android\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.apk" del /q "%LOCAL_APK_DIR%\KaiChe-dev.apk"
           if exist "%LOCAL_APK_DIR%\KaiChe-dev.sha" del /q "%LOCAL_APK_DIR%\KaiChe-dev.sha"
 
-          set "UNITY_RUNNER=%GITHUB_WORKSPACE%\Logs\run-unity-build.cmd"
-          >"%UNITY_RUNNER%" echo @echo off
-          >>"%UNITY_RUNNER%" echo "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
-          >>"%UNITY_RUNNER%" echo set "UNITY_RC=%%ERRORLEVEL%%"
-          >>"%UNITY_RUNNER%" echo ^>"%GITHUB_WORKSPACE%\Logs\unity-exit.txt" echo %%UNITY_RC%%
-          >>"%UNITY_RUNNER%" echo exit /b %%UNITY_RC%%
-          start "" /b cmd /d /c call "%UNITY_RUNNER%"
+          echo [INFO] Starting Unity Android build in foreground.
+          "%UNITY_EXE%" -batchmode -nographics -quit -stackTraceLogType Full -projectPath "%GITHUB_WORKSPACE%" -buildTarget Android -executeMethod KaiChe.EditorTools.KaiCheAndroidBuild.BuildDevelopmentApk -logFile "%GITHUB_WORKSPACE%\Logs\android-build.log"
+          set "RC=!ERRORLEVEL!"
 
-          :monitor
-          if exist "Logs\unity-exit.txt" goto finished
-          if exist "Logs\android-build.log" (
-            for %%A in ("Logs\android-build.log") do set "SIZE=%%~zA"
-            echo [HEARTBEAT] %TIME% log_bytes=!SIZE!
-          ) else (
-            echo [HEARTBEAT] %TIME% waiting_for_log
-          )
-          ping -n 31 127.0.0.1 >nul
-          goto monitor
-
-          :finished
-          set "RC="
-          set /p RC=<"Logs\unity-exit.txt"
-          if exist "Logs\android-build.log" type "Logs\android-build.log"
-          if not defined RC (
-            echo [ERROR] Unity exit code was not captured.
-            exit /b 43
-          )
           if not "!RC!"=="0" (
             echo [ERROR] Unity exited with code !RC!.
+            if exist "Logs\android-build.log" type "Logs\android-build.log"
             exit /b !RC!
           )
           if not exist "Builds\Android\KaiChe-dev.apk" (
             echo [ERROR] Unity exited successfully but APK is missing.
+            if exist "Logs\android-build.log" type "Logs\android-build.log"
             exit /b 40
           )
-          echo [PASS] Android APK created.
+          for %%A in ("Builds\Android\KaiChe-dev.apk") do echo [PASS] Android APK created: %%~zA bytes.
 
       - name: Persist APK on runner
         if: success()
