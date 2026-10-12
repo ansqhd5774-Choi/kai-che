@@ -1,4 +1,4 @@
-name: Force-cancel stalled Android build once
+name: Diagnose stalled Unity Android build once
 
 on:
   push:
@@ -8,17 +8,51 @@ on:
       - .github/workflows/diagnose-stale-unity-processes-once.yml
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
-  cancel-stalled-build:
-    runs-on: ubuntu-latest
+  diagnose-runner:
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
     steps:
-      - name: Force-cancel stalled Android run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+      - name: Inspect build processes and outputs
+        shell: cmd
         run: |
-          gh api --method POST "repos/${GH_REPO}/actions/runs/38223400097/force-cancel" || true
-          echo "Force-cancellation requested for 38223400097"
+          @echo off
+          echo ==== Unity processes ====
+          tasklist /FI "IMAGENAME eq Unity.exe"
+          echo ==== Bee backend processes ====
+          tasklist /FI "IMAGENAME eq bee_backend.exe"
+          echo ==== dotnet processes ====
+          tasklist /FI "IMAGENAME eq dotnet.exe"
+          echo ==== Java processes ====
+          tasklist /FI "IMAGENAME eq java.exe"
+          echo ==== Gradle processes ====
+          tasklist /FI "IMAGENAME eq gradle*"
+          echo ==== APK outputs ====
+          if exist "Builds\Android\KaiChe-dev.apk" (
+            for %%A in ("Builds\Android\KaiChe-dev.apk") do echo APK_WORKSPACE_FOUND %%~zA bytes
+          ) else (
+            echo APK_WORKSPACE_MISSING
+          )
+          if exist "C:\actions-runner-kaise\local-builds\KaiChe-dev.apk" (
+            for %%A in ("C:\actions-runner-kaise\local-builds\KaiChe-dev.apk") do echo APK_LOCAL_FOUND %%~zA bytes
+          ) else (
+            echo APK_LOCAL_MISSING
+          )
+          echo ==== Unity build log ====
+          if exist "Logs\android-build.log" (
+            for %%A in ("Logs\android-build.log") do echo LOG_FOUND %%~zA bytes
+            type "Logs\android-build.log"
+          ) else (
+            echo LOG_MISSING
+          )
+
+      - name: Upload stalled Unity log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaiChe-Stalled-Unity-Diagnostic-${{ github.sha }}
+          path: Logs/android-build.log
+          if-no-files-found: warn
+          retention-days: 7
