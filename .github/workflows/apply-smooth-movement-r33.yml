@@ -1,0 +1,69 @@
+name: Apply R33 Smooth Movement
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/apply-smooth-movement-r33.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kaise-r33-smooth-movement
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: Patch joystick and 8-direction movement
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+
+    steps:
+      - name: Ensure Git is on PATH
+        shell: cmd
+        run: |
+          @echo off
+          set "PATH=C:\Program Files\Git\cmd;%PATH%"
+          git --version
+          where node
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: false
+
+      - name: Check source drift and apply R33
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          set "PATH=C:\Program Files\Git\cmd;%PATH%"
+          git fetch origin develop
+          git checkout -B develop origin/develop
+          echo [INFO] PATCH_BASE=
+          git rev-parse HEAD
+          node .github\scripts\apply-smooth-movement-r33.js
+          if errorlevel 1 exit /b 20
+          git diff --check
+          if errorlevel 1 exit /b 21
+          git diff -- Assets/_Project/Presentation/SurvivorHudController.cs Assets/_Project/Gameplay/Survivor/RuntimeDirection8.cs Assets/_Project/Gameplay/Survivor/RuntimeMageSpriteAnimator.cs Assets/_Project/Presentation/UguiSurvivorHudController.cs Assets/_Project/Presentation/KaiCheRuntimeFlow.cs
+
+      - name: Commit R33 movement smoothing
+        shell: cmd
+        run: |
+          @echo off
+          setlocal EnableExtensions
+          set "PATH=C:\Program Files\Git\cmd;%PATH%"
+          git config user.name "kai-che-ci"
+          git config user.email "kai-che-ci@users.noreply.github.com"
+          git add Assets/_Project/Presentation/SurvivorHudController.cs Assets/_Project/Gameplay/Survivor/RuntimeDirection8.cs Assets/_Project/Gameplay/Survivor/RuntimeMageSpriteAnimator.cs Assets/_Project/Presentation/UguiSurvivorHudController.cs Assets/_Project/Presentation/KaiCheRuntimeFlow.cs
+          git diff --cached --quiet && (echo [ERROR] No R33 changes produced. & exit /b 22)
+          git commit -m "fix(r33): smooth touch movement and 8-direction animation"
+          if errorlevel 1 exit /b 23
+          git push origin HEAD:develop
+          if errorlevel 1 exit /b 24
+          echo [PASS] R33 smooth movement committed and pushed.
