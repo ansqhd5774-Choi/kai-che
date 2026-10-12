@@ -1,4 +1,4 @@
-name: Force-cancel superseded Android build once
+name: Force-cancel stalled Android build once
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 jobs:
-  cancel-superseded-build:
+  cancel-stalled-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Force-cancel superseded Android run
+      - name: Force-cancel stalled Android run
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh api --method POST "repos/${GH_REPO}/actions/runs/38222215897/force-cancel"
-          echo "Force-cancellation requested for 38222215897"
+          gh api --method POST "repos/${GH_REPO}/actions/runs/38223400097/force-cancel" || true
+          echo "Force-cancellation requested for 38223400097"
