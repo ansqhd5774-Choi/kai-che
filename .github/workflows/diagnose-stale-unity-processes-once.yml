@@ -1,0 +1,47 @@
+name: Diagnose stale Unity build processes once
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/diagnose-stale-unity-processes-once.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-stalled-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel stalled Android run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --method POST "repos/${GH_REPO}/actions/runs/38218038569/cancel" || true
+          echo "Cancellation requested for 38218038569"
+
+  diagnose-runner:
+    needs: cancel-stalled-build
+    runs-on: [self-hosted, Windows, X64, kaise-unity]
+    timeout-minutes: 10
+    steps:
+      - name: Inspect Unity and Bee processes
+        shell: cmd
+        run: |
+          @echo off
+          echo ==== Unity processes ====
+          tasklist /FI "IMAGENAME eq Unity.exe"
+          echo ==== Bee backend processes ====
+          tasklist /FI "IMAGENAME eq bee_backend.exe"
+          echo ==== dotnet processes ====
+          tasklist /FI "IMAGENAME eq dotnet.exe"
+          echo ==== WMIC command lines if available ====
+          where wmic >nul 2>nul
+          if errorlevel 1 (
+            echo WMIC_NOT_AVAILABLE
+            exit /b 0
+          )
+          wmic process where "name='Unity.exe' or name='bee_backend.exe'" get Name,ParentProcessId,ProcessId,CommandLine /FORMAT:LIST
