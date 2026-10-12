@@ -15,13 +15,13 @@ jobs:
   cancel-stalled-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel stalled Android run
+      - name: Force-cancel stalled Android run
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh api --method POST "repos/${GH_REPO}/actions/runs/38218038569/cancel" || true
-          echo "Cancellation requested for 38218038569"
+          gh api --method POST "repos/${GH_REPO}/actions/runs/38218038569/force-cancel" || true
+          echo "Force-cancellation requested for 38218038569"
 
   diagnose-runner:
     needs: cancel-stalled-build
