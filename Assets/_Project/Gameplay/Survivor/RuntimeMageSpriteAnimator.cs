@@ -15,8 +15,10 @@ namespace KaiChe.Gameplay.Survivor
             Death = 4
         }
 
-        private const string ResourceRoot = "Characters/PicoMage";
+        private const string FoundryResourceRoot = "Characters/SpriteFoundryMage";
+        private const string PicoResourceRoot = "Characters/PicoMage";
         private const float MoveDeadZoneSqr = 0.01f;
+        private const float FoundryVisualScale = 1.62f;
 
         private static readonly RuntimeDirection8[] Directions =
         {
@@ -32,17 +34,24 @@ namespace KaiChe.Gameplay.Survivor
 
         private readonly Dictionary<Clip, Dictionary<RuntimeDirection8, Sprite[]>> _clips =
             new Dictionary<Clip, Dictionary<RuntimeDirection8, Sprite[]>>();
+        private readonly Dictionary<RuntimeDirection8, Sprite> _foundrySprites =
+            new Dictionary<RuntimeDirection8, Sprite>();
 
         private SpriteRenderer _renderer;
+        private Transform _spriteTransform;
         private Clip _clip = Clip.Idle;
         private RuntimeDirection8 _direction = RuntimeDirection8.South;
         private Vector2 _moveInput;
         private int _frameIndex;
         private float _frameTimer;
+        private float _poseTime;
         private bool _oneShot;
         private bool _dead;
+        private bool _usesSpriteFoundry;
+        private Vector3 _spriteBasePosition;
 
         public RuntimeDirection8 Direction => _direction;
+        public bool UsesSpriteFoundry => _usesSpriteFoundry;
 
         public static GameObject TryCreate(
             Transform parent,
@@ -72,7 +81,10 @@ namespace KaiChe.Gameplay.Survivor
                 return null;
             }
 
-            Debug.Log("KAI_CHE_2D_8DIR_MAGE_ACTIVE");
+            if (animator.UsesSpriteFoundry)
+                Debug.Log("KAI_CHE_SPRITE_FOUNDRY_MAGE_ACTIVE");
+            else
+                Debug.Log("KAI_CHE_2D_8DIR_MAGE_ACTIVE");
             return root;
         }
 
@@ -84,6 +96,7 @@ namespace KaiChe.Gameplay.Survivor
                 _direction = RuntimeDirection8Utility.FromVector(
                     _moveInput,
                     _direction);
+                ApplyFrame();
             }
 
             if (_dead || _oneShot)
@@ -136,8 +149,20 @@ namespace KaiChe.Gameplay.Survivor
                 return false;
 
             _renderer = spriteRenderer;
+            _spriteTransform = spriteRenderer.transform;
+            _spriteBasePosition = _spriteTransform.localPosition;
             _clips.Clear();
+            _foundrySprites.Clear();
 
+            if (TryConfigureSpriteFoundry())
+            {
+                _usesSpriteFoundry = true;
+                SetClip(Clip.Idle, false);
+                Debug.Log("KAI_CHE_SPRITE_FOUNDRY_MAGE_READY_8DIR");
+                return true;
+            }
+
+            _usesSpriteFoundry = false;
             foreach (Clip clip in Enum.GetValues(typeof(Clip)))
             {
                 string stateToken = GetStateToken(clip);
@@ -147,7 +172,7 @@ namespace KaiChe.Gameplay.Survivor
                 for (int i = 0; i < Directions.Length; i++)
                 {
                     RuntimeDirection8 direction = Directions[i];
-                    string path = ResourceRoot
+                    string path = PicoResourceRoot
                         + "/"
                         + stateToken
                         + "/"
@@ -183,10 +208,47 @@ namespace KaiChe.Gameplay.Survivor
             return true;
         }
 
+        private bool TryConfigureSpriteFoundry()
+        {
+            for (int i = 0; i < Directions.Length; i++)
+            {
+                RuntimeDirection8 direction = Directions[i];
+                string token = ToFoundryToken(direction);
+                Texture2D texture = Resources.Load<Texture2D>(
+                    FoundryResourceRoot + "/" + token);
+                if (texture == null)
+                {
+                    DestroyFoundrySprites();
+                    return false;
+                }
+
+                texture.filterMode = FilterMode.Point;
+                texture.wrapMode = TextureWrapMode.Clamp;
+
+                Sprite sprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.08f),
+                    Mathf.Max(1f, texture.height),
+                    0,
+                    SpriteMeshType.FullRect);
+                sprite.name = "SpriteFoundryMage_" + token;
+                _foundrySprites[direction] = sprite;
+            }
+
+            return _foundrySprites.Count == Directions.Length;
+        }
+
         private void Update()
         {
             if (_renderer == null)
                 return;
+
+            if (_usesSpriteFoundry)
+            {
+                UpdateSpriteFoundryPose();
+                return;
+            }
 
             Sprite[] frames = GetFrames(_clip, _direction);
             if (frames == null || frames.Length == 0)
@@ -225,16 +287,115 @@ namespace KaiChe.Gameplay.Survivor
             ApplyFrame();
         }
 
+        private void UpdateSpriteFoundryPose()
+        {
+            float deltaTime = Time.deltaTime;
+            _poseTime += deltaTime;
+            _frameTimer += deltaTime;
+
+            if (_oneShot)
+            {
+                float duration = GetFoundryOneShotDuration(_clip);
+                if (_frameTimer >= duration)
+                {
+                    _oneShot = false;
+                    SetClip(
+                        _moveInput.sqrMagnitude > MoveDeadZoneSqr
+                            ? Clip.Walk
+                            : Clip.Idle,
+                        false);
+                    return;
+                }
+            }
+
+            ApplyFoundryPose();
+        }
+
+        private void ApplyFoundryPose()
+        {
+            if (_renderer == null || _spriteTransform == null)
+                return;
+
+            Vector3 localPosition = _spriteBasePosition;
+            Vector3 localScale = Vector3.one * FoundryVisualScale;
+            float rotationZ = 0f;
+            Color tint = Color.white;
+
+            if (_clip == Clip.Walk)
+            {
+                float stride = Mathf.Sin(_poseTime * 10.5f);
+                float strideAbs = Mathf.Abs(stride);
+                localPosition.x += stride * 0.018f;
+                localPosition.y += strideAbs * 0.052f;
+                localScale.x *= 1f - strideAbs * 0.025f;
+                localScale.y *= 1f + strideAbs * 0.032f;
+                rotationZ = stride * 1.8f;
+            }
+            else if (_clip == Clip.Attack)
+            {
+                float progress = Mathf.Clamp01(
+                    _frameTimer / GetFoundryOneShotDuration(Clip.Attack));
+                float pulse = Mathf.Sin(progress * Mathf.PI);
+                localPosition.y += pulse * 0.055f;
+                localScale.x *= 1f + pulse * 0.10f;
+                localScale.y *= 1f - pulse * 0.045f;
+                rotationZ = -pulse * 4.5f;
+            }
+            else if (_clip == Clip.Hit)
+            {
+                float progress = Mathf.Clamp01(
+                    _frameTimer / GetFoundryOneShotDuration(Clip.Hit));
+                float pulse = Mathf.Sin(progress * Mathf.PI);
+                localPosition.x -= pulse * 0.07f;
+                rotationZ = pulse * 6f;
+                tint = Color.Lerp(
+                    Color.white,
+                    new Color(1f, 0.34f, 0.28f, 1f),
+                    pulse);
+            }
+            else if (_clip == Clip.Death)
+            {
+                rotationZ = 86f;
+                localPosition.y -= 0.15f;
+                localScale.y *= 0.92f;
+                tint = new Color(0.72f, 0.72f, 0.72f, 0.90f);
+            }
+            else
+            {
+                float breath = Mathf.Sin(_poseTime * 2.6f) * 0.008f;
+                localScale.x *= 1f - breath;
+                localScale.y *= 1f + breath;
+            }
+
+            _spriteTransform.localPosition = localPosition;
+            _spriteTransform.localScale = localScale;
+            _spriteTransform.localRotation = Quaternion.Euler(0f, 0f, rotationZ);
+            _renderer.color = tint;
+        }
+
         private void LateUpdate()
         {
             Camera camera = Camera.main;
             if (camera == null)
                 return;
 
-            // Keep the sprite plane parallel to the active camera plane.
-            // This works for the previous angled camera and for the new
-            // orthographic top-down shooter camera without mirroring frames.
             transform.rotation = camera.transform.rotation;
+        }
+
+        private void OnDestroy()
+        {
+            DestroyFoundrySprites();
+        }
+
+        private void DestroyFoundrySprites()
+        {
+            foreach (KeyValuePair<RuntimeDirection8, Sprite> pair in _foundrySprites)
+            {
+                if (pair.Value != null)
+                    Destroy(pair.Value);
+            }
+
+            _foundrySprites.Clear();
         }
 
         private void SetClip(Clip clip, bool oneShot)
@@ -250,12 +411,25 @@ namespace KaiChe.Gameplay.Survivor
             }
 
             ApplyFrame();
+            if (_usesSpriteFoundry)
+                ApplyFoundryPose();
         }
 
         private void ApplyFrame()
         {
+            if (_renderer == null)
+                return;
+
+            if (_usesSpriteFoundry)
+            {
+                if (_foundrySprites.TryGetValue(_direction, out Sprite sprite))
+                    _renderer.sprite = sprite;
+                _renderer.flipX = false;
+                return;
+            }
+
             Sprite[] frames = GetFrames(_clip, _direction);
-            if (_renderer == null || frames == null || frames.Length == 0)
+            if (frames == null || frames.Length == 0)
                 return;
 
             _frameIndex = Mathf.Clamp(_frameIndex, 0, frames.Length - 1);
@@ -279,6 +453,29 @@ namespace KaiChe.Gameplay.Survivor
                 : null;
         }
 
+        private static string ToFoundryToken(RuntimeDirection8 direction)
+        {
+            switch (direction)
+            {
+                case RuntimeDirection8.SouthEast:
+                    return "front_right";
+                case RuntimeDirection8.East:
+                    return "right";
+                case RuntimeDirection8.NorthEast:
+                    return "back_right";
+                case RuntimeDirection8.North:
+                    return "back";
+                case RuntimeDirection8.NorthWest:
+                    return "back_left";
+                case RuntimeDirection8.West:
+                    return "left";
+                case RuntimeDirection8.SouthWest:
+                    return "front_left";
+                default:
+                    return "front";
+            }
+        }
+
         private static string GetStateToken(Clip clip)
         {
             switch (clip)
@@ -293,6 +490,19 @@ namespace KaiChe.Gameplay.Survivor
                     return "death";
                 default:
                     return "idle";
+            }
+        }
+
+        private static float GetFoundryOneShotDuration(Clip clip)
+        {
+            switch (clip)
+            {
+                case Clip.Hit:
+                    return 0.16f;
+                case Clip.Attack:
+                    return 0.18f;
+                default:
+                    return 0.18f;
             }
         }
 
