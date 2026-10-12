@@ -62,6 +62,28 @@ jobs:
           if errorlevel 1 exit /b 30
           echo [PASS] Unity host and project version verified.
 
+      - name: Reset stale Unity Bee build state
+        shell: cmd
+        run: |
+          @echo off
+          if exist "Library\Bee" (
+            echo [INFO] Removing stale Library\Bee state.
+            rmdir /S /Q "Library\Bee"
+          )
+          if exist "Library\BurstCache" (
+            echo [INFO] Removing stale Library\BurstCache state.
+            rmdir /S /Q "Library\BurstCache"
+          )
+          if exist "Library\Bee" (
+            echo [ERROR] Library\Bee could not be fully removed.
+            exit /b 31
+          )
+          if exist "Library\BurstCache" (
+            echo [ERROR] Library\BurstCache could not be fully removed.
+            exit /b 32
+          )
+          echo [PASS] Unity Bee/Burst build state reset.
+
       - name: Build Android APK
         shell: cmd
         run: |
