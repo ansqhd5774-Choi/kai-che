@@ -51,6 +51,20 @@ jobs:
           lfs: true
           clean: false
 
+      - name: Purge stale Sprite Foundry Unity remnants
+        shell: cmd
+        run: |
+          @echo off
+          if exist "Assets\ThirdParty\SpriteFoundry" (
+            echo [INFO] Removing obsolete Sprite Foundry source tree left by older runner workspaces.
+            rmdir /S /Q "Assets\ThirdParty\SpriteFoundry"
+            if exist "Assets\ThirdParty\SpriteFoundry" exit /b 32
+          ) else (
+            echo [INFO] No obsolete Sprite Foundry Unity source tree found.
+          )
+          if exist "Assets\ThirdParty\SpriteFoundry.meta" del /Q "Assets\ThirdParty\SpriteFoundry.meta"
+          echo [PASS] Stale Sprite Foundry Unity remnants removed.
+
       - name: Verify Unity host and project version
         shell: cmd
         run: |
