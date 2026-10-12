@@ -91,22 +91,26 @@ namespace KaiChe.Gameplay.Survivor
         public void SetMovement(Vector2 input)
         {
             _moveInput = Vector2.ClampMagnitude(input, 1f);
-            if (_moveInput.sqrMagnitude > MoveDeadZoneSqr)
+            bool moving = _moveInput.sqrMagnitude > MoveDeadZoneSqr;
+
+            if (moving)
             {
-                _direction = RuntimeDirection8Utility.FromVector(
+                RuntimeDirection8 nextDirection = RuntimeDirection8Utility.FromVector(
                     _moveInput,
                     _direction);
-                ApplyFrame();
+                if (nextDirection != _direction)
+                {
+                    _direction = nextDirection;
+                    ApplyFrame();
+                }
             }
 
             if (_dead || _oneShot)
                 return;
 
-            SetClip(
-                _moveInput.sqrMagnitude > MoveDeadZoneSqr
-                    ? Clip.Walk
-                    : Clip.Idle,
-                false);
+            Clip targetClip = moving ? Clip.Walk : Clip.Idle;
+            if (_clip != targetClip)
+                SetClip(targetClip, false);
         }
 
         public void TriggerAttack()
@@ -323,13 +327,12 @@ namespace KaiChe.Gameplay.Survivor
 
             if (_clip == Clip.Walk)
             {
-                float stride = Mathf.Sin(_poseTime * 10.5f);
+                float stride = Mathf.Sin(_poseTime * 8.5f);
                 float strideAbs = Mathf.Abs(stride);
-                localPosition.x += stride * 0.018f;
-                localPosition.y += strideAbs * 0.052f;
-                localScale.x *= 1f - strideAbs * 0.025f;
-                localScale.y *= 1f + strideAbs * 0.032f;
-                rotationZ = stride * 1.8f;
+                localPosition.y += strideAbs * 0.018f;
+                localScale.x *= 1f - strideAbs * 0.008f;
+                localScale.y *= 1f + strideAbs * 0.010f;
+                rotationZ = stride * 0.35f;
             }
             else if (_clip == Clip.Attack)
             {

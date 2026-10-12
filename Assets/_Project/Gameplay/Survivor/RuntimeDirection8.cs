@@ -17,6 +17,8 @@ namespace KaiChe.Gameplay.Survivor
     public static class RuntimeDirection8Utility
     {
         private const float DeadZoneSqr = 0.0001f;
+        private const float SectorHalfAngle = 22.5f;
+        private const float DirectionHysteresis = 6f;
 
         public static RuntimeDirection8 FromVector(
             Vector2 direction,
@@ -29,6 +31,13 @@ namespace KaiChe.Gameplay.Survivor
                 * Mathf.Rad2Deg;
             if (angle < 0f)
                 angle += 360f;
+
+            float fallbackAngle = ToAngle(fallback);
+            if (Mathf.Abs(Mathf.DeltaAngle(fallbackAngle, angle))
+                <= SectorHalfAngle + DirectionHysteresis)
+            {
+                return fallback;
+            }
 
             int octant = Mathf.RoundToInt(angle / 45f) & 7;
             switch (octant)
@@ -49,6 +58,29 @@ namespace KaiChe.Gameplay.Survivor
                     return RuntimeDirection8.South;
                 default:
                     return RuntimeDirection8.SouthEast;
+            }
+        }
+
+        private static float ToAngle(RuntimeDirection8 direction)
+        {
+            switch (direction)
+            {
+                case RuntimeDirection8.SouthEast:
+                    return 315f;
+                case RuntimeDirection8.East:
+                    return 0f;
+                case RuntimeDirection8.NorthEast:
+                    return 45f;
+                case RuntimeDirection8.North:
+                    return 90f;
+                case RuntimeDirection8.NorthWest:
+                    return 135f;
+                case RuntimeDirection8.West:
+                    return 180f;
+                case RuntimeDirection8.SouthWest:
+                    return 225f;
+                default:
+                    return 270f;
             }
         }
 

@@ -7,7 +7,10 @@ namespace KaiChe.Presentation
 {
     public sealed class SurvivorHudController : MonoBehaviour
     {
-        private const string BuildLabel = "R32";
+        private const string BuildLabel = "R33";
+        private const float JoystickDeadZone = 0.14f;
+        private const float JoystickAcceleration = 12f;
+        private const float JoystickDeceleration = 18f;
         private SurvivorArenaController _arena;
         private int _activeFingerId = -1;
         private Vector2 _joystickInput;
@@ -84,12 +87,42 @@ namespace KaiChe.Presentation
                 return;
             }
 
+            bool hadTouch = _activeFingerId >= 0 || Input.touchCount > 0;
             Vector2 input = ReadTouchInput();
-            if (_activeFingerId < 0 && Input.touchCount == 0)
-                input = ReadFallbackInput();
 
-            _joystickInput = input;
-            _arena.SetMoveInput(input);
+            if (!hadTouch && _activeFingerId < 0 && Input.touchCount == 0)
+            {
+                _joystickInput = ReadFallbackInput();
+            }
+            else
+            {
+                Vector2 targetInput = ApplyJoystickDeadZone(input);
+                float response =
+                    targetInput.sqrMagnitude > _joystickInput.sqrMagnitude
+                        ? JoystickAcceleration
+                        : JoystickDeceleration;
+
+                _joystickInput = Vector2.MoveTowards(
+                    _joystickInput,
+                    targetInput,
+                    response * Time.unscaledDeltaTime);
+
+                if (_joystickInput.sqrMagnitude < 0.0004f)
+                    _joystickInput = Vector2.zero;
+            }
+
+            _arena.SetMoveInput(_joystickInput);
+        }
+
+        private static Vector2 ApplyJoystickDeadZone(Vector2 input)
+        {
+            float magnitude = Mathf.Clamp01(input.magnitude);
+            if (magnitude <= JoystickDeadZone)
+                return Vector2.zero;
+
+            float remapped =
+                (magnitude - JoystickDeadZone) / (1f - JoystickDeadZone);
+            return input.normalized * remapped;
         }
 
         private Vector2 ReadTouchInput()
