@@ -1,4 +1,4 @@
-name: Collect Unity Bee stall diagnostics once
+name: Probe stalled IL2CPP arm64 archive once
 
 on:
   push:
@@ -11,33 +11,43 @@ permissions:
   contents: read
 
 jobs:
-  collect-bee:
+  probe-il2cpp-archive:
     runs-on: [self-hosted, Windows, X64, kaise-unity]
     timeout-minutes: 10
     steps:
-      - name: Inventory Bee stall files
+      - name: Inspect IL2CPP archive inputs
         shell: cmd
         run: |
           @echo off
-          echo ==== Bee trace files ====
-          dir /S /B "Library\Bee\*.traceevents" 2>nul
-          echo ==== Player DAG files ====
-          dir /B "Library\Bee\Player4f25db9e*" 2>nul
-          echo ==== Key file details ====
-          for %%F in ("Library\Bee\backend1.traceevents" "Library\Bee\backend2.traceevents" "Library\Bee\backend3.traceevents" "Library\Bee\backend4.traceevents" "Library\Bee\Player4f25db9e.dag" "Library\Bee\Player4f25db9e.dag.json" "Library\Bee\Player4f25db9e-inputdata.json") do (
-            if exist %%F dir %%F
+          set "RSP=Library\Bee\artifacts\rsp\12756525940623195334.rsp"
+          set "OBJDIR=Library\Bee\artifacts\Android\87lik"
+          set "AR=C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK\toolchains\llvm\prebuilt\windows-x86_64\bin\llvm-ar.exe"
+          echo ==== llvm-ar ====
+          if not exist "%AR%" exit /b 20
+          "%AR%" --version
+          echo ==== response file ====
+          if not exist "%RSP%" exit /b 21
+          for %%A in ("%RSP%") do echo RSP_SIZE=%%~zA
+          type "%RSP%"
+          echo ==== object files ====
+          if not exist "%OBJDIR%" exit /b 22
+          for /F %%C in ('dir /B /S "%OBJDIR%\*.o" 2^>nul ^| find /C /V ""') do echo OBJECT_COUNT=%%C
+          if exist "%OBJDIR%\il2cpp.a" (
+            for %%A in ("%OBJDIR%\il2cpp.a") do echo ARCHIVE_BEFORE=%%~zA
+          ) else (
+            echo ARCHIVE_BEFORE=MISSING
           )
 
-      - name: Upload Bee diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: KaiChe-Bee-Stall-Diagnostic-${{ github.sha }}
-          path: |
-            Logs/android-build.log
-            Library/Bee/backend*.traceevents
-            Library/Bee/Player4f25db9e.dag
-            Library/Bee/Player4f25db9e.dag.json
-            Library/Bee/Player4f25db9e-inputdata.json
-          if-no-files-found: warn
-          retention-days: 7
+      - name: Execute exact llvm-ar node
+        shell: cmd
+        run: |
+          @echo off
+          set "RSP=Library\Bee\artifacts\rsp\12756525940623195334.rsp"
+          set "AR=C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\PlaybackEngines\AndroidPlayer\NDK\toolchains\llvm\prebuilt\windows-x86_64\bin\llvm-ar.exe"
+          echo LLVM_AR_BEGIN=%TIME%
+          "%AR%" @"%RSP%"
+          set "RC=%ERRORLEVEL%"
+          echo LLVM_AR_END=%TIME% RC=%RC%
+          if not "%RC%"=="0" exit /b %RC%
+          if not exist "Library\Bee\artifacts\Android\87lik\il2cpp.a" exit /b 30
+          for %%A in ("Library\Bee\artifacts\Android\87lik\il2cpp.a") do echo ARCHIVE_AFTER=%%~zA
